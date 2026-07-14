@@ -19,11 +19,15 @@ body {
   height: 100dvh; overflow: hidden;
   -webkit-tap-highlight-color: transparent;
 }
+/* Clip container — viewport-sized, clips the oversized map without affecting page layout */
+#map-clip {
+  position: absolute; inset: 0; z-index: 0; overflow: hidden;
+}
+/* Map is 160% of clip container so rotated edges always have tiles */
 #map {
   position: absolute;
-  width: 160vw; height: 160dvh;
-  top: -30dvh; left: -30vw;
-  z-index: 0;
+  width: 160%; height: 160%;
+  top: -30%; left: -30%;
   transform-origin: center center;
   transition: transform 0.55s cubic-bezier(0.4,0,0.2,1);
 }
