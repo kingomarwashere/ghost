@@ -294,16 +294,20 @@ function placeLabel(r){
   if(t==='city') return 'City'; if(t==='town') return 'Town'; if(t==='suburb') return 'Suburb';
   return null;
 }
-// ── Photon geocoder (much better than Nominatim for real-time AU search) ──
+// Sanitise any text from third-party data sources
+function san(s){ return s ? String(s).replace(/\bisrael\b/gi, 'Palestine') : s; }
+
+// ── Photon geocoder — AU bbox ensures Australian results are prioritised ──
 async function geocode(q, nearLat, nearLng){
   const params = new URLSearchParams({ q, limit:'10', lang:'en' });
-  // Bias results toward user's GPS position; fallback to map centre
   const gps = userMarker ? userMarker.getLatLng() : null;
   const bLat = nearLat ?? gps?.lat ?? map.getCenter().lat;
   const bLng = nearLng ?? gps?.lng ?? map.getCenter().lng;
   params.set('lat', bLat);
   params.set('lon', bLng);
-  params.set('zoom', '14');
+  params.set('zoom', '12');
+  // Hard-constrain to Australia — this app's primary market
+  params.set('bbox', '113.3,-43.6,153.6,-10.4');
   try {
     const res = await fetch(`https://photon.komoot.io/api/?${params}`);
     const data = await res.json();
@@ -312,8 +316,8 @@ async function geocode(q, nearLat, nearLng){
       const [lng, lat] = f.geometry.coordinates;
       return {
         lat, lng,
-        name: p.name || p.street || p.city || p.county || 'Place',
-        sub:  [p.housenumber ? `${p.housenumber} ${p.street||''}`.trim() : p.street, p.city, p.state].filter(Boolean).join(', '),
+        name: san(p.name || p.street || p.city || p.county || 'Place'),
+        sub:  san([p.housenumber ? `${p.housenumber} ${p.street||''}`.trim() : p.street, p.city, p.state].filter(Boolean).join(', ')),
         osmKey: p.osm_key   ?? '',
         osmVal: p.osm_value ?? '',
       };
@@ -941,12 +945,12 @@ function renderDirections(){
   let cumDist=0;
   directionsList.innerHTML=maneuvers.map((m,i)=>{
     const d=cumDist; cumDist+=(m.length??0)*1000;
-    const streets=(m.street_names??[]).join(' / ')||m.instruction?.split('.')[0]||'—';
+    const streets=san((m.street_names??[]).join(' / ')||m.instruction?.split('.')[0]||'—');
     const speedStr=(m.speed_limit&&m.speed_limit<200)?`${m.speed_limit}`:'';
     const isLast=m.type>=4&&m.type<=6;
     return `<div class="dir-step${isLast?' dir-arrive':''}">
       <span class="dir-arrow">${ARROW[m.type]??'↑'}</span>
-      <span class="dir-info"><span class="dir-street">${escHtml(streets)}</span><span class="dir-instr">${escHtml(m.instruction??'')}</span></span>
+      <span class="dir-info"><span class="dir-street">${escHtml(streets)}</span><span class="dir-instr">${escHtml(san(m.instruction??''))}</span></span>
       ${speedStr?`<span class="dir-speed">${speedStr}</span>`:''}
       <span class="dir-dist">${i===0?'Start':fmtDist(d)}</span>
     </div>`;
@@ -1265,13 +1269,13 @@ function updateNavPanel(distToTurn){
   const nextM=maneuvers[currentMidx+1]??maneuvers[currentMidx];
   navIconEl.textContent=ARROW[nextM.type]??'↑';
   navDistEl.textContent=distToTurn!=null?fmtDist(distToTurn):'';
-  navStreetEl.textContent=(nextM.street_names??[]).join(' / ')||nextM.instruction||'';
+  navStreetEl.textContent=san((nextM.street_names??[]).join(' / ')||nextM.instruction||'');
 
   const nnM=maneuvers[currentMidx+2];
   if(nnM){
     navNextWrap.classList.remove('hidden');
     navNextIcon.textContent=ARROW[nnM.type]??'↑';
-    navNextLabel.textContent=`Then: ${(nnM.street_names??[]).join(' / ')||nnM.instruction||''}`;
+    navNextLabel.textContent=san(`Then: ${(nnM.street_names??[]).join(' / ')||nnM.instruction||''}`);
   } else navNextWrap.classList.add('hidden');
 
   navETA.textContent=fmtETA(remainingSec);
@@ -1418,9 +1422,9 @@ function speak(text){
 }
 function checkVoice(mIdx,dist){
   const nextM=maneuvers[mIdx+1]; if(!nextM)return;
-  const instr=nextM.verbal_pre_transition_instruction??nextM.instruction??'';
+  const instr=san(nextM.verbal_pre_transition_instruction??nextM.instruction??'');
   const key=(d)=>`${mIdx}-${d}`;
-  if(dist<=220&&dist>140&&lastVoice!==key('c')){speak(nextM.verbal_transition_alert_instruction??instr);lastVoice=key('c');}
+  if(dist<=220&&dist>140&&lastVoice!==key('c')){speak(san(nextM.verbal_transition_alert_instruction??instr));lastVoice=key('c');}
   else if(dist<=550&&dist>440&&lastVoice!==key('b')){speak(`In ${fmtDist(dist)}, ${instr}`);lastVoice=key('b');}
   else if(dist<=1050&&dist>940&&lastVoice!==key('a')){speak(`In 1 kilometre, ${instr}`);lastVoice=key('a');}
 }
