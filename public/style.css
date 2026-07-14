@@ -1,17 +1,18 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #080c17;
-  --surface: #0f1729;
-  --surface2: #1a2744;
-  --border: rgba(148,163,184,0.13);
-  --text: #e2e8f0;
+  --bg: #030711;
+  --surface: #0c1526;
+  --surface2: #14213d;
+  --border: rgba(148,163,184,0.11);
+  --text: #f8fafc;
   --muted: #64748b;
-  --accent: #3b82f6;
-  --accent-glow: rgba(59,130,246,0.35);
-  --red: #ef4444;
-  --green: #22c55e;
-  --amber: #f59e0b;
+  --accent: #0ea5e9;
+  --accent-dark: #0284c7;
+  --accent-glow: rgba(14,165,233,0.4);
+  --red: #ff2d55;
+  --green: #34d399;
+  --amber: #fbbf24;
 }
 
 body {
@@ -47,12 +48,12 @@ body:not(.nav-3d) .leaflet-control { opacity: 1; transition: opacity 0.3s; }
   position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
   z-index: 1000;
   display: flex; align-items: center; gap: 6px;
-  background: rgba(8,12,23,0.94);
-  border: 1px solid var(--border); border-radius: 999px;
+  background: rgba(3,7,17,0.92);
+  border: 1px solid rgba(14,165,233,0.18); border-radius: 999px;
   padding: 5px 10px;
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
   white-space: nowrap; max-width: calc(100vw - 20px);
-  box-shadow: 0 4px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(59,130,246,.08);
+  box-shadow: 0 4px 32px rgba(0,0,0,.7), 0 0 0 1px rgba(14,165,233,0.06);
 }
 #logo { font-size: 1.2rem; line-height: 1; padding-right: 2px; }
 #filters { display: flex; gap: 2px; }
@@ -64,9 +65,11 @@ body:not(.nav-3d) .leaflet-control { opacity: 1; transition: opacity 0.3s; }
 }
 .filter-btn.active { opacity: 1; background: rgba(255,255,255,0.12); }
 #search-toggle {
-  background: var(--accent); border: none; border-radius: 999px;
-  color: #fff; cursor: pointer; font-size: .78rem; font-weight: 700;
-  padding: 6px 12px; letter-spacing: .02em;
+  background: linear-gradient(135deg, #0ea5e9, #3b82f6);
+  border: none; border-radius: 999px;
+  color: #fff; cursor: pointer; font-size: .78rem; font-weight: 800;
+  padding: 6px 14px; letter-spacing: .04em;
+  box-shadow: 0 2px 12px rgba(14,165,233,.45);
   transition: filter .15s;
 }
 #search-toggle:hover { filter: brightness(1.15); }
@@ -200,11 +203,13 @@ body:not(.nav-3d) .leaflet-control { opacity: 1; transition: opacity 0.3s; }
 #preview-avoidance-note { font-size: .72rem; color: var(--amber); margin-top: 3px; }
 #preview-actions { display: flex; gap: 7px; flex-shrink: 0; }
 #start-nav-btn {
-  background: var(--green); border: none; border-radius: 14px;
-  color: #fff; cursor: pointer; font-size: .95rem; font-weight: 700;
+  background: linear-gradient(135deg, #34d399, #059669);
+  border: none; border-radius: 14px;
+  color: #fff; cursor: pointer; font-size: .95rem; font-weight: 800;
   padding: 13px 22px; white-space: nowrap;
-  box-shadow: 0 4px 16px rgba(76,175,80,.45);
+  box-shadow: 0 4px 20px rgba(52,211,153,.4);
   transition: filter .15s, transform .1s;
+  letter-spacing: .02em;
 }
 #start-nav-btn:active { transform: scale(.96); }
 #share-route-btn {
@@ -242,28 +247,28 @@ body:not(.nav-3d) .leaflet-control { opacity: 1; transition: opacity 0.3s; }
 /* ── Nav instruction ──────────────────────────── */
 #nav-instruction {
   position: absolute; top: 0; left: 0; right: 0; z-index: 1000;
-  background: var(--surface);
-  border-bottom: 1px solid rgba(59,130,246,.18);
-  box-shadow: 0 6px 32px rgba(0,0,0,.7);
+  background: linear-gradient(180deg, #0c1a36 0%, #0c1526 100%);
+  border-bottom: 1px solid rgba(14,165,233,.2);
+  box-shadow: 0 8px 40px rgba(0,0,0,.8);
 }
 #nav-main {
   display: flex; align-items: center; gap: 14px;
   padding: calc(14px + env(safe-area-inset-top)) 16px 12px;
 }
 #nav-icon {
-  width: 60px; height: 60px; flex-shrink: 0;
-  background: var(--accent);
-  border-radius: 18px;
+  width: 62px; height: 62px; flex-shrink: 0;
+  background: linear-gradient(145deg, #0ea5e9, #3b82f6);
+  border-radius: 20px;
   display: flex; align-items: center; justify-content: center;
   font-size: 2rem; line-height: 1;
-  box-shadow: 0 4px 20px var(--accent-glow);
+  box-shadow: 0 4px 24px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,.15);
 }
 #nav-text { flex: 1; min-width: 0; }
-#nav-dist  { font-size: 2rem; font-weight: 900; color: #fff; line-height: 1; letter-spacing: -0.03em; }
+#nav-dist  { font-size: 2.1rem; font-weight: 900; color: #fff; line-height: 1; letter-spacing: -0.03em; }
 #nav-street {
-  font-size: .82rem; color: #93c5fd; margin-top: 5px;
+  font-size: .82rem; color: #7dd3fc; margin-top: 5px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  font-weight: 500; letter-spacing: 0.01em;
+  font-weight: 600; letter-spacing: 0.01em;
 }
 @keyframes pulse-red { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
 
@@ -271,8 +276,8 @@ body:not(.nav-3d) .leaflet-control { opacity: 1; transition: opacity 0.3s; }
   display: flex; align-items: center; gap: 10px;
   padding: 7px 16px 11px;
   font-size: .75rem; color: var(--muted);
-  border-top: 1px solid rgba(255,255,255,.05);
-  background: rgba(0,0,0,.15);
+  border-top: 1px solid rgba(14,165,233,.08);
+  background: rgba(0,0,0,.2);
 }
 #nav-next-icon { font-size: .9rem; opacity: .7; }
 
@@ -529,21 +534,23 @@ body.navigating #report-btn {
   width: 44px; height: 44px;
 }
 
-/* ── 3D street name bubbles ───────────────────── */
-.street-label-container { pointer-events: none; }
-body:not(.nav-3d) .street-label-container { display: none !important; }
+/* ── 2D street name bubbles overlay ───────────── */
+#street-labels-overlay {
+  position: absolute; inset: 0; z-index: 500;
+  pointer-events: none; overflow: hidden;
+}
+body:not(.nav-3d) #street-labels-overlay { display: none; }
 .street-label {
   position: absolute;
-  left: 50%; transform: translateX(-50%);
-  background: rgba(255,255,255,0.95);
-  color: #0f172a;
+  transform: translate(-50%, -50%);
+  background: rgba(255,255,255,0.96);
+  color: #0c1526;
   border-radius: 20px;
-  padding: 4px 11px;
+  padding: 4px 12px;
   font-size: 11px; font-weight: 800;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   white-space: nowrap;
-  box-shadow: 0 2px 12px rgba(0,0,0,.45);
-  border: 1px solid rgba(0,0,0,.06);
+  box-shadow: 0 3px 14px rgba(0,0,0,.5), 0 0 0 1px rgba(0,0,0,.06);
 }
 
 /* ── Leaflet overrides ────────────────────────── */

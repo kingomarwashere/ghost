@@ -251,7 +251,7 @@ function enable3DView() {
 function disable3DView() {
   perspective3D = false;
   document.body.classList.remove('nav-3d');
-  streetLabelGroup.clearLayers();
+  refreshStreetLabels(); // clears overlay since perspective3D is now false
   const btn = $$('view-toggle'); if(btn){ btn.textContent='3D'; btn.title='Switch to 3D view'; }
 }
 
@@ -1094,7 +1094,7 @@ function endNav(){
   document.body.classList.remove('navigating');
   $$('recenter-btn').classList.add('hidden');
   activeAlert=null; lastRefreshedMidx=-1;
-  streetLabelGroup.clearLayers();
+  const overlay=$$('street-labels-overlay'); if(overlay) overlay.innerHTML='';
 
   headingUpMode=false;
   disable3DView();
@@ -1160,8 +1160,27 @@ async function reroute(lat,lng){
 function makeUserIcon(gpsHdg=0){
   const iconRot = gpsHdg - (map.getBearing ? map.getBearing() : 0);
   return L.divIcon({
-    html:`<svg class="user-arrow" style="transform:rotate(${iconRot}deg)" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg"><path d="M22 3 L40 39 Q22 30 4 39 Z" fill="#4285F4" stroke="white" stroke-width="2.5" stroke-linejoin="round"/></svg>`,
-    className:'', iconSize:[44,44], iconAnchor:[22,22],
+    html:`<svg class="user-arrow" style="transform:rotate(${iconRot}deg)" viewBox="0 0 36 52" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="18" cy="50" rx="10" ry="2.5" fill="rgba(0,0,0,0.22)"/>
+      <rect x="4" y="7" width="28" height="38" rx="8" fill="#ef4444"/>
+      <rect x="7" y="10" width="22" height="20" rx="5" fill="#dc2626"/>
+      <rect x="8" y="11" width="20" height="12" rx="4" fill="rgba(186,230,253,0.88)"/>
+      <rect x="10" y="13" width="5" height="3.5" rx="1.5" fill="rgba(255,255,255,0.55)"/>
+      <rect x="8" y="28" width="20" height="9" rx="3" fill="rgba(186,230,253,0.65)"/>
+      <rect x="0" y="9" width="6" height="10" rx="3" fill="#1e293b"/>
+      <rect x="30" y="9" width="6" height="10" rx="3" fill="#1e293b"/>
+      <rect x="0" y="31" width="6" height="10" rx="3" fill="#1e293b"/>
+      <rect x="30" y="31" width="6" height="10" rx="3" fill="#1e293b"/>
+      <circle cx="3" cy="14" r="1.5" fill="#475569"/>
+      <circle cx="33" cy="14" r="1.5" fill="#475569"/>
+      <circle cx="3" cy="36" r="1.5" fill="#475569"/>
+      <circle cx="33" cy="36" r="1.5" fill="#475569"/>
+      <rect x="7" y="6" width="9" height="5" rx="2.5" fill="#fde68a"/>
+      <rect x="20" y="6" width="9" height="5" rx="2.5" fill="#fde68a"/>
+      <rect x="7" y="42" width="9" height="4" rx="2" fill="#fca5a5"/>
+      <rect x="20" y="42" width="9" height="4" rx="2" fill="#fca5a5"/>
+    </svg>`,
+    className:'', iconSize:[36,52], iconAnchor:[18,26],
   });
 }
 function makeUserMarker(lat,lng,gpsHdg=0){
@@ -1328,28 +1347,42 @@ function resetNorthUp(){
 }
 
 /* ── Proximity alerts (cameras + police + schools) ──── */
-/* ── Street name bubbles (3D nav mode only) ────── */
+/* ── Project a map container point to screen coords accounting for 3D tilt ── */
+function mapPointToScreen(cp){
+  const vw=window.innerWidth, vh=window.innerHeight;
+  if(!perspective3D) return {x:-0.3*vw+cp.x, y:-0.3*vh+cp.y};
+  // #map is 160% of viewport, centred at 50%/50% of viewport
+  const originX=0.8*vw, originY=0.8*vh; // transform-origin in #map px = 0.5*1.6*vw
+  const relX=cp.x-originX, relY=cp.y-originY;
+  const P=1200, a=38*Math.PI/180;
+  const yRot=relY*Math.cos(a), zRot=relY*Math.sin(a);
+  const d=P-zRot; if(d<=0) return null;
+  const s=P/d;
+  return {x:0.5*vw+relX*s, y:0.5*vh+yRot*s};
+}
+
+/* ── 2D street name bubbles (projected onto viewport, not inside map transform) ── */
 function refreshStreetLabels(){
-  streetLabelGroup.clearLayers();
+  const overlay=$$('street-labels-overlay');
+  if(overlay) overlay.innerHTML='';
   if(!perspective3D||navState!=='navigating'||!maneuvers.length) return;
-  // Show upcoming 6 street names from route maneuver waypoints
+  const vw=window.innerWidth, vh=window.innerHeight;
   const seen=new Set();
-  for(let i=currentMidx;i<Math.min(maneuvers.length,currentMidx+7);i++){
+  for(let i=currentMidx;i<Math.min(maneuvers.length,currentMidx+8);i++){
     const m=maneuvers[i];
     const name=(m.street_names??[])[0];
     if(!name||seen.has(name)) continue;
     seen.add(name);
-    const pt=routePoints[m.begin_shape_index];
-    if(!pt) continue;
-    L.marker([pt[0],pt[1]],{
-      icon:L.divIcon({
-        html:`<div class="street-label">${escHtml(san(name))}</div>`,
-        className:'street-label-container',
-        iconSize:[0,0], iconAnchor:[0,0],
-      }),
-      interactive:false,
-      zIndexOffset:-100,
-    }).addTo(streetLabelGroup);
+    const pt=routePoints[m.begin_shape_index]; if(!pt) continue;
+    const cp=map.latLngToContainerPoint(L.latLng(pt[0],pt[1]));
+    const sp=mapPointToScreen(cp); if(!sp) continue;
+    if(sp.x<-60||sp.x>vw+60||sp.y<0||sp.y>vh) continue;
+    const el=document.createElement('div');
+    el.className='street-label';
+    el.textContent=san(name);
+    el.style.left=sp.x+'px';
+    el.style.top=sp.y+'px';
+    overlay.appendChild(el);
   }
 }
 
