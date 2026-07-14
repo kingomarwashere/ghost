@@ -14,7 +14,7 @@ function $$(id){return document.getElementById(id);}
    SETTINGS — persisted to localStorage
 ═══════════════════════════════════════════════ */
 const PREF_KEY = 'radar_prefs';
-const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'dark' };
+const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'voyager' };
 const prefs = { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}') };
 const savePrefs = () => localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
 
@@ -118,6 +118,7 @@ const reportCluster = L.markerClusterGroup({ maxClusterRadius:40, disableCluster
 const cameraCluster = L.markerClusterGroup({ maxClusterRadius:60, disableClusteringAtZoom:14 });
 map.addLayer(reportCluster);
 map.addLayer(cameraCluster);
+const streetLabelGroup = L.layerGroup().addTo(map);
 
 /* ── Heatmap layer ──────────────────────────── */
 let heatLayer = null;
@@ -244,12 +245,13 @@ function aheadPoint(lat, lng, hdgDeg, distM) {
 function enable3DView() {
   perspective3D = true;
   document.body.classList.add('nav-3d');
-  if(navState==='navigating') map.setZoom(16,{animate:true});
+  if(navState==='navigating'){ map.setZoom(16,{animate:true}); lastRefreshedMidx=-1; refreshStreetLabels(); }
   const btn = $$('view-toggle'); if(btn){ btn.textContent='2D'; btn.title='Switch to 2D view'; }
 }
 function disable3DView() {
   perspective3D = false;
   document.body.classList.remove('nav-3d');
+  streetLabelGroup.clearLayers();
   const btn = $$('view-toggle'); if(btn){ btn.textContent='3D'; btn.title='Switch to 3D view'; }
 }
 
@@ -611,7 +613,8 @@ map.on('dragstart zoomstart', ()=>{
 });
 let nearCameras=[], nearReports=[], alertedIds=new Set();
 let alertHideTimer=null;
-let activeAlert=null; // {lat,lng,dismissDist} — persists bar until hazard is passed
+let activeAlert=null;
+let lastRefreshedMidx=-1; // {lat,lng,dismissDist} — persists bar until hazard is passed
 let schoolZones=[];
 let headingUpMode=false;
 let arrivedFlag=false;
@@ -1090,7 +1093,8 @@ function endNav(){
   topbar.classList.remove('hidden');
   document.body.classList.remove('navigating');
   $$('recenter-btn').classList.add('hidden');
-  activeAlert=null;
+  activeAlert=null; lastRefreshedMidx=-1;
+  streetLabelGroup.clearLayers();
 
   headingUpMode=false;
   disable3DView();
@@ -1247,6 +1251,7 @@ function onGPS(pos){
   updateNavPanel(distToTurn);
   checkVoice(currentMidx,distToTurn);
   checkProximityAlerts(lat,lng,hdg);
+  if(perspective3D&&currentMidx!==lastRefreshedMidx){lastRefreshedMidx=currentMidx;refreshStreetLabels();}
   updateSpeedProfileCursor();
 
   if(!headingUpMode&&speedMs>2){
@@ -1323,6 +1328,31 @@ function resetNorthUp(){
 }
 
 /* ── Proximity alerts (cameras + police + schools) ──── */
+/* ── Street name bubbles (3D nav mode only) ────── */
+function refreshStreetLabels(){
+  streetLabelGroup.clearLayers();
+  if(!perspective3D||navState!=='navigating'||!maneuvers.length) return;
+  // Show upcoming 6 street names from route maneuver waypoints
+  const seen=new Set();
+  for(let i=currentMidx;i<Math.min(maneuvers.length,currentMidx+7);i++){
+    const m=maneuvers[i];
+    const name=(m.street_names??[])[0];
+    if(!name||seen.has(name)) continue;
+    seen.add(name);
+    const pt=routePoints[m.begin_shape_index];
+    if(!pt) continue;
+    L.marker([pt[0],pt[1]],{
+      icon:L.divIcon({
+        html:`<div class="street-label">${escHtml(san(name))}</div>`,
+        className:'street-label-container',
+        iconSize:[0,0], iconAnchor:[0,0],
+      }),
+      interactive:false,
+      zIndexOffset:-100,
+    }).addTo(streetLabelGroup);
+  }
+}
+
 async function loadNearCameras(){
   const b=map.getBounds().pad(0.3);
   const p=new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});

@@ -1,15 +1,16 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #0d0d0d;
-  --surface: #161616;
-  --surface2: #1e1e1e;
-  --border: rgba(255,255,255,0.09);
-  --text: #f0f0f0;
-  --muted: #888;
+  --bg: #080c17;
+  --surface: #0f1729;
+  --surface2: #1a2744;
+  --border: rgba(148,163,184,0.13);
+  --text: #e2e8f0;
+  --muted: #64748b;
   --accent: #3b82f6;
-  --red: #ff4545;
-  --green: #4caf50;
+  --accent-glow: rgba(59,130,246,0.35);
+  --red: #ef4444;
+  --green: #22c55e;
   --amber: #f59e0b;
 }
 
@@ -46,12 +47,12 @@ body:not(.nav-3d) .leaflet-control { opacity: 1; transition: opacity 0.3s; }
   position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
   z-index: 1000;
   display: flex; align-items: center; gap: 6px;
-  background: rgba(13,13,13,0.93);
+  background: rgba(8,12,23,0.94);
   border: 1px solid var(--border); border-radius: 999px;
   padding: 5px 10px;
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   white-space: nowrap; max-width: calc(100vw - 20px);
-  box-shadow: 0 4px 24px rgba(0,0,0,.5);
+  box-shadow: 0 4px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(59,130,246,.08);
 }
 #logo { font-size: 1.2rem; line-height: 1; padding-right: 2px; }
 #filters { display: flex; gap: 2px; }
@@ -80,7 +81,7 @@ body:not(.nav-3d) .leaflet-control { opacity: 1; transition: opacity 0.3s; }
 /* ── Route planner ────────────────────────────── */
 #route-planner {
   position: absolute; top: 0; left: 0; right: 0; z-index: 1100;
-  background: var(--surface); border-bottom: 1px solid rgba(255,255,255,.07);
+  background: var(--surface); border-bottom: 1px solid rgba(148,163,184,.08);
   max-height: 80dvh; overflow: hidden; /* JS overrides this when keyboard appears */
   display: flex; flex-direction: column;
 }
@@ -165,8 +166,8 @@ body:not(.nav-3d) .leaflet-control { opacity: 1; transition: opacity 0.3s; }
 #preview-bar {
   position: absolute; bottom: 0; left: 0; right: 0; z-index: 1000;
   background: var(--surface);
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -6px 40px rgba(0,0,0,.55);
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -8px 48px rgba(0,0,0,.7), 0 -1px 0 rgba(148,163,184,.08);
   display: flex; flex-direction: column;
   max-height: var(--sheet-h, 108px); /* JS controls this */
   overflow: hidden;
@@ -241,28 +242,39 @@ body:not(.nav-3d) .leaflet-control { opacity: 1; transition: opacity 0.3s; }
 /* ── Nav instruction ──────────────────────────── */
 #nav-instruction {
   position: absolute; top: 0; left: 0; right: 0; z-index: 1000;
-  background: #111827;
-  border-bottom: 2px solid var(--accent);
+  background: var(--surface);
+  border-bottom: 1px solid rgba(59,130,246,.18);
+  box-shadow: 0 6px 32px rgba(0,0,0,.7);
 }
 #nav-main {
   display: flex; align-items: center; gap: 14px;
-  padding: 14px 14px 10px;
-  padding-top: calc(14px + env(safe-area-inset-top));
+  padding: calc(14px + env(safe-area-inset-top)) 16px 12px;
 }
-#nav-icon { font-size: 2.6rem; min-width: 46px; text-align: center; line-height: 1; }
-#nav-dist  { font-size: 1.6rem; font-weight: 800; color: #fff; line-height: 1; }
+#nav-icon {
+  width: 60px; height: 60px; flex-shrink: 0;
+  background: var(--accent);
+  border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2rem; line-height: 1;
+  box-shadow: 0 4px 20px var(--accent-glow);
+}
+#nav-text { flex: 1; min-width: 0; }
+#nav-dist  { font-size: 2rem; font-weight: 900; color: #fff; line-height: 1; letter-spacing: -0.03em; }
 #nav-street {
-  font-size: .88rem; color: #93c5fd; margin-top: 3px;
+  font-size: .82rem; color: #93c5fd; margin-top: 5px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 500; letter-spacing: 0.01em;
 }
 @keyframes pulse-red { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
 
 #nav-next-wrap {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 14px 10px;
-  font-size: .78rem; color: #64748b; border-top: 1px solid rgba(255,255,255,.06);
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 16px 11px;
+  font-size: .75rem; color: var(--muted);
+  border-top: 1px solid rgba(255,255,255,.05);
+  background: rgba(0,0,0,.15);
 }
-#nav-next-icon { font-size: .95rem; }
+#nav-next-icon { font-size: .9rem; opacity: .7; }
 
 /* ── Alert bar (camera / hazard) ─────────────── */
 #alert-bar {
@@ -287,30 +299,32 @@ body:not(.nav-3d) .leaflet-control { opacity: 1; transition: opacity 0.3s; }
 /* ── Nav footer ───────────────────────────────── */
 #nav-footer {
   position: absolute; bottom: 0; left: 0; right: 0; z-index: 1000;
-  background: var(--surface); border-top: 1px solid var(--border);
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-  box-shadow: 0 -4px 24px rgba(0,0,0,.4);
+  background: var(--surface);
+  border-top: 1px solid rgba(148,163,184,.08);
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+  box-shadow: 0 -6px 32px rgba(0,0,0,.6);
 }
 #nav-eta-block { flex: 1; }
-#nav-eta { font-size: 1.35rem; font-weight: 800; }
-#nav-remaining { font-size: .76rem; color: var(--muted); margin-top: 2px; }
-#speed-block { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 56px; }
+#nav-eta { font-size: 1.4rem; font-weight: 900; letter-spacing: -0.02em; }
+#nav-remaining { font-size: .72rem; color: var(--muted); margin-top: 2px; font-weight: 500; }
+#speed-block { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 52px; }
 #speed-limit-sign {
-  background: #fff; border: 3px solid #e53935; border-radius: 50%;
-  width: 44px; height: 44px;
+  background: #fff; border: 3px solid #dc2626; border-radius: 50%;
+  width: 42px; height: 42px;
   display: flex; align-items: center; justify-content: center;
-  font-size: .9rem; font-weight: 900; color: #111; line-height: 1;
+  font-size: .88rem; font-weight: 900; color: #111; line-height: 1;
   transition: background .2s, color .2s;
 }
 #speed-limit-sign.over-limit { background: var(--red); border-color: var(--red); color: #fff; animation: pulse-red .6s ease infinite; }
-#current-speed { font-size: 1rem; font-weight: 700; text-align: center; }
+#current-speed { font-size: .95rem; font-weight: 700; text-align: center; }
 #current-speed.over-limit { color: var(--red); }
-#current-speed small { font-size: .63rem; font-weight: 400; color: var(--muted); }
+#current-speed small { font-size: .6rem; font-weight: 400; color: var(--muted); }
 #end-nav-btn {
-  background: rgba(255,69,69,.15); border: 1px solid rgba(255,69,69,.35);
-  border-radius: 10px; color: var(--red); cursor: pointer;
-  font-size: .83rem; font-weight: 600; padding: 10px 13px; white-space: nowrap;
+  background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.3);
+  border-radius: 12px; color: var(--red); cursor: pointer;
+  font-size: .8rem; font-weight: 700; padding: 10px 13px; white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 #view-toggle {
   background: rgba(255,255,255,0.1); border: 1px solid var(--border);
@@ -513,6 +527,23 @@ body.navigating #report-btn {
   display: block; transform-origin: center;
   filter: drop-shadow(0 2px 8px rgba(0,0,0,.8));
   width: 44px; height: 44px;
+}
+
+/* ── 3D street name bubbles ───────────────────── */
+.street-label-container { pointer-events: none; }
+body:not(.nav-3d) .street-label-container { display: none !important; }
+.street-label {
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
+  background: rgba(255,255,255,0.95);
+  color: #0f172a;
+  border-radius: 20px;
+  padding: 4px 11px;
+  font-size: 11px; font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 2px 12px rgba(0,0,0,.45);
+  border: 1px solid rgba(0,0,0,.06);
 }
 
 /* ── Leaflet overrides ────────────────────────── */
