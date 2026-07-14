@@ -696,6 +696,7 @@ function openPlanner(){
   navState='searching';
   fromInput.placeholder = userMarker ? '📍 My location' : 'Choose start…';
   setActiveField('to');
+  _syncPlannerH(); // apply immediately before keyboard triggers resize
   toInput.focus();
   showSuggestions();
 }
@@ -1076,14 +1077,20 @@ function parseShareHash(){
 }
 parseShareHash();
 
-/* ── Keep planner below keyboard on iOS (visualViewport shrinks, vh/dvh don't) ── */
-(()=>{
+/* ── Keep planner above keyboard on iOS ───────────────────────────────────── */
+// visualViewport.height shrinks to the space above the keyboard; vh/dvh don't.
+// We also listen to scroll (older iOS scrolls the page instead of shrinking).
+const _syncPlannerH=(()=>{
   const pl=$$('route-planner');
-  function syncPlannerH(){
-    const h=window.visualViewport?window.visualViewport.height:window.innerHeight;
-    pl.style.maxHeight=Math.floor(h*0.82)+'px';
+  function sync(){
+    const vv=window.visualViewport;
+    const h=vv?vv.height:window.innerHeight;
+    // Use almost full visual height — let the results scroll within
+    pl.style.maxHeight=Math.max(180, h-12)+'px';
   }
-  window.visualViewport?.addEventListener('resize',syncPlannerH);
+  const vv=window.visualViewport;
+  if(vv){ vv.addEventListener('resize',sync); vv.addEventListener('scroll',sync); }
+  return sync;
 })();
 
 /* ═══════════════════════════════════════════════
@@ -1227,27 +1234,47 @@ async function reroute(lat,lng){
 function makeUserIcon(gpsHdg=0){
   const iconRot = gpsHdg - (map.getBearing ? map.getBearing() : 0);
   return L.divIcon({
-    html:`<svg class="user-arrow" style="transform:rotate(${iconRot}deg)" viewBox="0 0 36 52" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="18" cy="50" rx="10" ry="2.5" fill="rgba(0,0,0,0.22)"/>
-      <rect x="4" y="7" width="28" height="38" rx="8" fill="#ef4444"/>
-      <rect x="7" y="10" width="22" height="20" rx="5" fill="#dc2626"/>
-      <rect x="8" y="11" width="20" height="12" rx="4" fill="rgba(186,230,253,0.88)"/>
-      <rect x="10" y="13" width="5" height="3.5" rx="1.5" fill="rgba(255,255,255,0.55)"/>
-      <rect x="8" y="28" width="20" height="9" rx="3" fill="rgba(186,230,253,0.65)"/>
-      <rect x="0" y="9" width="6" height="10" rx="3" fill="#1e293b"/>
-      <rect x="30" y="9" width="6" height="10" rx="3" fill="#1e293b"/>
-      <rect x="0" y="31" width="6" height="10" rx="3" fill="#1e293b"/>
-      <rect x="30" y="31" width="6" height="10" rx="3" fill="#1e293b"/>
-      <circle cx="3" cy="14" r="1.5" fill="#475569"/>
-      <circle cx="33" cy="14" r="1.5" fill="#475569"/>
-      <circle cx="3" cy="36" r="1.5" fill="#475569"/>
-      <circle cx="33" cy="36" r="1.5" fill="#475569"/>
-      <rect x="7" y="6" width="9" height="5" rx="2.5" fill="#fde68a"/>
-      <rect x="20" y="6" width="9" height="5" rx="2.5" fill="#fde68a"/>
-      <rect x="7" y="42" width="9" height="4" rx="2" fill="#fca5a5"/>
-      <rect x="20" y="42" width="9" height="4" rx="2" fill="#fca5a5"/>
+    html:`<svg class="user-arrow" style="transform:rotate(${iconRot}deg)" viewBox="0 0 44 60" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="22" cy="58" rx="13" ry="3" fill="rgba(0,0,0,0.18)"/>
+      <!-- Body - clown yellow -->
+      <rect x="4" y="9" width="36" height="42" rx="10" fill="#fbbf24"/>
+      <!-- Polka dots -->
+      <circle cx="12" cy="22" r="3.5" fill="#ef4444"/>
+      <circle cx="32" cy="28" r="3" fill="#8b5cf6"/>
+      <circle cx="14" cy="36" r="3" fill="#0ea5e9"/>
+      <circle cx="30" cy="19" r="2.5" fill="#34d399"/>
+      <circle cx="22" cy="33" r="2" fill="#f97316"/>
+      <!-- Windshield -->
+      <rect x="8" y="13" width="28" height="15" rx="5" fill="rgba(186,230,253,0.88)"/>
+      <rect x="11" y="16" width="9" height="6" rx="2.5" fill="rgba(255,255,255,0.5)"/>
+      <!-- Rear window -->
+      <rect x="8" y="33" width="28" height="12" rx="4" fill="rgba(186,230,253,0.65)"/>
+      <!-- Big clown wheels (oversized) -->
+      <rect x="-2" y="11" width="8" height="14" rx="4" fill="#1e293b"/>
+      <rect x="38" y="11" width="8" height="14" rx="4" fill="#1e293b"/>
+      <rect x="-2" y="34" width="8" height="14" rx="4" fill="#1e293b"/>
+      <rect x="38" y="34" width="8" height="14" rx="4" fill="#1e293b"/>
+      <circle cx="2" cy="18" r="2" fill="#475569"/>
+      <circle cx="42" cy="18" r="2" fill="#475569"/>
+      <circle cx="2" cy="41" r="2" fill="#475569"/>
+      <circle cx="42" cy="41" r="2" fill="#475569"/>
+      <!-- Red clown nose on bonnet -->
+      <circle cx="22" cy="10" r="4" fill="#ef4444"/>
+      <circle cx="23" cy="9" r="1.2" fill="rgba(255,255,255,0.4)"/>
+      <!-- Headlights -->
+      <rect x="7" y="7" width="11" height="5" rx="2.5" fill="#fde68a"/>
+      <rect x="26" y="7" width="11" height="5" rx="2.5" fill="#fde68a"/>
+      <!-- Taillights -->
+      <rect x="7" y="46" width="11" height="5" rx="2.5" fill="#fca5a5"/>
+      <rect x="26" y="46" width="11" height="5" rx="2.5" fill="#fca5a5"/>
+      <!-- Tiny flower on roof -->
+      <circle cx="22" cy="26" r="2" fill="#ff2d55"/>
+      <circle cx="22" cy="23" r="1.2" fill="#fbbf24"/>
+      <circle cx="25" cy="27" r="1.2" fill="#fbbf24"/>
+      <circle cx="19" cy="27" r="1.2" fill="#fbbf24"/>
+      <circle cx="22" cy="29" r="1.2" fill="#fbbf24"/>
     </svg>`,
-    className:'', iconSize:[36,52], iconAnchor:[18,26],
+    className:'', iconSize:[44,60], iconAnchor:[22,30],
   });
 }
 function makeUserMarker(lat,lng,gpsHdg=0){
@@ -1293,14 +1320,10 @@ function onGPS(pos){
       const zoom=map.getZoom();
       const lookM=Math.min(LOOK_CAP[zoom]??90,Math.max(60,speedMs*12));
       const [aLat,aLng]=aheadPoint(lat,lng,hdg,lookM);
-      const targetZoom=targetNavZoom(speedMs);
-      if(targetZoom!==zoom){
-        map.setView([aLat,aLng],targetZoom,{animate:true,duration:0.6,noMoveStart:true});
-      } else {
-        map.panTo([aLat,aLng],{animate:true,duration:0.4,easeLinearity:0.5,noMoveStart:true});
-      }
+      // Never change zoom mid-drive — jarring. Zoom is fixed at nav start (16 for 3D).
+      map.panTo([aLat,aLng],{animate:true,duration:0.25,easeLinearity:0.8,noMoveStart:true});
     } else {
-      map.panTo([lat,lng],{animate:true,duration:0.5,noMoveStart:true});
+      map.panTo([lat,lng],{animate:true,duration:0.25,easeLinearity:0.8,noMoveStart:true});
     }
   }
 
@@ -1414,6 +1437,14 @@ function resetNorthUp(){
 }
 
 /* ── Proximity alerts (cameras + police + schools) ──── */
+/* ── Refresh street labels on any map move (rAF-throttled) ───────────────── */
+let _labelRaf=null;
+map.on('move zoom moveend zoomend',()=>{
+  if(!perspective3D||navState!=='navigating') return;
+  if(_labelRaf) return;
+  _labelRaf=requestAnimationFrame(()=>{ _labelRaf=null; refreshStreetLabels(); });
+});
+
 /* ── Project a map container point to screen coords accounting for 3D tilt ── */
 function mapPointToScreen(cp){
   const vw=window.innerWidth, vh=window.innerHeight;
