@@ -16,29 +16,35 @@ seed.use('*', async (c, next) => {
 
 // POST /api/admin/seed/osm — fetch AU speed cameras from Overpass API
 seed.post('/osm', async (c) => {
-  const query = `
-    [out:json][timeout:90];
-    (
-      node["highway"="speed_camera"](-44,112,-10,154);
-      node["enforcement"="speed_camera"](-44,112,-10,154);
-      node["enforcement"="traffic_signals"](-44,112,-10,154);
-      way["highway"="speed_camera"](-44,112,-10,154);
-    );
-    out center;
-  `;
+  // Compact OverpassQL — no whitespace bloat, short timeout to stay within Worker limits
+  const query = '[out:json][timeout:55];(node["highway"="speed_camera"](-44,112,-10,154);node["enforcement"="speed_camera"](-44,112,-10,154);node["enforcement"="traffic_signals"]["traffic_signals"="speed_camera"](-44,112,-10,154);way["highway"="speed_camera"](-44,112,-10,154););out center;';
 
   let osmData: any;
-  try {
-    const resp = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      body: 'data=' + encodeURIComponent(query),
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    });
-    if (!resp.ok) throw new Error(`Overpass returned ${resp.status}`);
-    osmData = await resp.json() as any;
-  } catch (e: any) {
-    return c.json({ error: 'Overpass fetch failed: ' + e.message }, 502);
+  // Try two Overpass instances in case one is overloaded
+  const ENDPOINTS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+  ];
+  let lastErr = '';
+  for (const endpoint of ENDPOINTS) {
+    try {
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        body: 'data=' + encodeURIComponent(query),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'radar-app/1.0 (radar.theradicalparty.com)',
+        },
+        signal: AbortSignal.timeout(58_000),
+      });
+      if (!resp.ok) { lastErr = `HTTP ${resp.status} from ${endpoint}`; continue; }
+      osmData = await resp.json() as any;
+      break;
+    } catch (e: any) {
+      lastErr = e.message;
+    }
   }
+  if (!osmData) return c.json({ error: 'Overpass fetch failed: ' + lastErr }, 502);
 
   const elements: any[] = osmData.elements ?? [];
   const now = Date.now();
