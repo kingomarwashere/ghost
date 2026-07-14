@@ -21,6 +21,14 @@
 
 <div id="map"></div>
 
+<!-- ── Compass widget (nav mode only) ──────────── -->
+<div id="compass-widget" class="hidden" title="Tap to reset to north-up">
+  <div id="compass-rose">
+    <div id="compass-n">N</div>
+    <div id="compass-needle"></div>
+  </div>
+</div>
+
 <!-- ── Normal top bar ──────────────────────────── -->
 <div id="topbar">
   <div id="logo">📡</div>
@@ -28,6 +36,7 @@
     <button class="filter-btn active" data-layer="police" title="Police">🚔</button>
     <button class="filter-btn active" data-layer="speed"  title="Cameras">📷</button>
     <button class="filter-btn active" data-layer="red_light" title="Red light">🔴</button>
+    <button class="filter-btn" id="heatmap-btn" title="Report heatmap">🔥</button>
   </div>
   <button id="search-toggle" title="Navigate">🔍 Navigate</button>
   <button id="style-toggle" title="Settings">⚙️</button>
@@ -54,6 +63,11 @@
                placeholder="Where to?" autocomplete="off" spellcheck="false">
         <button class="field-clear hidden" id="to-clear" aria-label="Clear">✕</button>
       </div>
+      <!-- ── Avoidance pills ──────────────────── -->
+      <div id="avoid-pills">
+        <button class="avoid-pill" id="avoid-tolls">🚫 Tolls</button>
+        <button class="avoid-pill" id="avoid-highways">🛣️ Motorways</button>
+      </div>
     </div>
   </div>
   <div id="search-results"></div>
@@ -68,11 +82,28 @@
         <span id="preview-time">–</span>
         <span id="preview-eta">–</span>
       </div>
+      <div id="preview-avoidance-note" class="hidden"></div>
     </div>
     <div id="preview-actions">
+      <button id="share-route-btn" title="Share route">⎋ Share</button>
       <button id="start-nav-btn">▶ Go</button>
       <button id="cancel-route-btn">✕</button>
     </div>
+  </div>
+  <!-- ── Route chips (alt routes) ──────────────── -->
+  <div id="route-chips" class="hidden"></div>
+  <!-- ── Speed profile strip ────────────────────── -->
+  <div id="speed-profile" class="hidden">
+    <div id="speed-profile-bar"></div>
+    <div id="speed-profile-legend">
+      <span class="sp-legend-item"><span class="sp-dot" style="background:#22c55e"></span>100+</span>
+      <span class="sp-legend-item"><span class="sp-dot" style="background:#4caf50"></span>80</span>
+      <span class="sp-legend-item"><span class="sp-dot" style="background:#f59e0b"></span>60</span>
+      <span class="sp-legend-item"><span class="sp-dot" style="background:#fb923c"></span>50</span>
+      <span class="sp-legend-item"><span class="sp-dot" style="background:#ef4444"></span>&lt;50</span>
+      <span class="sp-legend-item"><span class="sp-dot" style="background:#3b82f6"></span>?</span>
+    </div>
+    <div id="speed-profile-cursor" class="hidden"></div>
   </div>
   <div id="directions-list"></div>
 </div>
@@ -110,6 +141,7 @@
     <div id="speed-limit-sign" class="hidden"><span id="speed-limit-val">–</span></div>
     <div id="current-speed">– <small>km/h</small></div>
   </div>
+  <button id="north-up-btn" class="hidden" title="Reset to north-up">⬆ N</button>
   <button id="end-nav-btn">✕ End</button>
 </div>
 
@@ -177,6 +209,9 @@
 <!-- ── Report FAB ──────────────────────────────── -->
 <button id="report-btn" title="Report sighting">🚨</button>
 
+<!-- ── Toast ──────────────────────────────────── -->
+<div id="toast" class="hidden"></div>
+
 <!-- ── PWA install toast ───────────────────────── -->
 <div id="install-toast" class="hidden">
   <span>📡 Add Radar to your home screen</span>
@@ -205,6 +240,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

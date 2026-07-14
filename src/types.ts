@@ -27,4 +27,5 @@ export interface Camera {
   road?: string;
   speed_limit?: number;
   external_id?: string;
+  direction?: number | null;
 }

@@ -55,7 +55,7 @@ async function seedOSM() {
   const { elements } = await resp.json();
   console.log(`Got ${elements.length} OSM elements`);
 
-  const cols = 'id,lat,lng,type,source,description,state,road,speed_limit,external_id,created_at';
+  const cols = 'id,lat,lng,type,source,description,state,road,speed_limit,external_id,created_at,direction';
   chunkSQL(elements, cols, el => {
     const lat = el.lat ?? el.center?.lat;
     const lon = el.lon ?? el.center?.lon;
@@ -66,8 +66,11 @@ async function seedOSM() {
     const road = tags.name ?? tags['addr:street'] ?? null;
     const sl = tags['maxspeed'] ? parseInt(tags['maxspeed']) : null;
     const desc = tags['name'] ?? null;
+    // Camera facing direction — try multiple OSM tag variants
+    const dirRaw = tags['direction'] ?? tags['camera:direction'] ?? tags['camera:angle'] ?? null;
+    const direction = dirRaw != null ? parseInt(dirRaw) : null;
     const esc = s => s == null ? 'NULL' : `'${String(s).replace(/'/g,"''")}'`;
-    return `(${esc(nanoid())},${lat},${lon},${esc(type)},'osm',${esc(desc)},NULL,${esc(road)},${sl ?? 'NULL'},${esc(String(el.id))},${now})`;
+    return `(${esc(nanoid())},${lat},${lon},${esc(type)},'osm',${esc(desc)},NULL,${esc(road)},${sl ?? 'NULL'},${esc(String(el.id))},${now},${(!isNaN(direction) && direction != null) ? direction : 'NULL'})`;
   });
   console.log('OSM seed done.');
 }

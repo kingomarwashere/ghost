@@ -11,7 +11,7 @@ cameras.get('/', async (c) => {
   }
 
   let query = `
-    SELECT id, lat, lng, type, source, description, state, road, speed_limit
+    SELECT id, lat, lng, type, source, description, state, road, speed_limit, direction
     FROM cameras
     WHERE lat BETWEEN ? AND ?
       AND lng BETWEEN ? AND ?

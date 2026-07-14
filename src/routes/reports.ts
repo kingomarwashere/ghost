@@ -65,10 +65,18 @@ reports.post('/', async (c) => {
   if (recent && recent.cnt >= 3) return c.json({ error: 'too many reports, slow down' }, 429);
 
   const id = nanoid();
-  await c.env.DB.prepare(`
-    INSERT INTO reports (id, lat, lng, type, description, confirms, denies, created_at, expires_at, reporter_hash)
-    VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
-  `).bind(id, lat, lng, type, description ?? null, now, now + REPORT_TTL_MS, hash).run();
+  const histId = nanoid();
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(`
+      INSERT INTO reports (id, lat, lng, type, description, confirms, denies, created_at, expires_at, reporter_hash)
+      VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?)
+    `).bind(id, lat, lng, type, description ?? null, now, now + REPORT_TTL_MS, hash),
+    c.env.DB.prepare(`
+      INSERT INTO report_history (id, lat, lng, type, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).bind(histId, lat, lng, type, now),
+  ]);
 
   return c.json({ id, expires_at: now + REPORT_TTL_MS }, 201);
 });
