@@ -574,12 +574,12 @@ body:not(.nav-3d) #street-labels-overlay { display: none; }
 .popup-deny    { color: var(--red) !important; }
 .leaflet-control-zoom a { background: #1a1a1a !important; color: #fff !important; border-color: #333 !important; }
 .marker-cluster-small div,.marker-cluster-medium div,.marker-cluster-large div {
-  background-color: rgba(255,69,69,.6) !important; color: #fff !important; font-weight: 700;
+  background-color: rgba(255,45,85,.65) !important; color: #fff !important; font-weight: 800; font-size: .8rem;
 }
 .marker-cluster-small,.marker-cluster-medium,.marker-cluster-large {
-  background-color: rgba(255,69,69,.2) !important;
+  background-color: rgba(255,45,85,.18) !important;
 }
-.dest-pin { font-size: 2rem; line-height: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+.dest-pin { font-size: 2.2rem; line-height: 1; filter: drop-shadow(0 3px 8px rgba(0,0,0,.7)); }
 
 /* ── Compass widget ───────────────────────────────── */
 #compass-widget {

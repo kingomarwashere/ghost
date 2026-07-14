@@ -147,19 +147,69 @@ heatmapBtn.addEventListener('click', async () => {
 });
 
 /* ═══════════════════════════════════════════════
-   ICONS
+   ICONS — polished SVG rounded-square markers
 ═══════════════════════════════════════════════ */
-function makeIcon(emoji, color='#ff4545') {
+function makeSvgIcon(paths, bg, size=42){
   return L.divIcon({
-    html:`<div style="background:${color};width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,.5);border:2px solid rgba(255,255,255,.2)">${emoji}</div>`,
-    className:'', iconSize:[34,34], iconAnchor:[17,17], popupAnchor:[0,-20],
+    html:`<div style="width:${size}px;height:${size}px;border-radius:13px;background:${bg};display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.18)"><svg viewBox="0 0 20 20" width="22" height="22" xmlns="http://www.w3.org/2000/svg">${paths}</svg></div>`,
+    className:'', iconSize:[size,size], iconAnchor:[size/2,size/2], popupAnchor:[0,-(size/2+4)],
   });
 }
+
 const ICONS = {
-  police:makeIcon('🚔','#ff4545'), speed_trap:makeIcon('📸','#ff8c00'),
-  accident:makeIcon('⚠️','#ffcc00'), hazard:makeIcon('🚧','#ff8c00'),
-  speed:makeIcon('📷','#3b82f6'), red_light:makeIcon('🔴','#ef4444'),
-  average_speed:makeIcon('📡','#8b5cf6'),
+  // Shield badge — police
+  police: makeSvgIcon(
+    `<path d="M10 1.5L3 4.5V9c0 4.2 3 7.8 7 8.8 4-1 7-4.6 7-8.8V4.5L10 1.5z" fill="white" fill-opacity=".95"/>
+     <path d="M7.5 9.5l2 2 3-3" stroke="#ff2d55" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`,
+    '#ff2d55'),
+
+  // Camera + lightning flash — speed trap
+  speed_trap: makeSvgIcon(
+    `<path d="M2.5 6.5a1 1 0 011-1H6l1-1.5h3.5l1 1.5h2a1 1 0 011 1v7a1 1 0 01-1 1h-10a1 1 0 01-1-1v-7z" fill="white"/>
+     <circle cx="8.5" cy="10" r="2.2" fill="#f97316"/>
+     <circle cx="8.5" cy="10" r=".9" fill="white"/>
+     <path d="M14.5 5l-1.8 3.5h1.8l-2.2 4" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`,
+    '#f97316'),
+
+  // Triangle warning + exclamation — accident
+  accident: makeSvgIcon(
+    `<path d="M10 2.5L1.5 17h17L10 2.5z" fill="white" fill-opacity=".92"/>
+     <rect x="9.2" y="8" width="1.6" height="4.5" rx=".8" fill="#f59e0b"/>
+     <circle cx="10" cy="14.5" r="1" fill="#f59e0b"/>`,
+    '#f59e0b'),
+
+  // Traffic cone — hazard
+  hazard: makeSvgIcon(
+    `<path d="M10 2.5L5.5 15.5h9L10 2.5z" fill="white" fill-opacity=".9"/>
+     <rect x="6" y="9.5" width="8" height="1.4" rx=".7" fill="#f97316"/>
+     <rect x="7.2" y="12.2" width="5.6" height="1.4" rx=".7" fill="#f97316"/>
+     <rect x="4.5" y="15.5" width="11" height="2" rx="1" fill="white"/>`,
+    '#f97316'),
+
+  // Speed camera — fixed camera body with lens
+  speed: makeSvgIcon(
+    `<path d="M2.5 6.5a1 1 0 011-1H6l1-1.5h4l1 1.5h2.5a1 1 0 011 1v7a1 1 0 01-1 1h-11a1 1 0 01-1-1v-7z" fill="white"/>
+     <circle cx="10" cy="10" r="2.8" fill="#0ea5e9"/>
+     <circle cx="10" cy="10" r="1.2" fill="white"/>
+     <circle cx="10" cy="10" r=".4" fill="#0ea5e9"/>`,
+    '#0ea5e9'),
+
+  // Traffic light — 3 circles in housing
+  red_light: makeSvgIcon(
+    `<rect x="6.5" y="1.5" width="7" height="17" rx="3" fill="white" fill-opacity=".95"/>
+     <circle cx="10" cy="5.5" r="1.8" fill="#ff2d55"/>
+     <circle cx="10" cy="10" r="1.8" fill="#fbbf24" fill-opacity=".45"/>
+     <circle cx="10" cy="14.5" r="1.8" fill="#34d399" fill-opacity=".35"/>`,
+    '#ff2d55'),
+
+  // Radar arc + needle — average speed
+  average_speed: makeSvgIcon(
+    `<path d="M3 14a7 7 0 0114 0" stroke="white" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+     <path d="M1 16a9 9 0 0118 0" stroke="white" stroke-width="1.2" stroke-linecap="round" fill="none" opacity=".45"/>
+     <path d="M5.5 12a6 6 0 019 0" stroke="white" stroke-width="1.2" stroke-linecap="round" fill="none" opacity=".25"/>
+     <line x1="10" y1="14" x2="7" y2="8.5" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+     <circle cx="10" cy="14" r="1.6" fill="white"/>`,
+    '#8b5cf6'),
 };
 
 /* ═══════════════════════════════════════════════
