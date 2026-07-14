@@ -1,0 +1,213 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #0d0d0d;
+  color: #f0f0f0;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* ── Top bar ─────────────────────────────────── */
+#topbar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(13,13,13,0.88);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
+  padding: 6px 14px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  white-space: nowrap;
+}
+
+#logo {
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  color: #ff4545;
+}
+
+#filters { display: flex; gap: 4px; }
+
+.filter-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 4px 8px;
+  opacity: 0.4;
+  transition: opacity 0.15s, background 0.15s;
+}
+.filter-btn.active { opacity: 1; background: rgba(255,255,255,0.12); }
+.filter-btn:hover { opacity: 0.85; }
+
+#report-count {
+  font-size: 0.75rem;
+  color: #aaa;
+}
+
+/* ── Floating report button ───────────────────── */
+#report-btn {
+  position: absolute;
+  bottom: 28px;
+  right: 20px;
+  z-index: 1000;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: #ff4545;
+  border: none;
+  font-size: 1.6rem;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(255,69,69,0.5);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+#report-btn:hover { transform: scale(1.08); box-shadow: 0 6px 28px rgba(255,69,69,0.65); }
+#report-btn:active { transform: scale(0.95); }
+
+/* ── Modal ────────────────────────────────────── */
+#modal-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+#modal-overlay.hidden { display: none; }
+
+#modal {
+  width: 100%;
+  max-width: 480px;
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px 20px 0 0;
+  padding: 24px 20px 32px;
+  animation: slideUp 0.2s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+#modal h2 { font-size: 1.1rem; margin-bottom: 6px; }
+#modal-coords { font-size: 0.75rem; color: #888; margin-bottom: 16px; }
+
+.type-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.type-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: #ddd;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 10px 8px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.type-btn.active {
+  background: rgba(255,69,69,0.2);
+  border-color: #ff4545;
+  color: #fff;
+}
+.type-btn:hover { background: rgba(255,255,255,0.1); }
+
+#desc-input {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: #f0f0f0;
+  font-size: 0.85rem;
+  padding: 10px 12px;
+  resize: none;
+  margin-bottom: 16px;
+  font-family: inherit;
+}
+#desc-input:focus { outline: none; border-color: rgba(255,255,255,0.25); }
+#desc-input::placeholder { color: #555; }
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+}
+.modal-actions button {
+  flex: 1;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 12px;
+  transition: opacity 0.15s;
+}
+.modal-actions button:hover { opacity: 0.85; }
+#cancel-btn { background: rgba(255,255,255,0.08); color: #ccc; }
+#submit-btn { background: #ff4545; color: #fff; }
+
+/* ── Leaflet overrides ────────────────────────── */
+.leaflet-container { background: #0d0d0d; }
+.leaflet-popup-content-wrapper {
+  background: #1a1a1a;
+  color: #f0f0f0;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+.leaflet-popup-tip { background: #1a1a1a; }
+.leaflet-popup-content { margin: 12px 14px; }
+.leaflet-popup-content p { margin: 4px 0; font-size: 0.82rem; color: #aaa; }
+.leaflet-popup-content strong { display: block; font-size: 0.95rem; margin-bottom: 4px; }
+
+.popup-actions { display: flex; gap: 8px; margin-top: 10px; }
+.popup-actions button {
+  flex: 1;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 6px 0;
+}
+.popup-actions button:hover { background: rgba(255,255,255,0.14); }
+.popup-confirm { color: #4caf50 !important; }
+.popup-deny { color: #ff4545 !important; }
+
+/* Cluster styles */
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large {
+  background-color: rgba(255, 69, 69, 0.2) !important;
+}
+.marker-cluster-small div,
+.marker-cluster-medium div,
+.marker-cluster-large div {
+  background-color: rgba(255, 69, 69, 0.6) !important;
+  color: #fff !important;
+  font-weight: 700;
+}

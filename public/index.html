@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Radar — Live Police & Camera Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- Top bar -->
+  <div id="topbar">
+    <div id="logo">📡 RADAR</div>
+    <div id="filters">
+      <button class="filter-btn active" data-layer="police" title="Police sightings">🚔</button>
+      <button class="filter-btn active" data-layer="speed" title="Speed cameras">📷</button>
+      <button class="filter-btn active" data-layer="red_light" title="Red light cameras">🔴</button>
+    </div>
+    <div id="report-count">— reports</div>
+  </div>
+
+  <!-- Report button -->
+  <button id="report-btn" title="Report police">🚨</button>
+
+  <!-- Report modal -->
+  <div id="modal-overlay" class="hidden">
+    <div id="modal">
+      <h2>Report a sighting</h2>
+      <p id="modal-coords"></p>
+
+      <div class="type-grid">
+        <button class="type-btn active" data-type="police">🚔 Police</button>
+        <button class="type-btn" data-type="speed_trap">📸 Speed trap</button>
+        <button class="type-btn" data-type="accident">⚠️ Accident</button>
+        <button class="type-btn" data-type="hazard">🚧 Hazard</button>
+      </div>
+
+      <textarea id="desc-input" placeholder="Optional note (e.g. heading north, 3 units)" rows="2" maxlength="120"></textarea>
+
+      <div class="modal-actions">
+        <button id="cancel-btn">Cancel</button>
+        <button id="submit-btn">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Marker detail popup is handled by Leaflet bindPopup -->
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

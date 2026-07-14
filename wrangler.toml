@@ -1,0 +1,20 @@
+name = "radar"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "radar-db"
+database_id = "b3d3f114-24fc-4869-a84a-0deb0f7675a0"
+
+[vars]
+ADMIN_KEY = "change-me-before-seeding"
+
+[[routes]]
+pattern = "radar.theradicalparty.com/*"
+zone_name = "theradicalparty.com"
