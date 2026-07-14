@@ -1442,6 +1442,77 @@ $$('recenter-btn').addEventListener('click',()=>{
   $$('recenter-btn').classList.add('hidden');
 });
 
+/* ── Two-finger vertical drag → live 3D tilt ─────────────────────────────
+   Drag UP  = more tilt (into 3D world)
+   Drag DOWN = flatten back to 2D
+   Snaps to 0° or 38° on release. Overrides inline transform so it takes
+   priority over the CSS class, then clears after snap so CSS class owns it.
+──────────────────────────────────────────────────────────────────────── */
+(()=>{
+  const clipEl=$$('map-clip'), mapEl=$$('map');
+  const MAX=38, SENS=0.55;
+  let g=null; // gesture state
+
+  function applyAngle(a){
+    const clamped=Math.max(0,Math.min(MAX,a));
+    mapEl.style.transition='none';
+    mapEl.style.transform=clamped>0.5?`perspective(1200px) rotateX(${clamped.toFixed(1)}deg)`:'';
+    document.body.classList.toggle('nav-3d', clamped>4);
+  }
+
+  clipEl.addEventListener('touchstart',e=>{
+    if(e.touches.length!==2){g=null;return;}
+    const [t0,t1]=[e.touches[0],e.touches[1]];
+    g={
+      midY0:(t0.clientY+t1.clientY)/2,
+      dist0:Math.hypot(t0.clientX-t1.clientX,t0.clientY-t1.clientY),
+      tilt0:perspective3D?MAX:0,
+      mode:null,
+    };
+  },{passive:true});
+
+  clipEl.addEventListener('touchmove',e=>{
+    if(e.touches.length!==2||!g) return;
+    const [t0,t1]=[e.touches[0],e.touches[1]];
+    const midY=(t0.clientY+t1.clientY)/2;
+    const dist=Math.hypot(t0.clientX-t1.clientX,t0.clientY-t1.clientY);
+    const dY=midY-g.midY0, dDist=Math.abs(dist-g.dist0);
+
+    if(!g.mode&&(Math.abs(dY)>9||dDist>9))
+      g.mode=Math.abs(dY)>dDist*0.85?'tilt':'pinch';
+
+    if(g.mode!=='tilt') return;
+    e.preventDefault();
+    applyAngle(g.tilt0 - dY*SENS); // up=negative dY=more tilt
+  },{passive:false});
+
+  function onUp(){
+    if(!g||g.mode!=='tilt'){g=null;return;}
+    // read current angle from inline style
+    const m=mapEl.style.transform.match(/rotateX\(([\d.]+)/);
+    const cur=m?parseFloat(m[1]):0;
+    g=null;
+
+    // snap with a short spring transition
+    mapEl.style.transition='transform 0.28s cubic-bezier(0.34,1.2,0.64,1)';
+
+    if(cur>MAX*0.28){
+      mapEl.style.transform=`perspective(1200px) rotateX(${MAX}deg)`;
+      if(!perspective3D) enable3DView();
+      else document.body.classList.add('nav-3d');
+    } else {
+      mapEl.style.transform='';
+      if(perspective3D) disable3DView();
+      else document.body.classList.remove('nav-3d');
+    }
+    // hand ownership back to CSS class after snap
+    setTimeout(()=>{mapEl.style.transition='';mapEl.style.transform='';},320);
+  }
+
+  clipEl.addEventListener('touchend',onUp,{passive:true});
+  clipEl.addEventListener('touchcancel',onUp,{passive:true});
+})();
+
 function resetNorthUp(){
   headingUpMode = false;
   if(map.setBearing) map.setBearing(0);
