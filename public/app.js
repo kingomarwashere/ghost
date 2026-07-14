@@ -1048,11 +1048,11 @@ function startNav(){
   navigator.geolocation.getCurrentPosition(pos=>{
     userPanning=false; // don't let this trigger the pause
     const {latitude:lat,longitude:lng}=pos.coords;
-    map.setView([lat,lng],17,{animate:true,duration:0.7});
+    map.setView([lat,lng],18,{animate:true,duration:0.7});
   }, ()=>{
     // Fallback to last known position if getCurrentPosition fails
     const k=userMarker?userMarker.getLatLng():prevPos?{lat:prevPos.lat,lng:prevPos.lng}:null;
-    if(k) map.setView([k.lat,k.lng],17,{animate:true,duration:0.7});
+    if(k) map.setView([k.lat,k.lng],18,{animate:true,duration:0.7});
   }, {enableHighAccuracy:true,timeout:8000,maximumAge:10000});
 
   loadNearCameras();
@@ -1087,14 +1087,15 @@ function endNav(){
 
 function gpsErr(e){console.warn('GPS',e.code,e.message);}
 
-function makeUserMarker(lat,lng,gpsHdg=0){
-  // Counter-rotate the icon against the map bearing so the arrow always points
-  // in the GPS travel direction in screen space regardless of map rotation.
+function makeUserIcon(gpsHdg=0){
   const iconRot = gpsHdg - (map.getBearing ? map.getBearing() : 0);
-  return L.marker([lat,lng],{
-    icon:L.divIcon({html:`<span class="user-arrow" style="transform:rotate(${iconRot}deg)">▲</span>`,className:'',iconSize:[32,32],iconAnchor:[16,16]}),
-    zIndexOffset:1000,
+  return L.divIcon({
+    html:`<svg class="user-arrow" style="transform:rotate(${iconRot}deg)" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg"><path d="M22 3 L40 39 Q22 30 4 39 Z" fill="#4285F4" stroke="white" stroke-width="2.5" stroke-linejoin="round"/></svg>`,
+    className:'', iconSize:[44,44], iconAnchor:[22,22],
   });
+}
+function makeUserMarker(lat,lng,gpsHdg=0){
+  return L.marker([lat,lng],{ icon:makeUserIcon(gpsHdg), zIndexOffset:1000 });
 }
 
 /* ── GPS handler ────────────────────────────────── */
@@ -1104,8 +1105,12 @@ function onGPS(pos){
   const rawHdg=(heading!=null&&!isNaN(heading))?heading:(prevPos?bearing(prevPos.lat,prevPos.lng,lat,lng):smoothHdg);
   const hdg=applySmoothing(rawHdg);
 
-  if(userMarker)map.removeLayer(userMarker);
-  userMarker=makeUserMarker(lat,lng,hdg).addTo(map);
+  if(!userMarker){
+    userMarker=makeUserMarker(lat,lng,hdg).addTo(map);
+  } else {
+    userMarker.setLatLng([lat,lng]);
+    userMarker.setIcon(makeUserIcon(hdg));
+  }
 
   if(navState==='navigating' && !userPanning){
     // setBearing uses smoothed heading — no jitter in map rotation
@@ -1222,12 +1227,8 @@ function updateCompass(){
   const off = Math.abs(bearing % 360) > 0.5;
   $$('compass-widget').classList.toggle('hidden', !off);
   $$('north-up-btn').classList.toggle('hidden', !off);
-  // Rebuild user marker so arrow stays correct after free rotation
   if(userMarker && prevPos){
-    const ll = userMarker.getLatLng();
-    const gpsHdg = prevPos.hdg ?? 0;
-    map.removeLayer(userMarker);
-    userMarker = makeUserMarker(ll.lat, ll.lng, gpsHdg).addTo(map);
+    userMarker.setIcon(makeUserIcon(prevPos.hdg ?? 0));
   }
 }
 
