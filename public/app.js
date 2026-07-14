@@ -294,16 +294,62 @@ function placeLabel(r){
   if(t==='city') return 'City'; if(t==='town') return 'Town'; if(t==='suburb') return 'Suburb';
   return null;
 }
-function placeName(r){ const nd=r.namedetails??{}; return nd.name||nd['name:en']||r.display_name.split(',')[0].trim(); }
-function placeSub(r)  { return r.display_name.split(',').slice(1,3).map(s=>s.trim()).filter(Boolean).join(', '); }
-
+// ── Photon geocoder (much better than Nominatim for real-time AU search) ──
 async function geocode(q, nearLat, nearLng){
-  const b=map.getBounds();
-  const params=new URLSearchParams({q,format:'jsonv2',addressdetails:'1',extratags:'1',namedetails:'1',limit:'8',viewbox:`${b.getWest()},${b.getNorth()},${b.getEast()},${b.getSouth()}`,bounded:'0'});
-  if (nearLat != null && !isNaN(nearLat)) { params.set('lat', nearLat); params.set('lon', nearLng); params.set('zoom','14'); }
-  try{ return await fetch(`https://nominatim.openstreetmap.org/search?${params}`,{headers:{'Accept-Language':'en-AU, en'}}).then(r=>r.json()); }
-  catch{ return []; }
+  const params = new URLSearchParams({ q, limit:'10', lang:'en' });
+  // Bias results toward user's GPS position; fallback to map centre
+  const gps = userMarker ? userMarker.getLatLng() : null;
+  const bLat = nearLat ?? gps?.lat ?? map.getCenter().lat;
+  const bLng = nearLng ?? gps?.lng ?? map.getCenter().lng;
+  params.set('lat', bLat);
+  params.set('lon', bLng);
+  params.set('zoom', '14');
+  try {
+    const res = await fetch(`https://photon.komoot.io/api/?${params}`);
+    const data = await res.json();
+    return (data.features ?? []).map(f => {
+      const p = f.properties;
+      const [lng, lat] = f.geometry.coordinates;
+      return {
+        lat, lng,
+        name: p.name || p.street || p.city || p.county || 'Place',
+        sub:  [p.housenumber ? `${p.housenumber} ${p.street||''}`.trim() : p.street, p.city, p.state].filter(Boolean).join(', '),
+        osmKey: p.osm_key   ?? '',
+        osmVal: p.osm_value ?? '',
+      };
+    });
+  } catch { return []; }
 }
+
+// Photon uses osm_key/osm_value instead of Nominatim's category/type
+function placeEmoji(r) {
+  const k = r.osmKey||r.category||'', v = r.osmVal||r.type||'';
+  if(k==='railway') return v==='tram_stop'?'🚋':'🚆';
+  if(k==='public_transport') return '🚉';
+  if(k==='aeroway') return '✈️';
+  if(k==='amenity'){const m={hospital:'🏥',clinic:'🏥',pharmacy:'💊',fuel:'⛽',restaurant:'🍽️',cafe:'☕',fast_food:'🍔',bar:'🍺',bank:'🏦',school:'🏫',university:'🎓',library:'📚',police:'👮',fire_station:'🚒',cinema:'🎬',theatre:'🎭'};return m[v]||'📍';}
+  if(k==='tourism'){return {hotel:'🏨',motel:'🏨',museum:'🏛️',attraction:'⭐',viewpoint:'🔭',beach:'🏖️',zoo:'🦁'}[v]||'⭐';}
+  if(k==='shop') return '🛍️';
+  if(k==='leisure'){return {park:'🌳',sports_centre:'🏋️',stadium:'🏟️',golf_course:'⛳',swimming_pool:'🏊',beach:'🏖️'}[v]||'🌿';}
+  if(k==='natural') return v==='beach'?'🏖️':'🌿';
+  if(k==='place'){return {city:'🏙️',town:'🏙️',suburb:'🏘️',neighbourhood:'🏘️',village:'🌾',island:'🏝️',county:'📍'}[v]||'📍';}
+  if(k==='highway') return '🛣️';
+  return '📍';
+}
+function placeLabel(r) {
+  const k = r.osmKey||r.category||'', v = r.osmVal||r.type||'';
+  if(k==='railway'&&v==='station') return 'Train Station';
+  if(k==='railway'&&v==='tram_stop') return 'Tram Stop';
+  if(k==='railway'&&v==='halt') return 'Train Halt';
+  if(k==='public_transport') return 'Transit Hub';
+  if(k==='aeroway'&&v==='aerodrome') return 'Airport';
+  if(k==='amenity'&&v==='hospital') return 'Hospital';
+  if(k==='amenity'&&v==='university') return 'University';
+  if(k==='place') return v.charAt(0).toUpperCase()+v.slice(1);
+  return null;
+}
+function placeName(r){ return r.name || r.display_name?.split(',')[0]?.trim() || 'Place'; }
+function placeSub(r) { return r.sub || r.display_name?.split(',').slice(1,3).join(', ') || ''; }
 
 /* ═══════════════════════════════════════════════
    REPORTS + CAMERAS
@@ -491,41 +537,47 @@ function setSheetState(state, animate=true) {
 (()=>{
   const handle = $$('sheet-handle');
   if(!handle) return;
-  let startY=0, startH=0, dragging=false;
+  let startY=0, startH=0, active=false, delta=0;
 
-  handle.addEventListener('pointerdown', e=>{
-    handle.setPointerCapture(e.pointerId);
-    dragging=true;
-    startY=e.clientY;
+  function begin(y){
+    active=true; delta=0; startY=y;
     startH=previewBar.getBoundingClientRect().height;
     previewBar.style.transition='none';
-  });
-
-  handle.addEventListener('pointermove', e=>{
-    if(!dragging) return;
-    const dy = startY - e.clientY;
-    const newH = Math.max(SNAP.peek, Math.min(SNAP.full, startH+dy));
+  }
+  function move(y){
+    if(!active) return;
+    const dy=startY-y;
+    delta=Math.abs(dy);
+    const newH=Math.max(SNAP.peek, Math.min(SNAP.full, startH+dy));
     previewBar.style.setProperty('--sheet-h', newH+'px');
-    // Show content once dragged above peek threshold
     const content=$$('sheet-content');
-    if(content) content.style.display = newH > SNAP.peek+20 ? '' : 'none';
-  });
-
-  handle.addEventListener('pointerup', e=>{
-    if(!dragging) return;
-    dragging=false;
+    if(content) content.style.display = newH>SNAP.peek+24 ? '' : 'none';
+  }
+  function end(){
+    if(!active) return;
+    active=false;
     previewBar.style.transition='';
-    const cur = previewBar.getBoundingClientRect().height;
-    const midLow = (SNAP.peek+SNAP.half)/2;
-    const midHigh = (SNAP.half+SNAP.full)/2;
-    setSheetState(cur < midLow ? 'peek' : cur < midHigh ? 'half' : 'full');
-  });
+    if(delta<8){
+      // Tap — toggle peek ↔ half
+      const cur=previewBar.getBoundingClientRect().height;
+      setSheetState(cur<=SNAP.peek+24 ? 'half' : 'peek');
+      return;
+    }
+    const cur=previewBar.getBoundingClientRect().height;
+    const lo=(SNAP.peek+SNAP.half)/2, hi=(SNAP.half+SNAP.full)/2;
+    setSheetState(cur<lo ? 'peek' : cur<hi ? 'half' : 'full');
+  }
 
-  // Tap the handle toggles peek ↔ half
-  handle.addEventListener('click', ()=>{
-    const cur = previewBar.getBoundingClientRect().height;
-    setSheetState(cur <= SNAP.peek+20 ? 'half' : 'peek');
-  });
+  // Pointer events — captures the pointer for smooth drag even off-element
+  handle.addEventListener('pointerdown', e=>{ handle.setPointerCapture(e.pointerId); begin(e.clientY); },{passive:true});
+  handle.addEventListener('pointermove', e=>move(e.clientY), {passive:true});
+  handle.addEventListener('pointerup',   ()=>end());
+  handle.addEventListener('pointercancel', ()=>{ active=false; previewBar.style.transition=''; });
+
+  // Touch fallback for older iOS WebKit
+  handle.addEventListener('touchstart', e=>begin(e.touches[0].clientY), {passive:true});
+  handle.addEventListener('touchmove',  e=>{ e.preventDefault(); move(e.touches[0].clientY); }, {passive:false});
+  handle.addEventListener('touchend',   ()=>end(), {passive:true});
 })();
 let navState='idle';
 let allRoutes=[], selectedRouteIdx=0;
@@ -635,12 +687,10 @@ swapBtn.addEventListener('click',()=>{
 
 async function doSearch(q){
   searchResultsEl.innerHTML=`<div class="no-results">Searching…</div>`;
-  const results=await geocode(q);
-  if(!results.length){searchResultsEl.innerHTML=`<div class="no-results">No places found</div>`;return;}
-  searchResultsEl.innerHTML=results.map(r=>resultRow(
-    {lat:parseFloat(r.lat),lng:parseFloat(r.lon),name:placeName(r),sub:placeSub(r)},
-    isFav(placeName(r)), true, placeEmoji(r), placeLabel(r)
-  )).join('');
+  // Photon returns already-parsed place objects {lat,lng,name,sub,osmKey,osmVal}
+  const results = await geocode(q);
+  if(!results.length){searchResultsEl.innerHTML=`<div class="no-results">No places found for "${escHtml(q)}"</div>`;return;}
+  searchResultsEl.innerHTML=results.map(r=>resultRow(r, isFav(r.name), true, placeEmoji(r), placeLabel(r))).join('');
   bindResultClicks();
 }
 
@@ -970,6 +1020,12 @@ function startNav(){
   $$('view-toggle').classList.remove('hidden');
   acquireWakeLock();
   enable3DView();
+
+  // Immediately fly to the user's known position at street zoom
+  const knownPos = userMarker ? userMarker.getLatLng()
+                 : prevPos    ? {lat:prevPos.lat, lng:prevPos.lng}
+                 : null;
+  if(knownPos) map.setView([knownPos.lat, knownPos.lng], 17, {animate:true, duration:0.6});
 
   loadNearCameras();
   loadNearReports();

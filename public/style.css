@@ -27,12 +27,13 @@ body {
 
 /* ── 3D perspective navigation view ──────────── */
 body.nav-3d #map {
-  /* Pivot at 68% from top ≈ where the user marker sits after look-ahead offset */
-  transform-origin: 50% 68%;
-  /* perspective depth, tilt angle, slight scale to fill any gap at horizon */
-  transform: perspective(650px) rotateX(30deg) scale(1.08);
+  /* Pivot at CENTER — rotateX then expands the map beyond viewport in both
+     directions, so there are no black gaps at any bearing angle.
+     The top half (road ahead) tilts away = looks far = Waze perspective.
+     The bottom half (road behind) tilts forward = also expands off-screen. */
+  transform-origin: 50% 50%;
+  transform: perspective(700px) rotateX(26deg);
 }
-/* Hide Leaflet UI controls inside the tilted map — they'd appear skewed */
 body.nav-3d .leaflet-control { opacity: 0; pointer-events: none; transition: opacity 0.3s; }
 body:not(.nav-3d) .leaflet-control { opacity: 1; transition: opacity 0.3s; }
 .hidden { display: none !important; }
@@ -76,14 +77,16 @@ body:not(.nav-3d) .leaflet-control { opacity: 1; transition: opacity 0.3s; }
 /* ── Route planner ────────────────────────────── */
 #route-planner {
   position: absolute; top: 0; left: 0; right: 0; z-index: 1100;
-  background: var(--surface); border-bottom: 1px solid var(--border);
-  /* Never taller than ~60% of screen so map is always visible behind */
-  max-height: 62dvh; overflow: hidden;
+  background: var(--surface); border-bottom: 1px solid rgba(255,255,255,.07);
+  /* 58svh uses the SMALL viewport (keyboard excluded) so results are never clipped */
+  max-height: 58svh; overflow: hidden;
   display: flex; flex-direction: column;
 }
+#planner-top { flex-shrink: 0; }
 #search-results {
-  overflow-y: auto; flex: 1;
-  overscroll-behavior: contain;
+  flex: 1; min-height: 0; /* critical: allows flex child to shrink below content height */
+  overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 #planner-top {
   display: flex; align-items: flex-start; gap: 10px;
@@ -132,7 +135,7 @@ body:not(.nav-3d) .leaflet-control { opacity: 1; transition: opacity 0.3s; }
 #swap-btn:hover { background: rgba(255,255,255,.2); }
 
 /* ── Search results ───────────────────────────── */
-#search-results { padding: 2px 12px 12px; overflow-y: auto; }
+#search-results { padding: 2px 12px 12px; }
 .results-section-label {
   font-size: .7rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: .08em; color: var(--muted); padding: 8px 10px 4px;
