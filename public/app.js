@@ -193,16 +193,27 @@ map.on('style.load', () => {
   }
 });
 
+// Custom layer IDs — never touched by hideNavClutter
+const CUSTOM_LAYERS = new Set(['route-main','route-traveled','route-alts','heatmap-layer','3d-buildings']);
+
 function setupMapLayers(){
-  // Route lines
+  // Route line sources
   ['route-main','route-traveled','route-alts'].forEach(id=>{
     if(!map.getSource(id)) map.addSource(id,{type:'geojson',data:emptyFC()});
   });
-  if(!map.getLayer('route-alts'))     map.addLayer({id:'route-alts',type:'line',source:'route-alts',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#336677','line-width':4,'line-opacity':0.6}});
-  if(!map.getLayer('route-traveled')) map.addLayer({id:'route-traveled',type:'line',source:'route-traveled',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#0a3547','line-width':8,'line-opacity':0.8}});
-  // Glow pass — white halo behind the cyan route for dark-map visibility
-  if(!map.getLayer('route-glow'))     map.addLayer({id:'route-glow',type:'line',source:'route-main',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#ffffff','line-width':14,'line-opacity':0.18}});
-  if(!map.getLayer('route-main'))     map.addLayer({id:'route-main',type:'line',source:'route-main',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#00cfff','line-width':8,'line-opacity':1}});
+  // Route layers — explicit visibility:'visible' so nothing can silently hide them
+  if(!map.getLayer('route-alts'))
+    map.addLayer({id:'route-alts',type:'line',source:'route-alts',
+      layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
+      paint:{'line-color':'#336677','line-width':4,'line-opacity':0.6}});
+  if(!map.getLayer('route-traveled'))
+    map.addLayer({id:'route-traveled',type:'line',source:'route-traveled',
+      layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
+      paint:{'line-color':'#0a3547','line-width':8,'line-opacity':0.8}});
+  if(!map.getLayer('route-main'))
+    map.addLayer({id:'route-main',type:'line',source:'route-main',
+      layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
+      paint:{'line-color':'#00cfff','line-width':10,'line-opacity':1}});
   // Heatmap
   if(!map.getSource('heatmap-src')){
     map.addSource('heatmap-src',{type:'geojson',data:emptyFC()});
@@ -230,6 +241,10 @@ function setupMapLayers(){
     }
   }catch(_){}
   hideNavClutter();
+  // Guarantee route layers are visible after hideNavClutter runs
+  ['route-main','route-traveled','route-alts'].forEach(id=>{
+    try{ if(map.getLayer(id)) map.setLayoutProperty(id,'visibility','visible'); }catch(_){}
+  });
 }
 
 // Hide non-navigation tile layers for a cleaner Waze-style map.
@@ -241,6 +256,7 @@ function hideNavClutter(){
   const HIDE_SRC = /housenumber|house_number|building_number|address/i;
   try{
     map.getStyle().layers.forEach(l=>{
+      if(CUSTOM_LAYERS.has(l.id)) return; // never touch our own layers
       const matchId  = HIDE.test(l.id);
       const matchSrc = l['source-layer'] && HIDE_SRC.test(l['source-layer']);
       if(matchId || matchSrc){
@@ -1352,6 +1368,8 @@ function startNav(){
   $$('compass-widget').classList.remove('hidden');
   $$('view-toggle').classList.remove('hidden');
   acquireWakeLock();
+  // Safety redraw — ensures route is visible after UI transitions settle
+  setTimeout(()=>{ if(routePoints.length) updateRouteGeoJSON(); }, 300);
   enable3DView();
 
   // Reset heading smoother so it doesn't inherit stale heading
@@ -1571,12 +1589,18 @@ function onGPS(pos){
 const toGL = pts => pts.map(p=>[p[1],p[0]]);
 
 function updateRouteGeoJSON(){
-  // If the source was lost (e.g. style swap timing), recreate everything first
+  if(!routePoints.length) return;
+  // Recreate layers if they were lost (e.g. style swap race)
   if(!map.getSource('route-main') || !map.getLayer('route-main')){
     try{ setupMapLayers(); }catch(_){}
   }
-  const data={type:'Feature',geometry:{type:'LineString',coordinates:toGL(routePoints)}};
-  map.getSource('route-main')?.setData(data);
+  const coords = toGL(routePoints);
+  const fc = {type:'FeatureCollection',features:[
+    {type:'Feature',properties:{},geometry:{type:'LineString',coordinates:coords}}
+  ]};
+  try{ map.getSource('route-main')?.setData(fc); }catch(_){}
+  // Force layer visible in case it was hidden
+  try{ map.setLayoutProperty('route-main','visibility','visible'); }catch(_){}
 }
 
 function updateRouteStyling(idx){
