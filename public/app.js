@@ -820,7 +820,7 @@ function setSheetState(state, animate=true) {
   handle.addEventListener('touchmove',  e=>{ e.preventDefault(); move(e.touches[0].clientY); }, {passive:false});
   handle.addEventListener('touchend',   ()=>end(), {passive:true});
 })();
-let navState='idle', _preNavStyle=null;
+let navState='idle';
 let allRoutes=[], selectedRouteIdx=0;
 let routeData=null, routePoints=[], maneuvers=[];
 let destMarker=null, userMarker=null;
@@ -1354,10 +1354,6 @@ function startNav(){
   acquireWakeLock();
   enable3DView();
 
-  // Force dark map during navigation for road visibility (like Waze)
-  _preNavStyle = prefs.mapStyle;
-  if(!DARK_STYLES.has(prefs.mapStyle)) setTile('dark', true);
-
   // Reset heading smoother so it doesn't inherit stale heading
   hdgSet=false; userPanning=false;
 
@@ -1407,9 +1403,6 @@ function endNav(){
   prevPos=null;
   currentSpeedEl.innerHTML='– <small>km/h</small>';
   speedLimitSign.classList.add('hidden');
-  // Restore pre-nav map style, then re-apply solar day/night check
-  if(_preNavStyle){ setTile(_preNavStyle, true); _preNavStyle=null; }
-  setTimeout(autoNightCheck, 300);
 }
 
 function gpsErr(e){console.warn('GPS',e.code,e.message);}
