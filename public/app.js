@@ -213,7 +213,7 @@ function setupMapLayers(){
   if(!map.getLayer('route-main'))
     map.addLayer({id:'route-main',type:'line',source:'route-main',
       layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
-      paint:{'line-color':'#ff2d55','line-width':10,'line-opacity':1}});
+      paint:{'line-color':'#00cfff','line-width':10,'line-opacity':1}});
   // Heatmap
   if(!map.getSource('heatmap-src')){
     map.addSource('heatmap-src',{type:'geojson',data:emptyFC()});
