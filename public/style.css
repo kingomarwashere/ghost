@@ -534,22 +534,8 @@ body.navigating #report-btn {
   width: 44px; height: 44px;
 }
 
-/* ── Palestine map labels ─────────────────────── */
-.pal-label {
-  display: block; text-align: center;
-  font-weight: 800; letter-spacing: .09em; color: #2d3a4a;
-  /* Opaque background matching Voyager tile land colour — paints over tile text */
-  background: #eee9e0;
-  padding: 1px 4px;
-  border-radius: 2px;
-  white-space: nowrap; pointer-events: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-/* On dark/satellite tiles, flip to dark background + light text */
-body.tile-dark .pal-label,
-body.tile-satellite .pal-label {
-  background: #1a1a2e; color: #cbd5e1;
-}
+/* Palestine labels are now handled at the vector tile render level via
+   MapLibre GL style expressions — no CSS overlay needed. */
 
 /* ── 2D street name bubbles overlay ───────────── */
 #street-labels-overlay {

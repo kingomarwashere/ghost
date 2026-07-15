@@ -76,69 +76,89 @@ function autoNightCheck() {
 }
 
 /* ═══════════════════════════════════════════════
-   MAP TILES
+   MAP TILES — vector GL styles (CartoDB free, no API key)
+   + raster fallback for satellite/terrain
 ═══════════════════════════════════════════════ */
-const TILES = {
-  dark:      { url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',             sub:'abcd', attr:'©OpenStreetMap ©CartoDB' },
-  light:     { url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',            sub:'abcd', attr:'©OpenStreetMap ©CartoDB' },
-  voyager:   { url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',  sub:'abcd', attr:'©OpenStreetMap ©CartoDB' },
-  satellite: { url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', sub:'', attr:'©Esri' },
-  terrain:   { url:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',                          sub:'abc',  attr:'©OpenStreetMap ©OpenTopoMap' },
+
+// CartoDB publish their tile styles as free MapLibre GL JSON — no API key needed.
+// Vector tiles let us rewrite label text before it ever renders (see fixPalestineLabels).
+const VECTOR_STYLES = {
+  dark:    'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  light:   'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+  voyager: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
 };
+const RASTER_TILES = {
+  satellite: { url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', sub:'', attr:'©Esri' },
+  terrain:   { url:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', sub:'abc', attr:'©OpenStreetMap ©OpenTopoMap' },
+};
+
+// Palestinian place name replacements applied to every symbol layer in the GL style.
+// 'name:latin' is CartoDB's primary text field; we also check 'name:en' and 'name'.
+const PAL_NAMES = {
+  'Israel':          'Palestine',
+  'Tel Aviv':        'Yafa',
+  'Tel Aviv-Yafo':   'Yafa',
+  'Jerusalem':       'Al-Quds',
+  'Beer Sheva':      "Bir as-Sab'",
+  'Beersheba':       "Bir as-Sab'",
+  'Ashkelon':        'Al-Majdal',
+  'Ashdod':          'Isdud',
+  'Acre':            'Akka',
+  'Nazareth':        'An-Nasira',
+  'Tiberias':        'Tabariyya',
+  'Safed':           'Safad',
+  'Jaffa':           'Yafa',
+};
+
+function fixPalestineLabels(glMap){
+  if(!glMap || !glMap.isStyleLoaded()) return;
+  const entries = Object.entries(PAL_NAMES).flatMap(([k,v])=>[k,v]);
+  // expression: match name:latin / name:en / name against our table, else keep original
+  const expr = (field) => ['match',
+    ['coalesce',['get','name:latin'],['get','name:en'],['get','name'],''],
+    ...entries,
+    field,
+  ];
+  glMap.getStyle().layers.forEach(layer=>{
+    if(layer.type!=='symbol') return;
+    try{
+      const cur = glMap.getLayoutProperty(layer.id,'text-field');
+      if(cur) glMap.setLayoutProperty(layer.id,'text-field', expr(cur));
+    }catch(_){}
+  });
+}
 
 const map = L.map('map', {
   center:[-27.5,133.5], zoom:5, zoomControl:false,
-  rotate:true,          // leaflet-rotate: enable bearing API
-  touchRotate:true,     // two-finger pinch-rotate gesture
-  rotateControl:false,  // we use our own compass widget
-  bearing:0,
+  rotate:true, touchRotate:true, rotateControl:false, bearing:0,
 });
 L.control.zoom({ position:'bottomleft' }).addTo(map);
 map.locate({ setView:true, maxZoom:14, timeout:8000 });
 
-let tileLayer = null;
-function setTile(style, isAuto=false) {
-  const t = TILES[style]; if (!t) return;
-  if (tileLayer) map.removeLayer(tileLayer);
-  tileLayer = L.tileLayer(t.url, { attribution:t.attr, subdomains:t.sub, maxZoom:20 }).addTo(map);
-  prefs.mapStyle = style; savePrefs();
-  if (!isAuto) userPickedStyle = true;
-  document.querySelectorAll('.style-btn').forEach(b => b.classList.toggle('active', b.dataset.style === style));
-  // Update label background class for tile-aware Palestine labels
-  document.body.className = document.body.className.replace(/\btile-\S+/g,'').trim();
+let tileLayer=null, glLayer=null;
+function setTile(style, isAuto=false){
+  if(glLayer){ map.removeLayer(glLayer); glLayer=null; }
+  if(tileLayer){ map.removeLayer(tileLayer); tileLayer=null; }
+
+  if(VECTOR_STYLES[style]){
+    glLayer = L.maplibreGL({ style:VECTOR_STYLES[style], attribution:'©OpenStreetMap ©CartoDB' }).addTo(map);
+    // Fix labels as soon as the GL style finishes loading
+    const glMap = glLayer.getMaplibreMap();
+    const applyFix = () => fixPalestineLabels(glMap);
+    if(glMap.isStyleLoaded()) applyFix();
+    else glMap.on('style.load', applyFix);
+  } else {
+    const t=RASTER_TILES[style]; if(!t) return;
+    tileLayer=L.tileLayer(t.url,{attribution:t.attr,subdomains:t.sub,maxZoom:20}).addTo(map);
+  }
+
+  prefs.mapStyle=style; savePrefs();
+  if(!isAuto) userPickedStyle=true;
+  document.querySelectorAll('.style-btn').forEach(b=>b.classList.toggle('active',b.dataset.style===style));
+  document.body.className=document.body.className.replace(/\btile-\S+/g,'').trim();
   document.body.classList.add('tile-'+style);
 }
 setTile(prefs.mapStyle);
-
-// Auto night on location found and every 10 minutes
-map.on('locationfound', () => autoNightCheck());
-setInterval(autoNightCheck, 10 * 60 * 1000);
-
-/* ── Palestine map labels — opaque overlays that replace tile-rendered text ── */
-// Tile images are raster PNGs — we cover them with our own labels that have
-// a background matching the Voyager tile land colour so they paint over the
-// tile text rather than just floating on top of it.
-[
-  // Country / region labels
-  { latlng:[31.50, 34.80], text:'PALESTINE',  size:16, w:140 },
-  { latlng:[30.80, 34.88], text:'PALESTINE',  size:14, w:125 }, // covers ISRAEL (Negev)
-  { latlng:[31.95, 35.20], text:'WEST BANK',  size:11, w:100 },
-  { latlng:[31.38, 34.35], text:'GAZA',       size:12, w:62  },
-  { latlng:[30.55, 34.82], text:'AN-NAQAB',   size:10, w:88  }, // Palestinian name for Negev
-  // City names → original Palestinian/Arabic names
-  { latlng:[32.08, 34.78], text:'YAFA',       size:11, w:58  }, // Tel Aviv → Jaffa/Yafa
-  { latlng:[31.77, 35.22], text:'AL-QUDS',    size:11, w:76  }, // Jerusalem → Al-Quds
-  { latlng:[32.82, 35.00], text:'HAIFA',      size:11, w:60  }, // same name, keep
-  { latlng:[31.20, 34.80], text:'BIR AS-SAB', size:10, w:90  }, // Beer Sheva → Bir as-Sab
-].forEach(({latlng, text, size, w}) => {
-  L.marker(latlng, {
-    icon: L.divIcon({
-      html:`<span class="pal-label" style="font-size:${size}px;width:${w+8}px">${text}</span>`,
-      className:'', iconSize:[w+8, size+6], iconAnchor:[(w+8)/2, (size+6)/2],
-    }),
-    interactive:false, zIndexOffset:-800,
-  }).addTo(map);
-});
 
 /* ═══════════════════════════════════════════════
    LAYER GROUPS
