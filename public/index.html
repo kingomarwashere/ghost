@@ -13,15 +13,12 @@
   <link rel="apple-touch-icon" href="/icon.svg">
   <title>Radar</title>
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
-<div id="map-clip"><div id="map"></div></div>
-<!-- 2D street label overlay — positioned via JS perspective math, outside map transform -->
+<div id="map"></div>
+<!-- Street label overlay — positioned via map.project() in screen space -->
 <div id="street-labels-overlay"></div>
 
 <!-- ── Compass widget (nav mode only) ──────────── -->
@@ -244,11 +241,6 @@
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.20/leaflet-maplibre-gl.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-<script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

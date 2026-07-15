@@ -21,26 +21,12 @@ body {
   height: 100dvh; overflow: hidden;
   -webkit-tap-highlight-color: transparent;
 }
-/* Clip container — viewport-sized, clips the oversized map without affecting page layout */
-#map-clip {
-  position: absolute; inset: 0; z-index: 0; overflow: hidden;
-}
-/* Map is 160% of clip container so rotated edges always have tiles */
+/* MapLibre GL canvas container — full viewport, WebGL handles all 3D projection */
 #map {
-  position: absolute;
-  width: 160%; height: 160%;
-  top: -30%; left: -30%;
-  transform-origin: center center;
-  transition: transform 0.55s cubic-bezier(0.4,0,0.2,1);
+  position: absolute; inset: 0; z-index: 0;
 }
-
-/* ── 3D perspective navigation view ──────────── */
-body.nav-3d #map {
-  transform-origin: 50% 50%;
-  transform: perspective(1200px) rotateX(38deg);
-}
-body.nav-3d .leaflet-control { opacity: 0; pointer-events: none; transition: opacity 0.3s; }
-body:not(.nav-3d) .leaflet-control { opacity: 1; transition: opacity 0.3s; }
+/* body.nav-3d used only for UI state (street labels, controls visibility) —
+   actual 3D is done by map.setPitch() in WebGL, not CSS transforms */
 .hidden { display: none !important; }
 
 /* ── Top bar ──────────────────────────────────── */
@@ -557,16 +543,18 @@ body:not(.nav-3d) #street-labels-overlay { display: none; }
 }
 
 /* ── Leaflet overrides ────────────────────────── */
-.leaflet-container { background: var(--bg); }
-.leaflet-popup-content-wrapper {
-  background: #1a1a1a; color: var(--text);
+/* ── MapLibre GL overrides ────────────────────── */
+.maplibregl-map { background: var(--bg); }
+.maplibregl-popup-content {
+  background: #111827; color: var(--text);
   border: 1px solid var(--border); border-radius: 14px;
   box-shadow: 0 6px 24px rgba(0,0,0,.6);
+  padding: 12px 14px;
 }
-.leaflet-popup-tip { background: #1a1a1a; }
-.leaflet-popup-content { margin: 12px 14px; }
-.leaflet-popup-content p { margin: 4px 0; font-size: .82rem; color: var(--muted); }
-.leaflet-popup-content strong { display: block; font-size: .95rem; margin-bottom: 4px; }
+.maplibregl-popup-tip { border-top-color: #111827 !important; border-bottom-color: #111827 !important; }
+.maplibregl-popup-content p { margin: 4px 0; font-size: .82rem; color: var(--muted); }
+.maplibregl-popup-content strong { display: block; font-size: .95rem; margin-bottom: 4px; }
+.maplibregl-popup-close-button { color: var(--muted); right: 8px; top: 8px; font-size: 1rem; }
 .popup-actions { display: flex; gap: 8px; margin-top: 10px; }
 .popup-actions button {
   flex: 1; background: rgba(255,255,255,.07);
@@ -575,13 +563,11 @@ body:not(.nav-3d) #street-labels-overlay { display: none; }
 }
 .popup-confirm { color: var(--green) !important; }
 .popup-deny    { color: var(--red) !important; }
-.leaflet-control-zoom a { background: #1a1a1a !important; color: #fff !important; border-color: #333 !important; }
-.marker-cluster-small div,.marker-cluster-medium div,.marker-cluster-large div {
-  background-color: rgba(255,45,85,.65) !important; color: #fff !important; font-weight: 800; font-size: .8rem;
+.maplibregl-ctrl-zoom-in,.maplibregl-ctrl-zoom-out,.maplibregl-ctrl-compass {
+  background-color: var(--surface) !important; color: var(--text) !important;
+  border-color: var(--border) !important;
 }
-.marker-cluster-small,.marker-cluster-medium,.marker-cluster-large {
-  background-color: rgba(255,45,85,.18) !important;
-}
+.maplibregl-ctrl button .maplibregl-ctrl-icon { filter: invert(1); }
 .dest-pin { font-size: 2.2rem; line-height: 1; filter: drop-shadow(0 3px 8px rgba(0,0,0,.7)); }
 
 /* ── Compass widget ───────────────────────────────── */

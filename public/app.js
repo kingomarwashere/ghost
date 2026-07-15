@@ -128,8 +128,8 @@ const PAL_NAMES = {
 
 let _palApplied = false; // prevent re-entrant loop from setLayoutProperty → styledata
 
-function fixPalestineLabels(glMap){
-  if(!glMap||!glMap.isStyleLoaded()||_palApplied) return;
+function fixPalestineLabels(){
+  if(!map.isStyleLoaded()||_palApplied) return;
   _palApplied = true;
 
   const entries = Object.entries(PAL_NAMES).flatMap(([k,v])=>[k,v]);
@@ -141,91 +141,128 @@ function fixPalestineLabels(glMap){
   const expr = ['match', nameCoalesce, ...entries, nameCoalesce];
 
   let count = 0;
-  glMap.getStyle().layers.forEach(layer => {
+  map.getStyle().layers.forEach(layer => {
     if(layer.type !== 'symbol') return;
-    try{ glMap.setLayoutProperty(layer.id, 'text-field', expr); count++; }catch(_){}
+    try{ map.setLayoutProperty(layer.id, 'text-field', expr); count++; }catch(_){}
   });
   console.debug(`[Palestine] fixed ${count} label layers`);
 }
 
-const map = L.map('map', {
-  center:[-27.5,133.5], zoom:5, zoomControl:false,
-  rotate:true, touchRotate:true, rotateControl:false, bearing:0,
+// Raster fallback styles (satellite/terrain) as inline MapLibre style objects
+const RASTER_STYLES = {
+  satellite: { version:8, sources:{sat:{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,attribution:'©Esri'}}, layers:[{id:'bg',type:'raster',source:'sat'}] },
+  terrain:   { version:8, sources:{ter:{type:'raster',tiles:['https://a.tile.opentopomap.org/{z}/{x}/{y}.png'],tileSize:256,attribution:'©OpenStreetMap ©OpenTopoMap'}}, layers:[{id:'bg',type:'raster',source:'ter'}] },
+};
+const emptyFC = () => ({type:'FeatureCollection',features:[]});
+
+// MapLibre GL JS — native WebGL pitch/bearing/3D
+const map = new maplibregl.Map({
+  container:'map',
+  style: VECTOR_STYLES[prefs.mapStyle] || VECTOR_STYLES.voyager,
+  center:[133.5,-27.5], zoom:5, bearing:0, pitch:0,
+  attributionControl:false, maxPitch:85,
 });
-L.control.zoom({ position:'bottomleft' }).addTo(map);
-map.locate({ setView:true, maxZoom:14, timeout:8000 });
+map.addControl(new maplibregl.NavigationControl({showCompass:false}), 'bottom-left');
 
-let tileLayer=null, glLayer=null;
-function setTile(style, isAuto=false){
-  if(glLayer){ map.removeLayer(glLayer); glLayer=null; }
-  if(tileLayer){ map.removeLayer(tileLayer); tileLayer=null; }
-  _palApplied = false; // reset so new style gets fixed
-
-  if(VECTOR_STYLES[style]){
-    glLayer = L.maplibreGL({ style:VECTOR_STYLES[style], attribution:'©OpenStreetMap ©CartoDB' }).addTo(map);
-    // getMaplibreMap() is synchronous after addTo() but style loads async.
-    // Use once('style.load') — fires exactly once when all layers are ready.
-    // Also guard with setTimeout(0) to let the GL event loop settle first.
-    const glMap = glLayer.getMaplibreMap();
-    const apply = () => setTimeout(() => fixPalestineLabels(glMap), 0);
-    glMap.once('style.load', apply);
-    if(glMap.isStyleLoaded()) apply(); // cached style already loaded
-  } else {
-    const t=RASTER_TILES[style]; if(!t) return;
-    tileLayer=L.tileLayer(t.url,{attribution:t.attr,subdomains:t.sub,maxZoom:20}).addTo(map);
+// On every style.load (initial + setStyle calls): fix labels, add custom layers
+let _mapReady = false;
+map.on('style.load', () => {
+  _palApplied = false;
+  fixPalestineLabels();
+  setupMapLayers();
+  if(!_mapReady){
+    _mapReady = true;
+    // Initial location + auto-night
+    navigator.geolocation.getCurrentPosition(pos=>{
+      autoNightCheck();
+      map.flyTo({center:[pos.coords.longitude,pos.coords.latitude],zoom:14,duration:1500});
+    }, null, {enableHighAccuracy:false,timeout:8000,maximumAge:60000});
+    scheduleFetch();
+    setInterval(autoNightCheck, 10*60*1000);
   }
+});
 
+function setupMapLayers(){
+  // Route lines
+  ['route-main','route-traveled','route-alts'].forEach(id=>{
+    if(!map.getSource(id)) map.addSource(id,{type:'geojson',data:emptyFC()});
+  });
+  if(!map.getLayer('route-alts'))    map.addLayer({id:'route-alts',type:'line',source:'route-alts',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#555','line-width':3,'line-opacity':0.6}});
+  if(!map.getLayer('route-traveled'))map.addLayer({id:'route-traveled',type:'line',source:'route-traveled',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#334155','line-width':5,'line-opacity':0.7}});
+  if(!map.getLayer('route-main'))    map.addLayer({id:'route-main',type:'line',source:'route-main',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#3b82f6','line-width':6,'line-opacity':0.9}});
+  // Heatmap
+  if(!map.getSource('heatmap-src')){
+    map.addSource('heatmap-src',{type:'geojson',data:emptyFC()});
+    map.addLayer({id:'heatmap-layer',type:'heatmap',source:'heatmap-src',layout:{visibility:'none'},paint:{
+      'heatmap-weight':['coalesce',['get','w'],1],
+      'heatmap-intensity':1.2,
+      'heatmap-color':['interpolate',['linear'],['heatmap-density'],0,'rgba(0,0,255,0)',0.3,'rgba(14,165,233,0.5)',1,'rgba(255,45,85,0.9)'],
+      'heatmap-radius':28,'heatmap-opacity':0.85,
+    }});
+  }
+  // 3D building extrusion — only on vector tile styles
+  try{
+    const src = Object.keys(map.getStyle().sources).find(k=>map.getStyle().sources[k].type==='vector');
+    if(src && !map.getLayer('3d-buildings')){
+      const firstSym = map.getStyle().layers.find(l=>l.type==='symbol')?.id;
+      map.addLayer({
+        id:'3d-buildings',type:'fill-extrusion',source:src,'source-layer':'building',minzoom:15,
+        paint:{
+          'fill-extrusion-color':'#1a2744',
+          'fill-extrusion-height':['coalesce',['get','render_height'],['get','height'],4],
+          'fill-extrusion-base':['coalesce',['get','render_min_height'],['get','min_height'],0],
+          'fill-extrusion-opacity':0.8,
+        }
+      }, firstSym);
+    }
+  }catch(_){}
+}
+
+function setTile(style, isAuto=false){
+  const s = VECTOR_STYLES[style] || RASTER_STYLES[style];
+  if(!s) return;
+  map.setStyle(s); // triggers style.load → fixPalestineLabels + setupMapLayers
   prefs.mapStyle=style; savePrefs();
   if(!isAuto) userPickedStyle=true;
   document.querySelectorAll('.style-btn').forEach(b=>b.classList.toggle('active',b.dataset.style===style));
-  document.body.className=document.body.className.replace(/\btile-\S+/g,'').trim();
-  document.body.classList.add('tile-'+style);
 }
-setTile(prefs.mapStyle);
+// initial setTile handled by map construction style — just sync UI
+document.querySelectorAll('.style-btn').forEach(b=>b.classList.toggle('active',b.dataset.style===prefs.mapStyle));
 
 /* ═══════════════════════════════════════════════
-   LAYER GROUPS
+   MARKER ARRAYS (replaces Leaflet cluster groups)
 ═══════════════════════════════════════════════ */
-const reportCluster = L.markerClusterGroup({ maxClusterRadius:40, disableClusteringAtZoom:15 });
-const cameraCluster = L.markerClusterGroup({ maxClusterRadius:60, disableClusteringAtZoom:14 });
-map.addLayer(reportCluster);
-map.addLayer(cameraCluster);
-const streetLabelGroup = L.layerGroup().addTo(map);
+let reportMarkers=[], cameraMarkers=[];
+function clearMarkers(arr){ arr.forEach(m=>m.remove()); arr.length=0; }
 
-/* ── Heatmap layer ──────────────────────────── */
-let heatLayer = null;
-let heatmapVisible = false;
-const heatmapBtn = $$('heatmap-btn');
+/* ── Heatmap ──────────────────────────────── */
+let heatmapVisible=false;
+const heatmapBtn=$$('heatmap-btn');
 
-async function loadHeatmap() {
-  const b = map.getBounds();
-  const p = new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});
-  try {
-    const data = await fetch(`/api/heatmap?${p}`).then(r=>r.json());
-    const pts = data.map(d => [d.lat, d.lng, Math.min((d.weight||1)*0.4, 1.0)]);
-    if (heatLayer) map.removeLayer(heatLayer);
-    heatLayer = L.heatLayer(pts, { radius:25, blur:15, maxZoom:17, max:1.0 }).addTo(map);
-  } catch {}
+async function loadHeatmap(){
+  const b=map.getBounds();
+  const p=new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});
+  try{
+    const data=await fetch(`/api/heatmap?${p}`).then(r=>r.json());
+    const features=data.map(d=>({type:'Feature',geometry:{type:'Point',coordinates:[d.lng,d.lat]},properties:{w:Math.min((d.weight||1)*0.4,1)}}));
+    map.getSource('heatmap-src')?.setData({type:'FeatureCollection',features});
+  }catch{}
 }
 
-heatmapBtn.addEventListener('click', async () => {
-  heatmapVisible = !heatmapVisible;
-  heatmapBtn.classList.toggle('active', heatmapVisible);
-  if (heatmapVisible) {
-    await loadHeatmap();
-  } else {
-    if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
-  }
+heatmapBtn.addEventListener('click',async()=>{
+  heatmapVisible=!heatmapVisible;
+  heatmapBtn.classList.toggle('active',heatmapVisible);
+  if(map.getLayer('heatmap-layer')) map.setLayoutProperty('heatmap-layer','visibility',heatmapVisible?'visible':'none');
+  if(heatmapVisible) await loadHeatmap();
 });
 
 /* ═══════════════════════════════════════════════
    ICONS — polished SVG rounded-square markers
+   Returns an element factory for maplibregl.Marker
 ═══════════════════════════════════════════════ */
 function makeSvgIcon(paths, bg, size=42){
-  return L.divIcon({
-    html:`<div style="width:${size}px;height:${size}px;border-radius:13px;background:${bg};display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.18)"><svg viewBox="0 0 20 20" width="22" height="22" xmlns="http://www.w3.org/2000/svg">${paths}</svg></div>`,
-    className:'', iconSize:[size,size], iconAnchor:[size/2,size/2], popupAnchor:[0,-(size/2+4)],
-  });
+  const html=`<div style="width:${size}px;height:${size}px;border-radius:13px;background:${bg};display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.18);cursor:pointer"><svg viewBox="0 0 20 20" width="22" height="22" xmlns="http://www.w3.org/2000/svg">${paths}</svg></div>`;
+  return { el:()=>{ const d=document.createElement('div'); d.innerHTML=html; return d.firstChild; } };
 }
 
 const ICONS = {
@@ -367,14 +404,16 @@ function aheadPoint(lat, lng, hdgDeg, distM) {
 function enable3DView() {
   perspective3D = true;
   document.body.classList.add('nav-3d');
-  if(navState==='navigating'){ map.setZoom(16,{animate:true}); lastRefreshedMidx=-1; refreshStreetLabels(); }
-  const btn = $$('view-toggle'); if(btn){ btn.textContent='2D'; btn.title='Switch to 2D view'; }
+  map.easeTo({pitch:65, duration:500});
+  if(navState==='navigating'){ lastRefreshedMidx=-1; refreshStreetLabels(); }
+  const btn=$$('view-toggle'); if(btn){btn.textContent='2D';btn.title='Switch to 2D view';}
 }
 function disable3DView() {
   perspective3D = false;
   document.body.classList.remove('nav-3d');
-  refreshStreetLabels(); // clears overlay since perspective3D is now false
-  const btn = $$('view-toggle'); if(btn){ btn.textContent='3D'; btn.title='Switch to 3D view'; }
+  map.easeTo({pitch:0, duration:500});
+  refreshStreetLabels();
+  const btn=$$('view-toggle'); if(btn){btn.textContent='3D';btn.title='Switch to 3D view';}
 }
 
 const ARROW = {1:'↑',2:'↑',3:'↑',4:'🏁',5:'🏁',6:'🏁',7:'↑',8:'↑',9:'↗',10:'→',11:'↪',12:'↩',13:'↩',14:'↩',15:'←',16:'↖',17:'↑',18:'↗',19:'↖',22:'↗',23:'↖',24:'⇒',25:'↻',26:'↑',28:'⛴'};
@@ -425,7 +464,7 @@ function san(s){ return s ? String(s).replace(/\bisrael\b/gi, 'Palestine') : s; 
 // ── Photon geocoder — AU bbox ensures Australian results are prioritised ──
 async function geocode(q, nearLat, nearLng){
   const params = new URLSearchParams({ q, limit:'10', lang:'en' });
-  const gps = userMarker ? userMarker.getLatLng() : null;
+  const gps = userMarker ? userMarker.getLngLat() : null;
   const bLat = nearLat ?? gps?.lat ?? map.getCenter().lat;
   const bLng = nearLng ?? gps?.lng ?? map.getCenter().lng;
   params.set('lat', bLat);
@@ -491,40 +530,42 @@ async function loadReports(){
   const p=new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});
   try{
     const data=await fetch(`/api/reports?${p}`).then(r=>r.json());
-    reportCluster.clearLayers();
+    clearMarkers(reportMarkers);
     for(const r of data){
       if(!visibleLayers.police) continue;
       const icon=ICONS[r.type]??ICONS.police;
       const age=Math.round((Date.now()-r.created_at)/60000);
       const label={police:'🚔 Police',speed_trap:'📸 Speed trap',accident:'⚠️ Accident',hazard:'🚧 Hazard'}[r.type]??r.type;
       const ageStr=age<60?`${age}m ago`:`${Math.round(age/60)}h ago`;
-      const popup=`<strong>${label}</strong>${r.description?`<p>${escHtml(r.description)}</p>`:''}<p>${ageStr} · ✅ ${r.confirms} 👎 ${r.denies}</p><div class="popup-actions"><button class="popup-confirm" onclick="vote('${r.id}','confirm')">✅ Still there</button><button class="popup-deny" onclick="vote('${r.id}','deny')">👎 Gone</button></div>`;
-      reportCluster.addLayer(L.marker([r.lat,r.lng],{icon}).bindPopup(popup));
+      const popupHtml=`<strong>${label}</strong>${r.description?`<p>${escHtml(r.description)}</p>`:''}<p>${ageStr} · ✅ ${r.confirms} 👎 ${r.denies}</p><div class="popup-actions"><button class="popup-confirm" onclick="vote('${r.id}','confirm')">✅ Still there</button><button class="popup-deny" onclick="vote('${r.id}','deny')">👎 Gone</button></div>`;
+      const popup=new maplibregl.Popup({offset:24,maxWidth:'260px'}).setHTML(popupHtml);
+      reportMarkers.push(new maplibregl.Marker({element:icon.el(),anchor:'center'}).setLngLat([r.lng,r.lat]).setPopup(popup).addTo(map));
     }
   }catch{}
 }
 window.vote=async(id,action)=>{try{await fetch(`/api/reports/${id}/${action}`,{method:'POST'});loadReports();}catch{}};
 
 async function loadCameras(){
-  if(map.getZoom()<11){cameraCluster.clearLayers();return;}
+  if(map.getZoom()<11){clearMarkers(cameraMarkers);return;}
   const b=map.getBounds();
   const p=new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});
   try{
     const data=await fetch(`/api/cameras?${p}`).then(r=>r.json());
-    cameraCluster.clearLayers();
+    clearMarkers(cameraMarkers);
     for(const cam of data){
       if(cam.type==='speed'&&!visibleLayers.speed) continue;
       if((cam.type==='red_light'||cam.type==='average_speed')&&!visibleLayers.red_light) continue;
       const icon=ICONS[cam.type]??ICONS.speed;
       const label={speed:'📷 Speed camera',red_light:'🔴 Red light camera',average_speed:'📡 Avg speed'}[cam.type]??cam.type;
-      const popup=`<strong>${label}</strong>${cam.road?`<p>📍 ${escHtml(cam.road)}</p>`:''} ${cam.speed_limit?`<p>⚡ ${cam.speed_limit} km/h zone</p>`:''} ${cam.state?`<p>📌 ${cam.state}</p>`:''}<p style="color:#555;font-size:.7rem">Source: ${cam.source.toUpperCase()}</p>`;
-      cameraCluster.addLayer(L.marker([cam.lat,cam.lng],{icon}).bindPopup(popup));
+      const popupHtml=`<strong>${label}</strong>${cam.road?`<p>📍 ${escHtml(cam.road)}</p>`:''} ${cam.speed_limit?`<p>⚡ ${cam.speed_limit} km/h zone</p>`:''} ${cam.state?`<p>📌 ${cam.state}</p>`:''}<p style="color:#555;font-size:.7rem">Source: ${cam.source.toUpperCase()}</p>`;
+      const popup=new maplibregl.Popup({offset:24,maxWidth:'260px'}).setHTML(popupHtml);
+      cameraMarkers.push(new maplibregl.Marker({element:icon.el(),anchor:'center'}).setLngLat([cam.lng,cam.lat]).setPopup(popup).addTo(map));
     }
   }catch{}
 }
 
 function scheduleFetch(){clearTimeout(fetchTmr);fetchTmr=setTimeout(()=>{loadReports();loadCameras();if(heatmapVisible)loadHeatmap();},300);}
-map.on('moveend',scheduleFetch);map.on('zoomend',scheduleFetch);scheduleFetch();
+map.on('moveend',scheduleFetch);map.on('zoomend',scheduleFetch);
 setInterval(loadReports,90_000);
 
 document.querySelectorAll('.filter-btn').forEach(btn=>{
@@ -551,7 +592,7 @@ reportBtn.addEventListener('click',()=>{
   document.querySelector('.type-btn[data-type="police"]').classList.add('active');
   selType='police';modalOverlay.classList.remove('hidden');
 });
-map.on('click',e=>{if(!modalOverlay.classList.contains('hidden')){pendingLat=e.latlng.lat;pendingLng=e.latlng.lng;modalCoords.textContent=`📍 ${pendingLat.toFixed(5)}, ${pendingLng.toFixed(5)}`;} });
+map.on('click',e=>{if(!modalOverlay.classList.contains('hidden')){pendingLat=e.lngLat.lat;pendingLng=e.lngLat.lng;modalCoords.textContent=`📍 ${pendingLat.toFixed(5)}, ${pendingLng.toFixed(5)}`;} });
 document.querySelectorAll('.type-btn').forEach(btn=>{ btn.addEventListener('click',()=>{ document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active');selType=btn.dataset.type; }); });
 cancelBtn.addEventListener('click',()=>modalOverlay.classList.add('hidden'));
 modalOverlay.addEventListener('click',e=>{if(e.target===modalOverlay)modalOverlay.classList.add('hidden');});
@@ -559,7 +600,7 @@ submitBtn.addEventListener('click',async()=>{
   if(pendingLat==null)return; submitBtn.disabled=true;submitBtn.textContent='Submitting…';
   try{
     const res=await fetch('/api/reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat:pendingLat,lng:pendingLng,type:selType,description:descInput.value.trim()||undefined})});
-    if(res.ok){modalOverlay.classList.add('hidden');map.setView([pendingLat,pendingLng],Math.max(map.getZoom(),14));loadReports();}
+    if(res.ok){modalOverlay.classList.add('hidden');map.easeTo({center:[pendingLng,pendingLat],zoom:Math.max(map.getZoom(),14)});loadReports();}
     else{const e=await res.json();alert(e.error??'Failed');}
   }catch{alert('Network error');}
   finally{submitBtn.disabled=false;submitBtn.textContent='Submit';}
@@ -710,8 +751,7 @@ function setSheetState(state, animate=true) {
 let navState='idle';
 let allRoutes=[], selectedRouteIdx=0;
 let routeData=null, routePoints=[], maneuvers=[];
-let altLines=[];
-let routeLine=null, traveledLine=null, destMarker=null, userMarker=null;
+let destMarker=null, userMarker=null;
 let watchId=null, currentMidx=0, offCount=0, prevPos=null;
 let lastVoice=-1, remainingSec=0;
 // Heading smoother — prevents jittery map rotation from noisy GPS bearing
@@ -724,7 +764,7 @@ function applySmoothing(raw){
 }
 // Pause auto-pan when user is manually zooming/panning the map
 let userPanning=false, pausePanTimer=null;
-map.on('dragstart zoomstart', ()=>{
+function onUserPan(){
   userPanning=true;
   clearTimeout(pausePanTimer);
   if(navState==='navigating') $$('recenter-btn').classList.remove('hidden');
@@ -732,7 +772,9 @@ map.on('dragstart zoomstart', ()=>{
     userPanning=false;
     $$('recenter-btn').classList.add('hidden');
   }, 4000);
-});
+}
+map.on('dragstart',onUserPan);
+map.on('zoomstart',onUserPan);
 let nearCameras=[], nearReports=[], alertedIds=new Set();
 let alertHideTimer=null;
 let activeAlert=null;
@@ -770,7 +812,7 @@ function setActiveField(f){
 /* ── Suggestions (recents + favs + near-me chips) ─── */
 function showSuggestions(){
   const favs=getFavs(), recents=getRecent();
-  const gps=userMarker?userMarker.getLatLng():null;
+  const gps=userMarker?userMarker.getLngLat():null;
   let html='';
   html+=`<div id="nearme-chips">
     <button class="nearme-chip" data-q="petrol station" data-lat="${gps?.lat??''}" data-lng="${gps?.lng??''}">⛽ Petrol</button>
@@ -890,7 +932,7 @@ function selectPlace(p){
 
 function tryRoute(){
   if(!toPlace)return;
-  const gps=userMarker?userMarker.getLatLng():null;
+  const gps=userMarker?userMarker.getLngLat():null;
   const from=fromPlace??(gps?{lat:gps.lat,lng:gps.lng}:{lat:map.getCenter().lat,lng:map.getCenter().lng});
   closePlanner();
   calcRoute(from.lat,from.lng,toPlace.lat,toPlace.lng);
@@ -901,10 +943,12 @@ function tryRoute(){
 ═══════════════════════════════════════════════ */
 async function calcRoute(fromLat,fromLng,toLat,toLng){
   previewBar.classList.add('hidden');
-  [routeLine,traveledLine,...altLines].forEach(l=>{if(l)map.removeLayer(l);});
-  routeLine=traveledLine=null; altLines=[];
-  if(destMarker){map.removeLayer(destMarker);destMarker=null;}
-  destMarker=L.marker([toLat,toLng],{icon:L.divIcon({html:'<span class="dest-pin">📍</span>',className:'',iconSize:[32,40],iconAnchor:[16,40]})}).addTo(map);
+  map.getSource('route-main')?.setData(emptyFC());
+  map.getSource('route-traveled')?.setData(emptyFC());
+  map.getSource('route-alts')?.setData(emptyFC());
+  if(destMarker){destMarker.remove();destMarker=null;}
+  {const el=document.createElement('div');el.innerHTML='<span class="dest-pin">📍</span>';
+   destMarker=new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([toLng,toLat]).addTo(map);}
 
   const costingOpts={};
   if(routeOpts.avoidTolls||routeOpts.avoidHighways){
@@ -942,21 +986,19 @@ async function calcRoute(fromLat,fromLng,toLat,toLng){
 }
 
 function applySelectedRoute(){
-  [routeLine,traveledLine,...altLines].forEach(l=>{if(l)map.removeLayer(l);});
-  routeLine=traveledLine=null; altLines=[];
-
-  allRoutes.forEach((trip,i)=>{
-    if(i===selectedRouteIdx) return;
-    const pts=decodePolyline6(trip.legs[0].shape);
-    const l=L.polyline(pts,{color:'#555',weight:3,opacity:.6}).addTo(map);
-    altLines.push(l);
-  });
-
   routeData=allRoutes[selectedRouteIdx];
   maneuvers=routeData.legs[0].maneuvers;
   routePoints=decodePolyline6(routeData.legs[0].shape);
-  routeLine=L.polyline(routePoints,{color:'#3b82f6',weight:6,opacity:.9}).addTo(map);
-  map.fitBounds(routeLine.getBounds(),{padding:[60,80]});
+
+  // Alt routes as MultiLineString
+  const altCoords=allRoutes.filter((_,i)=>i!==selectedRouteIdx).map(t=>toGL(decodePolyline6(t.legs[0].shape)));
+  map.getSource('route-alts')?.setData({type:'Feature',geometry:{type:'MultiLineString',coordinates:altCoords}});
+  map.getSource('route-traveled')?.setData(emptyFC());
+  updateRouteGeoJSON();
+
+  // Fit to route bounds
+  const lngs=routePoints.map(p=>p[1]),lats=routePoints.map(p=>p[0]);
+  map.fitBounds([[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]],{padding:80});
 
   const td=routeData.summary.length, tt=routeData.summary.time;
   previewDist.textContent=fmtDist(td*1000);
@@ -1086,9 +1128,10 @@ function renderDirections(){
 
 cancelRoute.addEventListener('click',clearRoute);
 function clearRoute(){
-  [routeLine,traveledLine,...altLines].forEach(l=>{if(l)map.removeLayer(l);});
-  if(destMarker){map.removeLayer(destMarker);destMarker=null;}
-  routeLine=traveledLine=null; altLines=[];
+  map.getSource('route-main')?.setData(emptyFC());
+  map.getSource('route-traveled')?.setData(emptyFC());
+  map.getSource('route-alts')?.setData(emptyFC());
+  if(destMarker){destMarker.remove();destMarker=null;}
   previewBar.classList.add('hidden');
   $$('route-chips').classList.add('hidden');
   $$('speed-profile').classList.add('hidden');
@@ -1103,7 +1146,7 @@ function clearRoute(){
 
 /* ── Share route ─────────────────────────────── */
 $$('share-route-btn').addEventListener('click',async()=>{
-  const from=fromPlace??(userMarker?{lat:userMarker.getLatLng().lat,lng:userMarker.getLatLng().lng,name:'My Location'}:null);
+  const from=fromPlace??(userMarker?{lat:userMarker.getLngLat().lat,lng:userMarker.getLngLat().lng,name:'My Location'}:null);
   if(!from||!toPlace) return;
   const url=`https://radar.theradicalparty.com/#r/${from.lat},${from.lng},${encodeURIComponent(from.name)}/${toPlace.lat},${toPlace.lng},${encodeURIComponent(toPlace.name)}`;
   try{
@@ -1190,20 +1233,17 @@ function startNav(){
   // Reset heading smoother so it doesn't inherit stale heading
   hdgSet=false; userPanning=false;
 
-  // Create traveledLine once here so updateRouteStyling can use setLatLngs
-  // (avoids per-tick remove/add which causes flicker during zoom)
-  if(traveledLine){ map.removeLayer(traveledLine); traveledLine=null; }
-  traveledLine=L.polyline([],{color:'#334155',weight:5,opacity:.7}).addTo(map);
+  // Clear traveled line in MapLibre GeoJSON source
+  map.getSource('route-traveled')?.setData(emptyFC());
 
   // Get a FRESH high-accuracy GPS fix immediately (don't rely on stale userMarker)
   navigator.geolocation.getCurrentPosition(pos=>{
-    userPanning=false; // don't let this trigger the pause
+    userPanning=false;
     const {latitude:lat,longitude:lng}=pos.coords;
-    map.setView([lat,lng],18,{animate:true,duration:0.7});
+    map.easeTo({center:[lng,lat],zoom:18,pitch:65,bearing:0,duration:700});
   }, ()=>{
-    // Fallback to last known position if getCurrentPosition fails
-    const k=userMarker?userMarker.getLatLng():prevPos?{lat:prevPos.lat,lng:prevPos.lng}:null;
-    if(k) map.setView([k.lat,k.lng],18,{animate:true,duration:0.7});
+    const k=userMarker?userMarker.getLngLat():prevPos?{lng:prevPos.lng,lat:prevPos.lat}:null;
+    if(k) map.easeTo({center:[k.lng,k.lat],zoom:18,pitch:65,duration:700});
   }, {enableHighAccuracy:true,timeout:8000,maximumAge:10000});
 
   loadNearCameras();
@@ -1226,15 +1266,15 @@ function endNav(){
   const overlay=$$('street-labels-overlay'); if(overlay) overlay.innerHTML='';
 
   headingUpMode=false;
-  disable3DView();
-  if(map.setBearing) map.setBearing(0);
+  disable3DView(); // sets pitch:0 via easeTo
+  map.easeTo({bearing:0,pitch:0,duration:400});
   $$('north-up-btn').classList.add('hidden');
   $$('compass-widget').classList.add('hidden');
   $$('view-toggle').classList.add('hidden');
 
   releaseWakeLock();
   clearRoute();
-  if(userMarker){map.removeLayer(userMarker);userMarker=null;}
+  if(userMarker){userMarker.remove();userMarker=null;}
   prevPos=null;
   currentSpeedEl.innerHTML='– <small>km/h</small>';
   speedLimitSign.classList.add('hidden');
@@ -1279,61 +1319,42 @@ async function reroute(lat,lng){
     maneuvers=routeData.legs[0].maneuvers;
     currentMidx=0; lastVoice=-1;
     allRoutes=[routeData]; selectedRouteIdx=0;
-    if(routeLine) routeLine.setLatLngs(routePoints);
-    if(traveledLine) traveledLine.setLatLngs([]);
+    updateRouteGeoJSON();
+    map.getSource('route-traveled')?.setData(emptyFC());
     showToast('Route updated',2000);
     loadNearCameras(); loadNearReports();
   }catch{showToast('Rerouting failed',3000);}
 }
 
 function makeUserIcon(gpsHdg=0){
-  const iconRot = gpsHdg - (map.getBearing ? map.getBearing() : 0);
-  return L.divIcon({
-    html:`<svg class="user-arrow" style="transform:rotate(${iconRot}deg)" viewBox="0 0 44 60" xmlns="http://www.w3.org/2000/svg">
+  const iconRot = gpsHdg - map.getBearing();
+  return { html:`<svg class="user-arrow" style="transform:rotate(${iconRot}deg)" viewBox="0 0 44 60" xmlns="http://www.w3.org/2000/svg">
       <ellipse cx="22" cy="58" rx="13" ry="3" fill="rgba(0,0,0,0.18)"/>
-      <!-- Body - clown yellow -->
       <rect x="4" y="9" width="36" height="42" rx="10" fill="#fbbf24"/>
-      <!-- Polka dots -->
       <circle cx="12" cy="22" r="3.5" fill="#ef4444"/>
       <circle cx="32" cy="28" r="3" fill="#8b5cf6"/>
       <circle cx="14" cy="36" r="3" fill="#0ea5e9"/>
       <circle cx="30" cy="19" r="2.5" fill="#34d399"/>
       <circle cx="22" cy="33" r="2" fill="#f97316"/>
-      <!-- Windshield -->
       <rect x="8" y="13" width="28" height="15" rx="5" fill="rgba(186,230,253,0.88)"/>
       <rect x="11" y="16" width="9" height="6" rx="2.5" fill="rgba(255,255,255,0.5)"/>
-      <!-- Rear window -->
       <rect x="8" y="33" width="28" height="12" rx="4" fill="rgba(186,230,253,0.65)"/>
-      <!-- Big clown wheels (oversized) -->
       <rect x="-2" y="11" width="8" height="14" rx="4" fill="#1e293b"/>
       <rect x="38" y="11" width="8" height="14" rx="4" fill="#1e293b"/>
       <rect x="-2" y="34" width="8" height="14" rx="4" fill="#1e293b"/>
       <rect x="38" y="34" width="8" height="14" rx="4" fill="#1e293b"/>
-      <circle cx="2" cy="18" r="2" fill="#475569"/>
-      <circle cx="42" cy="18" r="2" fill="#475569"/>
-      <circle cx="2" cy="41" r="2" fill="#475569"/>
-      <circle cx="42" cy="41" r="2" fill="#475569"/>
-      <!-- Red clown nose on bonnet -->
       <circle cx="22" cy="10" r="4" fill="#ef4444"/>
       <circle cx="23" cy="9" r="1.2" fill="rgba(255,255,255,0.4)"/>
-      <!-- Headlights -->
       <rect x="7" y="7" width="11" height="5" rx="2.5" fill="#fde68a"/>
       <rect x="26" y="7" width="11" height="5" rx="2.5" fill="#fde68a"/>
-      <!-- Taillights -->
       <rect x="7" y="46" width="11" height="5" rx="2.5" fill="#fca5a5"/>
       <rect x="26" y="46" width="11" height="5" rx="2.5" fill="#fca5a5"/>
-      <!-- Tiny flower on roof -->
-      <circle cx="22" cy="26" r="2" fill="#ff2d55"/>
-      <circle cx="22" cy="23" r="1.2" fill="#fbbf24"/>
-      <circle cx="25" cy="27" r="1.2" fill="#fbbf24"/>
-      <circle cx="19" cy="27" r="1.2" fill="#fbbf24"/>
-      <circle cx="22" cy="29" r="1.2" fill="#fbbf24"/>
-    </svg>`,
-    className:'', iconSize:[44,60], iconAnchor:[22,30],
-  });
+    </svg>` };
 }
 function makeUserMarker(lat,lng,gpsHdg=0){
-  return L.marker([lat,lng],{ icon:makeUserIcon(gpsHdg), zIndexOffset:1000 });
+  const el=document.createElement('div');
+  el.innerHTML=makeUserIcon(gpsHdg).html;
+  return new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([lng,lat]);
 }
 
 /* ── GPS handler ────────────────────────────────── */
@@ -1365,20 +1386,21 @@ function onGPS(pos){
   if(!userMarker){
     userMarker=makeUserMarker(lat,lng,hdg).addTo(map);
   } else {
-    userMarker.setLatLng([lat,lng]);
-    userMarker.setIcon(makeUserIcon(hdg));
+    userMarker.setLngLat([lng,lat]);
+    // Update clown car rotation in-place
+    const svg=userMarker.getElement()?.querySelector('svg');
+    if(svg) svg.style.transform=`rotate(${hdg-map.getBearing()}deg)`;
   }
 
   if(navState==='navigating'&&!userPanning){
-    if(headingUpMode&&map.setBearing) map.setBearing(hdg);
+    // MapLibre easeTo combines center+bearing+pitch+zoom in one smooth WebGL frame
     if(perspective3D){
       const zoom=map.getZoom();
       const lookM=Math.min(LOOK_CAP[zoom]??90,Math.max(60,speedMs*12));
       const [aLat,aLng]=aheadPoint(lat,lng,hdg,lookM);
-      // Never change zoom mid-drive — jarring. Zoom is fixed at nav start (16 for 3D).
-      map.panTo([aLat,aLng],{animate:true,duration:0.25,easeLinearity:0.8,noMoveStart:true});
+      map.easeTo({center:[aLng,aLat],bearing:hdg,pitch:65,duration:220,easing:t=>t});
     } else {
-      map.panTo([lat,lng],{animate:true,duration:0.25,easeLinearity:0.8,noMoveStart:true});
+      map.easeTo({center:[lng,lat],bearing:headingUpMode?hdg:map.getBearing(),pitch:0,zoom:targetNavZoom(speedMs),duration:220,easing:t=>t});
     }
   }
 
@@ -1428,11 +1450,19 @@ function onGPS(pos){
   }
 }
 
+// Helper: routePoints [lat,lng] → MapLibre GeoJSON [lng,lat]
+const toGL = pts => pts.map(p=>[p[1],p[0]]);
+
+function updateRouteGeoJSON(){
+  map.getSource('route-main')?.setData({type:'Feature',geometry:{type:'LineString',coordinates:toGL(routePoints)}});
+}
+
 function updateRouteStyling(idx){
   if(!routePoints.length) return;
-  // setLatLngs on existing layers — never removes/re-adds so no flicker during zoom
-  if(traveledLine) traveledLine.setLatLngs(idx>1 ? routePoints.slice(0,idx+1) : []);
-  if(routeLine)    routeLine.setLatLngs(routePoints.slice(Math.max(0,idx-1)));
+  const rem = toGL(routePoints.slice(Math.max(0,idx-1)));
+  const trav = idx>1 ? toGL(routePoints.slice(0,idx+1)) : [];
+  map.getSource('route-main')?.setData({type:'Feature',geometry:{type:'LineString',coordinates:rem}});
+  map.getSource('route-traveled')?.setData({type:'Feature',geometry:{type:'LineString',coordinates:trav}});
 }
 
 function updateNavPanel(distToTurn){
@@ -1462,15 +1492,16 @@ function getSpeedLimit(){ const m=maneuvers[currentMidx]; return(m?.speed_limit&
 
 /* ── Compass widget — driven by map's rotate event ── */
 function updateCompass(){
-  const bearing = map.getBearing ? map.getBearing() : 0;
-  const needle = $$('compass-needle');
+  const bearing=map.getBearing();
+  const needle=$$('compass-needle');
   if(needle) needle.style.transform=`translateX(-50%) translateY(-100%) rotate(${bearing}deg)`;
-  // Show compass + north-up button whenever map isn't north-up
-  const off = Math.abs(bearing % 360) > 0.5;
-  $$('compass-widget').classList.toggle('hidden', !off);
-  $$('north-up-btn').classList.toggle('hidden', !off);
-  if(userMarker && prevPos){
-    userMarker.setIcon(makeUserIcon(prevPos.hdg ?? 0));
+  const off=Math.abs(bearing%360)>0.5;
+  $$('compass-widget').classList.toggle('hidden',!off);
+  $$('north-up-btn').classList.toggle('hidden',!off);
+  // Update car rotation when bearing changes
+  if(userMarker&&prevPos){
+    const svg=userMarker.getElement()?.querySelector('svg');
+    if(svg) svg.style.transform=`rotate(${(prevPos.hdg??0)-bearing}deg)`;
   }
 }
 
@@ -1491,101 +1522,69 @@ $$('recenter-btn').addEventListener('click',()=>{
    Snaps to 0° or 38° on release. Overrides inline transform so it takes
    priority over the CSS class, then clears after snap so CSS class owns it.
 ──────────────────────────────────────────────────────────────────────── */
+/* ── Two-finger vertical drag → native MapLibre pitch ─────────────────────
+   Drag UP = more pitch (street-level immersion), drag DOWN = flatten to 2D.
+   MapLibre setPitch is WebGL-native: no CSS, proper perspective projection.
+──────────────────────────────────────────────────────────────────────── */
 (()=>{
-  const clipEl=$$('map-clip'), mapEl=$$('map');
-  const MAX=38, SENS=0.55;
-  let g=null; // gesture state
+  const MAX=75, SENS=0.6;
+  let g=null;
 
-  function applyAngle(a){
-    const clamped=Math.max(0,Math.min(MAX,a));
-    mapEl.style.transition='none';
-    mapEl.style.transform=clamped>0.5?`perspective(1200px) rotateX(${clamped.toFixed(1)}deg)`:'';
-    document.body.classList.toggle('nav-3d', clamped>4);
-  }
-
-  clipEl.addEventListener('touchstart',e=>{
+  map.getCanvas().addEventListener('touchstart',e=>{
     if(e.touches.length!==2){g=null;return;}
     const [t0,t1]=[e.touches[0],e.touches[1]];
-    g={
-      midY0:(t0.clientY+t1.clientY)/2,
-      dist0:Math.hypot(t0.clientX-t1.clientX,t0.clientY-t1.clientY),
-      tilt0:perspective3D?MAX:0,
-      mode:null,
-    };
+    g={midY0:(t0.clientY+t1.clientY)/2,dist0:Math.hypot(t0.clientX-t1.clientX,t0.clientY-t1.clientY),pitch0:map.getPitch(),mode:null};
   },{passive:true});
 
-  clipEl.addEventListener('touchmove',e=>{
+  map.getCanvas().addEventListener('touchmove',e=>{
     if(e.touches.length!==2||!g) return;
     const [t0,t1]=[e.touches[0],e.touches[1]];
     const midY=(t0.clientY+t1.clientY)/2;
     const dist=Math.hypot(t0.clientX-t1.clientX,t0.clientY-t1.clientY);
     const dY=midY-g.midY0, dDist=Math.abs(dist-g.dist0);
-
     if(!g.mode&&(Math.abs(dY)>9||dDist>9))
       g.mode=Math.abs(dY)>dDist*0.85?'tilt':'pinch';
-
     if(g.mode!=='tilt') return;
     e.preventDefault();
-    applyAngle(g.tilt0 - dY*SENS); // up=negative dY=more tilt
+    const newPitch=Math.max(0,Math.min(MAX, g.pitch0-dY*SENS));
+    map.setPitch(newPitch);
+    document.body.classList.toggle('nav-3d',newPitch>4);
+    perspective3D=(newPitch>4);
   },{passive:false});
 
   function onUp(){
     if(!g||g.mode!=='tilt'){g=null;return;}
-    // read current angle from inline style
-    const m=mapEl.style.transform.match(/rotateX\(([\d.]+)/);
-    const cur=m?parseFloat(m[1]):0;
-    g=null;
-
-    // snap with a short spring transition
-    mapEl.style.transition='transform 0.28s cubic-bezier(0.34,1.2,0.64,1)';
-
+    const cur=map.getPitch(); g=null;
     if(cur>MAX*0.28){
-      mapEl.style.transform=`perspective(1200px) rotateX(${MAX}deg)`;
-      if(!perspective3D) enable3DView();
-      else document.body.classList.add('nav-3d');
+      map.easeTo({pitch:MAX,duration:280,easing:t=>t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2});
+      if(!perspective3D) enable3DView(); else document.body.classList.add('nav-3d');
+      perspective3D=true;
     } else {
-      mapEl.style.transform='';
-      if(perspective3D) disable3DView();
-      else document.body.classList.remove('nav-3d');
+      map.easeTo({pitch:0,duration:280});
+      if(perspective3D) disable3DView(); else document.body.classList.remove('nav-3d');
+      perspective3D=false;
     }
-    // hand ownership back to CSS class after snap
-    setTimeout(()=>{mapEl.style.transition='';mapEl.style.transform='';},320);
   }
-
-  clipEl.addEventListener('touchend',onUp,{passive:true});
-  clipEl.addEventListener('touchcancel',onUp,{passive:true});
+  map.getCanvas().addEventListener('touchend',onUp,{passive:true});
+  map.getCanvas().addEventListener('touchcancel',onUp,{passive:true});
 })();
 
 function resetNorthUp(){
-  headingUpMode = false;
-  if(map.setBearing) map.setBearing(0);
-  // updateCompass fires via the rotate event automatically
+  headingUpMode=false;
+  map.easeTo({bearing:0,duration:300});
 }
 
 /* ── Proximity alerts (cameras + police + schools) ──── */
-/* ── Refresh street labels on any map move (rAF-throttled) ───────────────── */
+/* ── Refresh street labels on any map move/pitch (rAF-throttled) ─────────── */
 let _labelRaf=null;
-map.on('move zoom moveend zoomend',()=>{
+['move','zoom','pitch','rotate'].forEach(ev=>map.on(ev,()=>{
   if(!perspective3D||navState!=='navigating') return;
   if(_labelRaf) return;
-  _labelRaf=requestAnimationFrame(()=>{ _labelRaf=null; refreshStreetLabels(); });
-});
+  _labelRaf=requestAnimationFrame(()=>{_labelRaf=null;refreshStreetLabels();});
+}));
 
-/* ── Project a map container point to screen coords accounting for 3D tilt ── */
-function mapPointToScreen(cp){
-  const vw=window.innerWidth, vh=window.innerHeight;
-  if(!perspective3D) return {x:-0.3*vw+cp.x, y:-0.3*vh+cp.y};
-  // #map is 160% of viewport, centred at 50%/50% of viewport
-  const originX=0.8*vw, originY=0.8*vh; // transform-origin in #map px = 0.5*1.6*vw
-  const relX=cp.x-originX, relY=cp.y-originY;
-  const P=1200, a=38*Math.PI/180;
-  const yRot=relY*Math.cos(a), zRot=relY*Math.sin(a);
-  const d=P-zRot; if(d<=0) return null;
-  const s=P/d;
-  return {x:0.5*vw+relX*s, y:0.5*vh+yRot*s};
-}
-
-/* ── 2D street name bubbles (projected onto viewport, not inside map transform) ── */
+/* ── Street label bubbles — map.project() gives exact screen coords
+   accounting for bearing, pitch and zoom in WebGL space. No manual math. ── */
 function refreshStreetLabels(){
   const overlay=$$('street-labels-overlay');
   if(overlay) overlay.innerHTML='';
@@ -1598,8 +1597,8 @@ function refreshStreetLabels(){
     if(!name||seen.has(name)) continue;
     seen.add(name);
     const pt=routePoints[m.begin_shape_index]; if(!pt) continue;
-    const cp=map.latLngToContainerPoint(L.latLng(pt[0],pt[1]));
-    const sp=mapPointToScreen(cp); if(!sp) continue;
+    // MapLibre project([lng,lat]) → {x,y} screen coords, pitch-aware
+    const sp=map.project([pt[1],pt[0]]);
     if(sp.x<-60||sp.x>vw+60||sp.y<0||sp.y>vh) continue;
     const el=document.createElement('div');
     el.className='street-label';
