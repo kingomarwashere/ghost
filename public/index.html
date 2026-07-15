@@ -225,7 +225,13 @@
 </div>
 
 <!-- ── Report FAB ──────────────────────────────── -->
-<button id="report-btn" title="Report sighting">🚨</button>
+<button id="report-btn" title="Report sighting">
+  <svg viewBox="0 0 20 20" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M10 2L2 17h16L10 2z" stroke="white" stroke-width="1.8" stroke-linejoin="round" fill="rgba(255,255,255,0.15)"/>
+    <line x1="10" y1="8" x2="10" y2="12" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+    <circle cx="10" cy="14.5" r=".9" fill="white"/>
+  </svg>
+</button>
 
 <!-- ── Street name pill (shows current road name during nav) ── -->
 <div id="street-pill" class="hidden"></div>
@@ -243,21 +249,43 @@
   <button id="install-toast-close">✕</button>
 </div>
 
-<!-- ── Report modal ────────────────────────────── -->
-<div id="modal-overlay" class="hidden">
-  <div id="modal">
-    <h2>Report a sighting</h2>
-    <p id="modal-coords"></p>
-    <div class="type-grid">
-      <button class="type-btn active" data-type="police">🚔 Police</button>
-      <button class="type-btn" data-type="speed_trap">📸 Speed trap</button>
-      <button class="type-btn" data-type="accident">⚠️ Accident</button>
-      <button class="type-btn" data-type="hazard">🚧 Hazard</button>
+<!-- ── Waze-style report bottom sheet ──────────── -->
+<div id="report-sheet" class="hidden">
+  <!-- Step 1: category picker -->
+  <div id="rpt-step1">
+    <div class="rpt-header">
+      <span class="rpt-title">What do you see?</span>
+      <button class="rpt-close" id="rpt-close1">✕</button>
     </div>
-    <textarea id="desc-input" placeholder="Optional note…" rows="2" maxlength="120"></textarea>
-    <div class="modal-actions">
-      <button id="cancel-btn">Cancel</button>
-      <button id="submit-btn">Submit</button>
+    <div id="rpt-categories">
+      <button class="rpt-cat" data-cat="police">
+        <div class="rpt-icon" style="background:#1a2540">🚔</div>
+        <span>Police</span>
+      </button>
+      <button class="rpt-cat" data-cat="speed_trap">
+        <div class="rpt-icon" style="background:#1e1a2e">📷</div>
+        <span>Speed trap</span>
+      </button>
+      <button class="rpt-cat" data-cat="accident">
+        <div class="rpt-icon" style="background:#2a1414">💥</div>
+        <span>Crash</span>
+      </button>
+      <button class="rpt-cat" data-cat="hazard">
+        <div class="rpt-icon" style="background:#241c0a">⚠️</div>
+        <span>Hazard</span>
+      </button>
+    </div>
+  </div>
+  <!-- Step 2: sub-type picker -->
+  <div id="rpt-step2" class="hidden">
+    <div class="rpt-header">
+      <span class="rpt-title" id="rpt-step2-title">Report</span>
+      <button class="rpt-close" id="rpt-back">✕</button>
+    </div>
+    <div id="rpt-subtypes"></div>
+    <div id="rpt-actions">
+      <button id="rpt-cancel">Cancel</button>
+      <button id="rpt-submit">Report</button>
     </div>
   </div>
 </div>

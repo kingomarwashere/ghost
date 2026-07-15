@@ -474,43 +474,88 @@ body:not(.navigating) #report-btn {
   box-shadow: 0 2px 12px rgba(0,0,0,.5);
 }
 
-/* ── Report modal ─────────────────────────────── */
-#modal-overlay {
-  position: absolute; inset: 0; z-index: 2000;
-  background: rgba(0,0,0,0.65);
-  display: flex; align-items: flex-end; justify-content: center;
-  backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+/* ── Report bottom sheet (Waze-style) ────────── */
+#report-sheet {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 2000;
+  background: #1a1a1a;
+  border-radius: 24px 24px 0 0;
+  padding: 12px 20px calc(28px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 48px rgba(0,0,0,.85);
+  transform: translateY(100%);
+  transition: transform .3s cubic-bezier(0.32, 0.72, 0, 1);
 }
-#modal {
-  width: 100%; max-width: 480px; background: #1a1a1a;
-  border: 1px solid var(--border); border-radius: 22px 22px 0 0;
-  padding: 24px 20px calc(32px + env(safe-area-inset-bottom));
-  animation: slideUp .2s ease;
+#report-sheet:not(.hidden) { transform: translateY(0); }
+.rpt-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
 }
-#modal h2 { font-size: 1.1rem; margin-bottom: 6px; }
-#modal-coords { font-size: .75rem; color: var(--muted); margin-bottom: 16px; }
-.type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
-.type-btn {
-  background: rgba(255,255,255,.05); border: 1px solid var(--border);
-  border-radius: 10px; color: #ddd; cursor: pointer; font-size: .85rem; padding: 10px 8px;
-  transition: background .15s, border-color .15s;
+.rpt-title { font-size: 1.25rem; font-weight: 800; color: #fff; }
+.rpt-close {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(255,255,255,.1); border: none;
+  color: #fff; cursor: pointer; font-size: 1rem; line-height: 1;
 }
-.type-btn.active { background: rgba(255,69,69,.2); border-color: var(--red); color: #fff; }
-#desc-input {
-  width: 100%; background: rgba(255,255,255,.05);
-  border: 1px solid var(--border); border-radius: 10px;
-  color: var(--text); font-size: .85rem; padding: 10px 12px;
-  resize: none; margin-bottom: 16px; font-family: inherit;
+/* Category grid — 2×2 large circles */
+#rpt-categories {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 12px;
+  margin-bottom: 8px;
 }
-#desc-input::placeholder { color: #444; }
-#desc-input:focus { outline: none; border-color: rgba(255,255,255,.25); }
-.modal-actions { display: flex; gap: 10px; }
-.modal-actions button {
-  flex: 1; border-radius: 10px; border: none;
-  cursor: pointer; font-size: .95rem; font-weight: 600; padding: 12px;
+.rpt-cat {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: none; border: none; cursor: pointer; color: #ccc;
+  font-size: .8rem; font-weight: 600; padding: 4px 0;
 }
-#cancel-btn { background: rgba(255,255,255,.08); color: #ccc; }
-#submit-btn { background: var(--red); color: #fff; }
+.rpt-icon {
+  width: 72px; height: 72px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2rem;
+  transition: transform .12s;
+}
+.rpt-cat:active .rpt-icon { transform: scale(.9); }
+/* Sub-type grid */
+#rpt-subtypes {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 12px;
+  margin-bottom: 20px;
+}
+.rpt-sub {
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  background: none; border: none; cursor: pointer; color: #aaa;
+  font-size: .78rem; font-weight: 600; padding: 4px 0; position: relative;
+}
+.rpt-sub-icon {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: #2a2a2a;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2rem;
+  border: 3px solid transparent;
+  transition: border-color .15s;
+  position: relative;
+}
+.rpt-sub.selected .rpt-sub-icon {
+  border-color: #00cfff;
+}
+.rpt-sub.selected .rpt-sub-icon::after {
+  content: '✓';
+  position: absolute; top: -2px; right: -2px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #00cfff; color: #000;
+  font-size: .7rem; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+}
+.rpt-sub.selected { color: #fff; }
+/* Action row */
+#rpt-actions { display: flex; gap: 10px; }
+#rpt-cancel {
+  flex: 1; padding: 15px; border-radius: 99px;
+  background: rgba(255,255,255,.08); border: none;
+  color: #00cfff; cursor: pointer; font-size: 1rem; font-weight: 700;
+}
+#rpt-submit {
+  flex: 2; padding: 15px; border-radius: 99px;
+  background: #00cfff; border: none;
+  color: #000; cursor: pointer; font-size: 1rem; font-weight: 900;
+  letter-spacing: .02em;
+}
 
 /* ── User position arrow ──────────────────────── */
 .user-arrow {

@@ -655,33 +655,110 @@ document.querySelectorAll('.filter-btn').forEach(btn=>{
 });
 
 /* ═══════════════════════════════════════════════
-   REPORT FLOW
+   REPORT FLOW — Waze-style two-step bottom sheet
 ═══════════════════════════════════════════════ */
-let pendingLat=null,pendingLng=null,selType='police';
-const reportBtn=$$('report-btn'),modalOverlay=$$('modal-overlay'),
-      cancelBtn=$$('cancel-btn'),submitBtn=$$('submit-btn'),
-      modalCoords=$$('modal-coords'),descInput=$$('desc-input');
+const REPORT_CATS = {
+  police: {
+    label:'Police', emoji:'🚔', title:'Report police',
+    subtypes:[
+      {key:'police',     label:'Police',        emoji:'🚔', bg:'#1a2540'},
+      {key:'hidden',     label:'Hidden',        emoji:'🙈', bg:'#1e2030'},
+      {key:'other_side', label:'Other side',    emoji:'↩️', bg:'#222'},
+    ]
+  },
+  speed_trap: {
+    label:'Speed trap', emoji:'📷', title:'Report speed trap',
+    subtypes:[
+      {key:'speed_trap',    label:'Mobile camera', emoji:'📷', bg:'#1e1a2e'},
+      {key:'fixed_camera',  label:'Fixed camera',  emoji:'🔴', bg:'#2a1414'},
+    ]
+  },
+  accident: {
+    label:'Crash', emoji:'💥', title:'Report a crash',
+    subtypes:[
+      {key:'accident',   label:'Crash',       emoji:'💥', bg:'#2a1414'},
+      {key:'pileup',     label:'Pile-up',     emoji:'🚗', bg:'#2a1010'},
+      {key:'other_side', label:'Other side',  emoji:'↩️', bg:'#222'},
+    ]
+  },
+  hazard: {
+    label:'Hazard', emoji:'⚠️', title:'Report a hazard',
+    subtypes:[
+      {key:'hazard',    label:'Hazard',          emoji:'⚠️', bg:'#241c0a'},
+      {key:'roadwork',  label:'Roadwork',         emoji:'🚧', bg:'#1a1608'},
+      {key:'pothole',   label:'Pothole',          emoji:'🕳️', bg:'#1a1a1a'},
+      {key:'object',    label:'Object on road',   emoji:'📦', bg:'#1a1818'},
+    ]
+  },
+};
 
-reportBtn.addEventListener('click',()=>{
-  const c=map.getCenter();pendingLat=c.lat;pendingLng=c.lng;
-  modalCoords.textContent=`📍 ${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}`;
-  descInput.value='';
-  document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelector('.type-btn[data-type="police"]').classList.add('active');
-  selType='police';modalOverlay.classList.remove('hidden');
+let pendingLat=null, pendingLng=null, selCat=null, selSubKey=null;
+const reportSheet=$$('report-sheet'), reportBtn=$$('report-btn');
+const rptStep1=$$('rpt-step1'), rptStep2=$$('rpt-step2');
+
+function openReportSheet(){
+  const c=map.getCenter();
+  // During nav prefer actual GPS position
+  if(navState==='navigating'&&prevPos){ pendingLat=prevPos.lat; pendingLng=prevPos.lng; }
+  else { pendingLat=c.lat; pendingLng=c.lng; }
+  rptStep1.classList.remove('hidden');
+  rptStep2.classList.add('hidden');
+  reportSheet.classList.remove('hidden');
+}
+function closeReportSheet(){ reportSheet.classList.add('hidden'); selCat=null; selSubKey=null; }
+
+reportBtn.addEventListener('click', openReportSheet);
+$$('rpt-close1').addEventListener('click', closeReportSheet);
+$$('rpt-back').addEventListener('click', ()=>{
+  rptStep1.classList.remove('hidden');
+  rptStep2.classList.add('hidden');
 });
-map.on('click',e=>{if(!modalOverlay.classList.contains('hidden')){pendingLat=e.lngLat.lat;pendingLng=e.lngLat.lng;modalCoords.textContent=`📍 ${pendingLat.toFixed(5)}, ${pendingLng.toFixed(5)}`;} });
-document.querySelectorAll('.type-btn').forEach(btn=>{ btn.addEventListener('click',()=>{ document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active');selType=btn.dataset.type; }); });
-cancelBtn.addEventListener('click',()=>modalOverlay.classList.add('hidden'));
-modalOverlay.addEventListener('click',e=>{if(e.target===modalOverlay)modalOverlay.classList.add('hidden');});
-submitBtn.addEventListener('click',async()=>{
-  if(pendingLat==null)return; submitBtn.disabled=true;submitBtn.textContent='Submitting…';
+
+document.querySelectorAll('.rpt-cat').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    selCat = btn.dataset.cat;
+    const cat = REPORT_CATS[selCat];
+    $$('rpt-step2-title').textContent = cat.title;
+    // Build sub-type buttons
+    $$('rpt-subtypes').innerHTML = cat.subtypes.map((s,i)=>`
+      <button class="rpt-sub${i===0?' selected':''}" data-key="${s.key}">
+        <div class="rpt-sub-icon" style="background:${s.bg}">${s.emoji}</div>
+        <span>${s.label}</span>
+      </button>`).join('');
+    selSubKey = cat.subtypes[0].key;
+    $$('rpt-subtypes').querySelectorAll('.rpt-sub').forEach(b=>{
+      b.addEventListener('click',()=>{
+        $$('rpt-subtypes').querySelectorAll('.rpt-sub').forEach(x=>x.classList.remove('selected'));
+        b.classList.add('selected');
+        selSubKey=b.dataset.key;
+      });
+    });
+    rptStep1.classList.add('hidden');
+    rptStep2.classList.remove('hidden');
+  });
+});
+
+$$('rpt-cancel').addEventListener('click', closeReportSheet);
+$$('rpt-submit').addEventListener('click', async()=>{
+  if(!pendingLat||!selCat||!selSubKey) return;
+  const btn=$$('rpt-submit'); btn.disabled=true; btn.textContent='Reporting…';
+  // Map sub-key back to a DB-valid type for the API
+  const apiType = selCat; // police|speed_trap|accident|hazard
+  const cat=REPORT_CATS[selCat];
+  const sub=cat.subtypes.find(s=>s.key===selSubKey);
+  const desc=sub?sub.label:undefined;
   try{
-    const res=await fetch('/api/reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat:pendingLat,lng:pendingLng,type:selType,description:descInput.value.trim()||undefined})});
-    if(res.ok){modalOverlay.classList.add('hidden');map.easeTo({center:[pendingLng,pendingLat],zoom:Math.max(map.getZoom(),14)});loadReports();}
-    else{const e=await res.json();alert(e.error??'Failed');}
-  }catch{alert('Network error');}
-  finally{submitBtn.disabled=false;submitBtn.textContent='Submit';}
+    const res=await fetch('/api/reports',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lat:pendingLat,lng:pendingLng,type:apiType,description:desc})});
+    if(res.ok){
+      closeReportSheet();
+      map.easeTo({center:[pendingLng,pendingLat],zoom:Math.max(map.getZoom(),14)});
+      loadReports();
+      showToast(`${cat.emoji} ${desc} reported!`);
+    } else { const e=await res.json(); alert(e.error??'Failed'); }
+  }catch{ alert('Network error'); }
+  finally{ btn.disabled=false; btn.textContent='Report'; }
 });
 
 /* ═══════════════════════════════════════════════
