@@ -216,6 +216,25 @@ function setupMapLayers(){
       }, firstSym);
     }
   }catch(_){}
+  hideNavClutter();
+}
+
+// Hide non-navigation tile layers for a cleaner Waze-style map.
+// Runs after every style.load so it applies to all map styles.
+function hideNavClutter(){
+  // Patterns that match CartoDB (and similar) layers we don't need for driving nav
+  const HIDE = /housenumber|house.?num|building.?label|addr.?label|transit.?label|bus.?stop.?label|aeroway.?label|waterway.?label|landuse.?label|leisure.?label|park.?label|cemetery|industrial.?label/i;
+  // Source-layer names in the vector tiles that carry house/parcel numbers
+  const HIDE_SRC = /housenumber|house_number|building_number|address/i;
+  try{
+    map.getStyle().layers.forEach(l=>{
+      const matchId  = HIDE.test(l.id);
+      const matchSrc = l['source-layer'] && HIDE_SRC.test(l['source-layer']);
+      if(matchId || matchSrc){
+        try{ map.setLayoutProperty(l.id,'visibility','none'); }catch(_){}
+      }
+    });
+  }catch(_){}
 }
 
 function setTile(style, isAuto=false){
