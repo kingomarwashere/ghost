@@ -14,7 +14,7 @@ function $$(id){return document.getElementById(id);}
    SETTINGS — persisted to localStorage
 ═══════════════════════════════════════════════ */
 const PREF_KEY = 'radar_prefs';
-const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'voyager', lighting:'auto', styleOverride:false };
+const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'voyager', lighting:'auto', styleOverride:false, avoidTolls:true };
 const prefs = { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}') };
 const savePrefs = () => localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
 
@@ -40,7 +40,8 @@ const isFav = name => getFavs().some(f => f.name === name);
 /* ═══════════════════════════════════════════════
    ROUTE AVOIDANCE OPTIONS
 ═══════════════════════════════════════════════ */
-const routeOpts = { avoidTolls: false, avoidHighways: false };
+// avoidTolls initialises from saved pref (default true); avoidHighways stays session-only
+const routeOpts = { avoidTolls: prefs.avoidTolls??true, avoidHighways: false };
 
 /* ═══════════════════════════════════════════════
    AUTO NIGHT MODE
@@ -788,11 +789,15 @@ $$('idle-settings-btn').addEventListener('click', ()=>stylePanel.classList.remov
 
 document.querySelectorAll('.style-btn').forEach(btn=>{ btn.addEventListener('click',()=>{ setTile(btn.dataset.style);stylePanel.classList.add('hidden'); }); });
 
-const toggleMap = { 's-voice':'voice','s-camera':'cameraAlerts','s-police':'policeAlerts','s-haptic':'haptic' };
+const toggleMap = { 's-voice':'voice','s-camera':'cameraAlerts','s-police':'policeAlerts','s-haptic':'haptic','s-tolls':'avoidTolls' };
 Object.entries(toggleMap).forEach(([id,key])=>{
   const el=document.getElementById(id); if(!el)return;
-  el.checked=prefs[key];
-  el.addEventListener('change',()=>{prefs[key]=el.checked;savePrefs();});
+  el.checked=prefs[key]??true;
+  el.addEventListener('change',()=>{
+    prefs[key]=el.checked; savePrefs();
+    // Keep routeOpts in sync for avoidTolls so the next opened planner matches
+    if(key==='avoidTolls') routeOpts.avoidTolls=el.checked;
+  });
 });
 
 document.querySelectorAll('.unit-btn').forEach(btn=>{
@@ -1025,8 +1030,13 @@ function openPlanner(){
   document.body.classList.add('searching');
   navState='searching';
   fromInput.placeholder = userMarker ? '📍 My location' : 'Choose start…';
+  // Reset avoidance to saved preferences for each new search
+  routeOpts.avoidTolls = prefs.avoidTolls??true;
+  routeOpts.avoidHighways = false;
+  $$('avoid-tolls').classList.toggle('active', routeOpts.avoidTolls);
+  $$('avoid-highways').classList.remove('active');
   setActiveField('to');
-  _syncPlannerH(); // apply immediately before keyboard triggers resize
+  _syncPlannerH();
   toInput.focus();
   showSuggestions();
 }
