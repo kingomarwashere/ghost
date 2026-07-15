@@ -213,7 +213,7 @@ function setupMapLayers(){
   if(!map.getLayer('route-main'))
     map.addLayer({id:'route-main',type:'line',source:'route-main',
       layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
-      paint:{'line-color':'#00cfff','line-width':10,'line-opacity':1}});
+      paint:{'line-color':'#ff2d55','line-width':10,'line-opacity':1}});
   // Heatmap
   if(!map.getSource('heatmap-src')){
     map.addSource('heatmap-src',{type:'geojson',data:emptyFC()});
@@ -688,9 +688,12 @@ submitBtn.addEventListener('click',async()=>{
    SETTINGS PANEL
 ═══════════════════════════════════════════════ */
 const stylePanel=$$('style-panel'), styleBg=$$('style-panel-bg'), styleClose=$$('style-close');
-$$('style-toggle').addEventListener('click',()=>stylePanel.classList.remove('hidden'));
 styleClose.addEventListener('click',()=>stylePanel.classList.add('hidden'));
 styleBg.addEventListener('click',()=>stylePanel.classList.add('hidden'));
+
+/* ── Idle bar buttons ──────────────────────────── */
+$$('idle-search-btn').addEventListener('click', openPlanner);
+$$('idle-settings-btn').addEventListener('click', ()=>stylePanel.classList.remove('hidden'));
 
 document.querySelectorAll('.style-btn').forEach(btn=>{ btn.addEventListener('click',()=>{ setTile(btn.dataset.style);stylePanel.classList.add('hidden'); }); });
 
@@ -855,10 +858,9 @@ let userPanning=false, pausePanTimer=null;
 function onUserPan(){
   userPanning=true;
   clearTimeout(pausePanTimer);
-  if(navState==='navigating') $$('recenter-btn').classList.remove('hidden');
   pausePanTimer=setTimeout(()=>{
     userPanning=false;
-    $$('recenter-btn').classList.add('hidden');
+    // recenter-btn stays visible during nav — don't hide it here
   }, 4000);
 }
 map.on('dragstart',onUserPan);
@@ -872,7 +874,6 @@ let headingUpMode=false;
 let arrivedFlag=false;
 
 /* ── Open / close planner ──────────────────────── */
-$$('search-toggle').addEventListener('click', openPlanner);
 plannerBack.addEventListener('click', closePlanner);
 
 /* ═══════════════════════════════════════════════
@@ -930,6 +931,7 @@ map.on('rotate',()=>{
 function openPlanner(){
   topbar.classList.add('hidden');
   planner.classList.remove('hidden');
+  document.body.classList.add('searching');
   navState='searching';
   fromInput.placeholder = userMarker ? '📍 My location' : 'Choose start…';
   setActiveField('to');
@@ -940,6 +942,7 @@ function openPlanner(){
 function closePlanner(){
   topbar.classList.remove('hidden');
   planner.classList.add('hidden');
+  document.body.classList.remove('searching');
   searchResultsEl.innerHTML='';
   if(navState==='searching') navState=toPlace?'preview':'idle';
 }
@@ -1119,9 +1122,9 @@ async function calcRoute(fromLat,fromLng,toLat,toLng){
     applySelectedRoute();
     fetchSchoolZones();
     navState='preview';
-    // Hide topbar + FAB so the map and route are unobstructed
+    document.body.classList.add('previewing');
+    // Hide topbar so the map and route are unobstructed
     topbar.classList.add('hidden');
-    reportBtn.classList.add('hidden');
   }catch(e){alert('Routing error: '+e.message);}
 }
 
@@ -1279,9 +1282,9 @@ function clearRoute(){
   fromPlace=null; toPlace=null;
   fromInput.value=''; toInput.value='';
   fromClear.classList.add('hidden'); toClear.classList.add('hidden');
-  // Restore topbar and FAB
+  document.body.classList.remove('previewing');
+  // Restore topbar
   topbar.classList.remove('hidden');
-  reportBtn.classList.remove('hidden');
 }
 
 /* ── Share route ─────────────────────────────── */
@@ -1356,6 +1359,7 @@ arrivalDone.addEventListener('click',()=>{arrivalOverlay.classList.add('hidden')
 
 function startNav(){
   previewBar.classList.add('hidden');
+  document.body.classList.remove('previewing');
   topbar.classList.add('hidden');
   navInst.classList.remove('hidden');
   document.body.classList.add('navigating');
@@ -1367,6 +1371,7 @@ function startNav(){
 
   $$('compass-widget').classList.remove('hidden');
   $$('view-toggle').classList.remove('hidden');
+  $$('recenter-btn').classList.remove('hidden');
   acquireWakeLock();
   // Safety redraw — ensures route is visible after UI transitions settle
   setTimeout(()=>{ if(routePoints.length) updateRouteGeoJSON(); }, 300);
@@ -1404,6 +1409,7 @@ function endNav(){
   topbar.classList.remove('hidden');
   document.body.classList.remove('navigating');
   $$('recenter-btn').classList.add('hidden');
+  const pill=$$('street-pill'); if(pill) pill.classList.add('hidden');
   activeAlert=null; lastRefreshedMidx=-1;
   const overlay=$$('street-labels-overlay'); if(overlay) overlay.innerHTML='';
 
@@ -1543,8 +1549,11 @@ function onGPS(pos){
     currentSpeedEl.innerHTML=fmtSpeed(speedMs);
     const lim=getSpeedLimit();
     const dispLim=lim?(prefs.unit==='mph'?Math.round(lim*0.621):lim):null;
-    const over=dispLim&&(prefs.unit==='mph'?toMph(speedMs):toKmh(speedMs))>dispLim;
+    const speedDisp=prefs.unit==='mph'?toMph(speedMs):toKmh(speedMs);
+    const over=dispLim&&speedDisp>dispLim;
+    const wayOver=dispLim&&speedDisp>dispLim+10;
     currentSpeedEl.classList.toggle('over-limit',over);
+    currentSpeedEl.classList.toggle('way-over',wayOver);
     speedLimitSign.classList.toggle('over-limit',over);
     if(over&&prefs.haptic&&navigator.vibrate) navigator.vibrate([100,50,100]);
     if(dispLim){speedLimitSign.classList.remove('hidden');speedLimitVal.textContent=dispLim;}
@@ -1632,6 +1641,14 @@ function updateNavPanel(distToTurn){
   const lim=getSpeedLimit();
   if(lim){speedLimitSign.classList.remove('hidden');speedLimitVal.textContent=prefs.unit==='mph'?Math.round(lim*0.621):lim;}
   else speedLimitSign.classList.add('hidden');
+
+  // Update street-pill with current road name
+  const pill=$$('street-pill');
+  if(pill){
+    const streetName=san((maneuvers[currentMidx]?.street_names??[]).join(' / ')||'');
+    pill.textContent=streetName;
+    pill.classList.toggle('hidden',!streetName);
+  }
 }
 
 function getSpeedLimit(){ const m=maneuvers[currentMidx]; return(m?.speed_limit&&m.speed_limit<200)?m.speed_limit:null; }
@@ -1659,7 +1676,7 @@ $$('north-up-btn').addEventListener('click', resetNorthUp);
 $$('recenter-btn').addEventListener('click',()=>{
   userPanning=false;
   clearTimeout(pausePanTimer);
-  $$('recenter-btn').classList.add('hidden');
+  // keep recenter-btn visible during nav — just re-center the camera
 });
 
 /* ── Two-finger vertical drag → live 3D tilt ─────────────────────────────
@@ -1775,6 +1792,7 @@ function checkProximityAlerts(lat,lng,userHeading){
       activeAlert=null;
     } else {
       alertDist.textContent=fmtDist(d);
+      alertBar.dataset.urgency = d<150?'critical':d<300?'high':'medium';
     }
   }
 
@@ -1786,21 +1804,23 @@ function checkProximityAlerts(lat,lng,userHeading){
       if(cam.direction!=null&&userHeading!=null){
         const diff=Math.abs(((userHeading-cam.direction+180+360)%360)-180);
         if(diff>=90){
-          if(d>500){alertedIds.delete(`c-${cam.id}-near`);alertedIds.delete(`c-${cam.id}-far`);}
+          if(d>600){alertedIds.delete(`c-${cam.id}-near`);alertedIds.delete(`c-${cam.id}-mid`);alertedIds.delete(`c-${cam.id}-far`);}
           continue;
         }
       }
 
-      const key=`c-${cam.id}-${d<180?'near':'far'}`;
-      if(d<350&&d>0&&!alertedIds.has(key)){
-        alertedIds.add(key);
-        const label={speed:'Speed camera',red_light:'Red light camera',average_speed:'Avg speed camera'}[cam.type]??'Camera';
-        const limitStr=cam.speed_limit?` · ${cam.speed_limit} km/h`:'';
-        showAlert('📷',`${label}${limitStr}`,fmtDist(d),false,cam.lat,cam.lng,500);
-        cameraChime();
-        if(prefs.haptic&&navigator.vibrate) navigator.vibrate(200);
+      if(d<500&&d>0){
+        const key=`c-${cam.id}-${d<180?'near':d<350?'mid':'far'}`;
+        if(!alertedIds.has(key)){
+          alertedIds.add(key);
+          const label={speed:'Speed camera',red_light:'Red light camera',average_speed:'Avg speed camera'}[cam.type]??'Camera';
+          const limitStr=cam.speed_limit?` · ${cam.speed_limit} km/h`:'';
+          showAlert('📷',`${label}${limitStr}`,fmtDist(d),false,cam.lat,cam.lng,600);
+          cameraChime();
+          if(prefs.haptic&&navigator.vibrate) navigator.vibrate(200);
+        }
       }
-      if(d>500){alertedIds.delete(`c-${cam.id}-near`);alertedIds.delete(`c-${cam.id}-far`);}
+      if(d>600){alertedIds.delete(`c-${cam.id}-near`);alertedIds.delete(`c-${cam.id}-mid`);alertedIds.delete(`c-${cam.id}-far`);}
     }
   }
   if(prefs.policeAlerts){

@@ -38,8 +38,6 @@
     <button class="filter-btn active" data-layer="red_light" title="Red light">🔴</button>
     <button class="filter-btn" id="heatmap-btn" title="Report heatmap">🔥</button>
   </div>
-  <button id="search-toggle" title="Navigate">🔍 Navigate</button>
-  <button id="style-toggle" title="Settings">⚙️</button>
 </div>
 
 <!-- ── Route planner (from / to) ───────────────── -->
@@ -212,8 +210,25 @@
   </div>
 </div>
 
+<!-- ── Idle bottom bar (Waze-style) ──────────── -->
+<div id="idle-bar">
+  <div class="handle-row"><div class="handle-pill"></div></div>
+  <div id="idle-row">
+    <button id="idle-search-btn">
+      <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8.5" cy="8.5" r="5.5"/><line x1="13" y1="13" x2="18" y2="18"/></svg>
+      <span>Where to?</span>
+    </button>
+    <button id="idle-settings-btn" title="Settings">
+      <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="10" cy="10" r="3"/><path d="M10 1v2M10 17v2M1 10h2M17 10h2M3.22 3.22l1.42 1.42M15.36 15.36l1.42 1.42M3.22 16.78l1.42-1.42M15.36 4.64l1.42-1.42"/></svg>
+    </button>
+  </div>
+</div>
+
 <!-- ── Report FAB ──────────────────────────────── -->
 <button id="report-btn" title="Report sighting">🚨</button>
+
+<!-- ── Street name pill (shows current road name during nav) ── -->
+<div id="street-pill" class="hidden"></div>
 
 <!-- ── Re-center button (appears when user pans during nav) ── -->
 <button id="recenter-btn" class="hidden" title="Re-center">⊙</button>

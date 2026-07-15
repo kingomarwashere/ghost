@@ -7,9 +7,9 @@
   --border: rgba(148,163,184,0.11);
   --text: #f8fafc;
   --muted: #64748b;
-  --accent: #00cfff;
-  --accent-dark: #0284c7;
-  --accent-glow: rgba(0,207,255,0.4);
+  --accent: #ff2d55;
+  --accent-dark: #cc1133;
+  --accent-glow: rgba(255,45,85,0.4);
   --red: #ff2d55;
   --green: #34d399;
   --amber: #fbbf24;
@@ -35,11 +35,11 @@ body {
   z-index: 1000;
   display: flex; align-items: center; gap: 6px;
   background: rgba(3,7,17,0.92);
-  border: 1px solid rgba(14,165,233,0.18); border-radius: 999px;
+  border: 1px solid rgba(255,45,85,0.18); border-radius: 999px;
   padding: 5px 10px;
   backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
   white-space: nowrap; max-width: calc(100vw - 20px);
-  box-shadow: 0 4px 32px rgba(0,0,0,.7), 0 0 0 1px rgba(14,165,233,0.06);
+  box-shadow: 0 4px 32px rgba(0,0,0,.7), 0 0 0 1px rgba(255,45,85,0.06);
 }
 #logo { font-size: 1.2rem; line-height: 1; padding-right: 2px; }
 #filters { display: flex; gap: 2px; }
@@ -50,22 +50,7 @@ body {
   transition: opacity .15s, background .15s;
 }
 .filter-btn.active { opacity: 1; background: rgba(255,255,255,0.12); }
-#search-toggle {
-  background: linear-gradient(135deg, #0ea5e9, #3b82f6);
-  border: none; border-radius: 999px;
-  color: #fff; cursor: pointer; font-size: .78rem; font-weight: 800;
-  padding: 6px 14px; letter-spacing: .04em;
-  box-shadow: 0 2px 12px rgba(14,165,233,.45);
-  transition: filter .15s;
-}
-#search-toggle:hover { filter: brightness(1.15); }
-#style-toggle {
-  background: rgba(255,255,255,0.08); border: 1px solid var(--border);
-  border-radius: 50%; color: #fff; cursor: pointer;
-  font-size: .95rem; width: 32px; height: 32px;
-  transition: background .15s;
-}
-#style-toggle:hover { background: rgba(255,255,255,.18); }
+/* search-toggle and style-toggle removed — replaced by idle-bar */
 
 /* ── Route planner ────────────────────────────── */
 #route-planner {
@@ -189,11 +174,11 @@ body {
 #preview-avoidance-note { font-size: .72rem; color: var(--amber); margin-top: 3px; }
 #preview-actions { display: flex; gap: 7px; flex-shrink: 0; }
 #start-nav-btn {
-  background: linear-gradient(135deg, #34d399, #059669);
+  background: linear-gradient(135deg, #ff2d55, #cc1133);
   border: none; border-radius: 14px;
   color: #fff; cursor: pointer; font-size: .95rem; font-weight: 800;
   padding: 13px 22px; white-space: nowrap;
-  box-shadow: 0 4px 20px rgba(52,211,153,.4);
+  box-shadow: 0 2px 16px rgba(255,45,85,.5);
   transition: filter .15s, transform .1s;
   letter-spacing: .02em;
 }
@@ -234,7 +219,7 @@ body {
 #nav-instruction {
   position: absolute; top: 0; left: 0; right: 0; z-index: 1000;
   background: linear-gradient(180deg, #0c1a36 0%, #0c1526 100%);
-  border-bottom: 1px solid rgba(14,165,233,.2);
+  border-bottom: 1px solid rgba(255,45,85,.2);
   box-shadow: 0 8px 40px rgba(0,0,0,.8);
 }
 #nav-main {
@@ -243,15 +228,15 @@ body {
 }
 #nav-icon {
   width: 68px; height: 68px; flex-shrink: 0;
-  background: linear-gradient(145deg, #0369a1, #1d4ed8);
+  background: linear-gradient(145deg, #ff2d55, #cc1133);
   border-radius: 18px;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 24px rgba(0,207,255,0.35), inset 0 1px 0 rgba(255,255,255,.15);
+  box-shadow: 0 4px 24px rgba(255,45,85,0.5), inset 0 1px 0 rgba(255,255,255,.18);
 }
 #nav-text { flex: 1; min-width: 0; }
 #nav-dist  { font-size: 2.4rem; font-weight: 900; color: #fff; line-height: 1; letter-spacing: -0.03em; }
 #nav-street {
-  font-size: 1.1rem; color: #00cfff; margin-top: 6px;
+  font-size: 1.1rem; color: #ff6b84; margin-top: 6px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font-weight: 700; letter-spacing: 0.01em;
 }
@@ -261,7 +246,7 @@ body {
   display: flex; align-items: center; gap: 10px;
   padding: 7px 16px 11px;
   font-size: .75rem; color: var(--muted);
-  border-top: 1px solid rgba(14,165,233,.08);
+  border-top: 1px solid rgba(255,45,85,.08);
   background: rgba(0,0,0,.2);
 }
 #nav-next-icon { font-size: .9rem; opacity: .7; }
@@ -416,7 +401,7 @@ body {
   font-size: .85rem; font-weight: 600; padding: 9px 0;
   transition: background .15s, color .15s, border-color .15s;
 }
-.unit-btn.active { background: rgba(0,207,255,.15); border-color: var(--accent); color: var(--text); }
+.unit-btn.active { background: rgba(255,45,85,.15); border-color: var(--accent); color: var(--text); }
 
 #lighting-toggle { display: flex; gap: 8px; }
 .lighting-btn {
@@ -425,7 +410,7 @@ body {
   font-size: .85rem; font-weight: 600; padding: 9px 0;
   transition: background .15s, color .15s, border-color .15s;
 }
-.lighting-btn.active { background: rgba(0,207,255,.15); border-color: var(--accent); color: var(--text); }
+.lighting-btn.active { background: rgba(255,45,85,.15); border-color: var(--accent); color: var(--text); }
 
 #install-btn {
   display: block; width: 100%; margin-top: 16px;
@@ -457,28 +442,34 @@ body {
 
 /* ── Report FAB ───────────────────────────────── */
 #report-btn {
-  position: absolute; bottom: 28px; right: 18px; z-index: 1000;
-  width: 58px; height: 58px; border-radius: 50%;
-  background: var(--red); border: none; font-size: 1.5rem; cursor: pointer;
+  position: absolute; bottom: calc(100px + env(safe-area-inset-bottom)); right: auto; left: 16px;
+  z-index: 1010;
+  width: 50px; height: 50px; border-radius: 14px;
+  background: rgba(255,45,85,0.15); border: 1.5px solid rgba(255,45,85,0.5);
+  font-size: 1.3rem; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(255,45,85,.3);
+  transition: transform .15s;
+}
+/* When NOT navigating (idle), show on right side floating */
+body:not(.navigating) #report-btn {
+  left: auto; right: 16px;
+  bottom: calc(90px + env(safe-area-inset-bottom));
+  border-radius: 50%; width: 54px; height: 54px;
+  background: var(--red);
   box-shadow: 0 4px 20px rgba(255,69,69,.5);
-  transition: bottom .3s ease, transform .15s, box-shadow .15s;
 }
-/* During navigation: lift above nav-footer and shrink slightly */
-body.navigating #report-btn {
-  bottom: calc(80px + env(safe-area-inset-bottom) + 14px);
-  width: 46px; height: 46px; font-size: 1.2rem;
-}
-#report-btn:hover { transform: scale(1.08); box-shadow: 0 6px 28px rgba(255,69,69,.65); }
+#report-btn:hover { transform: scale(1.08); }
 #report-btn:active { transform: scale(.95); }
 
 /* ── Re-center button ─────────────────────────── */
 #recenter-btn {
-  position: absolute; z-index: 1001;
-  right: 14px;
-  bottom: calc(80px + env(safe-area-inset-bottom) + 72px);
-  background: rgba(13,13,13,.9); border: 1px solid var(--border);
-  border-radius: 50%; color: var(--text); cursor: pointer;
-  width: 44px; height: 44px; font-size: 1.15rem;
+  position: absolute; z-index: 1010;
+  right: 16px;
+  bottom: calc(100px + env(safe-area-inset-bottom));
+  background: rgba(13,13,13,.92); border: 1.5px solid rgba(255,255,255,0.15);
+  border-radius: 14px; color: var(--text); cursor: pointer;
+  width: 50px; height: 50px; font-size: 1.1rem;
+  display: flex; align-items: center; justify-content: center;
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 2px 12px rgba(0,0,0,.5);
 }
@@ -634,7 +625,7 @@ body:not(.nav-3d) #street-labels-overlay { display: none; }
   flex-shrink: 0;
 }
 .route-chip.selected {
-  background: rgba(59,130,246,.22); border-color: var(--accent); color: var(--text);
+  background: rgba(255,45,85,.22); border-color: var(--accent); color: var(--text);
 }
 
 /* ── Preview avoidance note ──────────────────────── */
@@ -676,7 +667,7 @@ body:not(.nav-3d) #street-labels-overlay { display: none; }
 
 /* ── North-up button (in nav footer) ────────────── */
 #north-up-btn {
-  background: rgba(59,130,246,.18); border: 1px solid rgba(59,130,246,.4);
+  background: rgba(255,45,85,.18); border: 1px solid rgba(255,45,85,.4);
   border-radius: 10px; color: var(--accent); cursor: pointer;
   font-size: .73rem; font-weight: 700; padding: 10px 10px; white-space: nowrap;
 }
@@ -702,3 +693,58 @@ body:not(.nav-3d) #street-labels-overlay { display: none; }
   transition: background .15s;
 }
 .nearme-chip:hover { background: rgba(255,255,255,.12); }
+
+/* ── Idle bottom bar (Waze-style) ──────────────── */
+#idle-bar {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 950;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  padding: 6px 14px calc(18px + env(safe-area-inset-bottom));
+  box-shadow: 0 -6px 32px rgba(0,0,0,0.65);
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+body.navigating #idle-bar { display: none; }
+body.searching #idle-bar { display: none; }
+body.previewing #idle-bar { display: none; }
+.handle-row { display:flex; justify-content:center; padding: 0 0 8px; }
+#idle-row { display: flex; gap: 10px; align-items: center; }
+#idle-search-btn {
+  flex: 1; display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px; color: var(--muted); cursor: pointer;
+  font-size: 1rem; font-weight: 500; padding: 14px 16px;
+  text-align: left;
+}
+#idle-search-btn:active { background: rgba(255,255,255,0.12); }
+#idle-settings-btn {
+  width: 50px; height: 50px; flex-shrink: 0;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px; color: var(--text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+#idle-settings-btn:active { background: rgba(255,255,255,0.14); }
+
+/* ── Alert bar urgency states ──────────────────── */
+#alert-bar[data-urgency="medium"] { border-color: var(--amber); }
+#alert-bar[data-urgency="high"] { border-color: #ff8c00; background: #1c1008; }
+#alert-bar[data-urgency="critical"] { border-color: var(--red); background: #1a0808; animation: pulse-red .4s ease infinite; }
+
+/* ── Speed danger animation ────────────────────── */
+@keyframes speed-danger { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
+#current-speed.over-limit { color: var(--red); animation: speed-danger .5s ease infinite; }
+#current-speed.way-over { animation: speed-danger .3s ease infinite; }
+
+/* ── Street name pill ──────────────────────────── */
+#street-pill {
+  position: absolute; z-index: 900;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(115px + env(safe-area-inset-bottom));
+  background: rgba(10,10,10,0.88);
+  border-radius: 20px; padding: 8px 18px;
+  font-size: .92rem; font-weight: 700; color: #fff;
+  white-space: nowrap;
+  border: 1px solid rgba(255,255,255,0.1);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+body:not(.navigating) #street-pill { display: none; }
