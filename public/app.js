@@ -170,6 +170,8 @@ map.on('style.load', () => {
   _palApplied = false;
   fixPalestineLabels();
   setupMapLayers();
+  // Re-draw route GeoJSON after a style swap (e.g. dark forced during nav)
+  if(navState==='navigating' && routePoints.length) updateRouteGeoJSON();
   if(!_mapReady){
     _mapReady = true;
     // Initial location + auto-night
@@ -187,9 +189,9 @@ function setupMapLayers(){
   ['route-main','route-traveled','route-alts'].forEach(id=>{
     if(!map.getSource(id)) map.addSource(id,{type:'geojson',data:emptyFC()});
   });
-  if(!map.getLayer('route-alts'))    map.addLayer({id:'route-alts',type:'line',source:'route-alts',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#555','line-width':3,'line-opacity':0.6}});
-  if(!map.getLayer('route-traveled'))map.addLayer({id:'route-traveled',type:'line',source:'route-traveled',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#334155','line-width':5,'line-opacity':0.7}});
-  if(!map.getLayer('route-main'))    map.addLayer({id:'route-main',type:'line',source:'route-main',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#3b82f6','line-width':6,'line-opacity':0.9}});
+  if(!map.getLayer('route-alts'))    map.addLayer({id:'route-alts',type:'line',source:'route-alts',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#336677','line-width':4,'line-opacity':0.6}});
+  if(!map.getLayer('route-traveled'))map.addLayer({id:'route-traveled',type:'line',source:'route-traveled',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#0a3547','line-width':8,'line-opacity':0.8}});
+  if(!map.getLayer('route-main'))    map.addLayer({id:'route-main',type:'line',source:'route-main',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#00cfff','line-width':8,'line-opacity':0.95}});
   // Heatmap
   if(!map.getSource('heatmap-src')){
     map.addSource('heatmap-src',{type:'geojson',data:emptyFC()});
@@ -436,6 +438,36 @@ function disable3DView() {
 }
 
 const ARROW = {1:'↑',2:'↑',3:'↑',4:'🏁',5:'🏁',6:'🏁',7:'↑',8:'↑',9:'↗',10:'→',11:'↪',12:'↩',13:'↩',14:'↩',15:'←',16:'↖',17:'↑',18:'↗',19:'↖',22:'↗',23:'↖',24:'⇒',25:'↻',26:'↑',28:'⛴'};
+
+// SVG nav icons for the main turn indicator — clean stroke arrows on the blue pill
+function _navSvg(inner){
+  return `<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+}
+const NAV_SVG = {
+  straight:   _navSvg('<line x1="12" y1="20" x2="12" y2="4"/><polyline points="6,10 12,4 18,10"/>'),
+  slightR:    _navSvg('<line x1="5" y1="19" x2="19" y2="5"/><polyline points="11,5 19,5 19,13"/>'),
+  right:      _navSvg('<line x1="4" y1="12" x2="20" y2="12"/><polyline points="14,6 20,12 14,18"/>'),
+  sharpR:     _navSvg('<path d="M8 4v8a4 4 0 004 4h4"/><polyline points="12,13 16,17 12,21"/>'),
+  uTurn:      _navSvg('<path d="M7 20V10a5 5 0 0110 0"/><polyline points="13,7 17,10 13,13"/>'),
+  left:       _navSvg('<line x1="20" y1="12" x2="4" y2="12"/><polyline points="10,6 4,12 10,18"/>'),
+  slightL:    _navSvg('<line x1="19" y1="19" x2="5" y2="5"/><polyline points="13,5 5,5 5,13"/>'),
+  arrive:     _navSvg('<line x1="12" y1="17" x2="12" y2="4"/><polyline points="6,10 12,4 18,10"/><circle cx="12" cy="20" r="2" fill="white" stroke="none"/>'),
+  roundabout: _navSvg('<circle cx="12" cy="12" r="6"/><polyline points="9,6 12,4 14,7"/>'),
+  ramp:       _navSvg('<line x1="4" y1="20" x2="4" y2="8"/><path d="M4 8Q4 4 9 4L20 4"/><polyline points="16,2 20,4 16,6"/>'),
+  ferry:      _navSvg('<path d="M3 14c3-2 6-3 9-3s6 1 9 3"/><line x1="12" y1="4" x2="12" y2="11"/><polyline points="8,8 12,4 16,8"/>'),
+};
+const ARROW_SVG = {
+  1:NAV_SVG.straight,2:NAV_SVG.straight,3:NAV_SVG.straight,
+  4:NAV_SVG.arrive,5:NAV_SVG.arrive,6:NAV_SVG.arrive,
+  7:NAV_SVG.straight,8:NAV_SVG.straight,
+  9:NAV_SVG.slightR,18:NAV_SVG.slightR,22:NAV_SVG.slightR,
+  10:NAV_SVG.right, 11:NAV_SVG.sharpR,
+  12:NAV_SVG.uTurn,13:NAV_SVG.uTurn,14:NAV_SVG.uTurn,
+  15:NAV_SVG.left,
+  16:NAV_SVG.slightL,19:NAV_SVG.slightL,23:NAV_SVG.slightL,
+  17:NAV_SVG.straight,26:NAV_SVG.straight,
+  24:NAV_SVG.ramp, 25:NAV_SVG.roundabout, 28:NAV_SVG.ferry,
+};
 
 /* ── Toast helper ─────────────────────────────── */
 let toastTimer=null;
@@ -767,7 +799,7 @@ function setSheetState(state, animate=true) {
   handle.addEventListener('touchmove',  e=>{ e.preventDefault(); move(e.touches[0].clientY); }, {passive:false});
   handle.addEventListener('touchend',   ()=>end(), {passive:true});
 })();
-let navState='idle';
+let navState='idle', _preNavStyle=null;
 let allRoutes=[], selectedRouteIdx=0;
 let routeData=null, routePoints=[], maneuvers=[];
 let destMarker=null, userMarker=null;
@@ -1249,6 +1281,10 @@ function startNav(){
   acquireWakeLock();
   enable3DView();
 
+  // Force dark map during navigation for road visibility (like Waze)
+  _preNavStyle = prefs.mapStyle;
+  if(!DARK_STYLES.has(prefs.mapStyle)) setTile('dark', true);
+
   // Reset heading smoother so it doesn't inherit stale heading
   hdgSet=false; userPanning=false;
 
@@ -1297,6 +1333,9 @@ function endNav(){
   prevPos=null;
   currentSpeedEl.innerHTML='– <small>km/h</small>';
   speedLimitSign.classList.add('hidden');
+  // Restore pre-nav map style, then re-apply solar day/night check
+  if(_preNavStyle){ setTile(_preNavStyle, true); _preNavStyle=null; }
+  setTimeout(autoNightCheck, 300);
 }
 
 function gpsErr(e){console.warn('GPS',e.code,e.message);}
@@ -1487,7 +1526,7 @@ function updateRouteStyling(idx){
 function updateNavPanel(distToTurn){
   if(!maneuvers.length)return;
   const nextM=maneuvers[currentMidx+1]??maneuvers[currentMidx];
-  navIconEl.textContent=ARROW[nextM.type]??'↑';
+  navIconEl.innerHTML=ARROW_SVG[nextM.type]??NAV_SVG.straight;
   navDistEl.textContent=distToTurn!=null?fmtDist(distToTurn):'';
   navStreetEl.textContent=san((nextM.street_names??[]).join(' / ')||nextM.instruction||'');
 
