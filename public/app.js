@@ -14,7 +14,7 @@ function $$(id){return document.getElementById(id);}
    SETTINGS — persisted to localStorage
 ═══════════════════════════════════════════════ */
 const PREF_KEY = 'radar_prefs';
-const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'voyager' };
+const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'voyager', lighting:'auto' };
 const prefs = { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}') };
 const savePrefs = () => localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
 
@@ -65,8 +65,17 @@ function isDark(lat, lng) {
 }
 
 function autoNightCheck() {
-  if (userPickedStyle) return;
+  if (userPickedStyle && prefs.lighting === 'auto') return;
   const c = map.getCenter();
+  if(prefs.lighting === 'night'){
+    if(!DARK_STYLES.has(prefs.mapStyle)) setTile('dark', true);
+    return;
+  }
+  if(prefs.lighting === 'day'){
+    if(DARK_STYLES.has(prefs.mapStyle)) setTile('voyager', true);
+    return;
+  }
+  // 'auto' — solar-based
   const dark = isDark(c.lat, c.lng);
   if (dark && LIGHT_STYLES.has(prefs.mapStyle)) {
     setTile('dark', true);
@@ -170,8 +179,8 @@ map.on('style.load', () => {
   _palApplied = false;
   fixPalestineLabels();
   setupMapLayers();
-  // Re-draw route GeoJSON after a style swap (e.g. dark forced during nav)
-  if(navState==='navigating' && routePoints.length) updateRouteGeoJSON();
+  // Re-draw route after any style swap — covers preview and active nav
+  if(routePoints.length) updateRouteGeoJSON();
   if(!_mapReady){
     _mapReady = true;
     // Initial location + auto-night
@@ -682,6 +691,16 @@ document.querySelectorAll('.unit-btn').forEach(btn=>{
   });
 });
 
+document.querySelectorAll('.lighting-btn').forEach(btn=>{
+  btn.classList.toggle('active',btn.dataset.lighting===(prefs.lighting??'auto'));
+  btn.addEventListener('click',()=>{
+    prefs.lighting=btn.dataset.lighting; savePrefs();
+    userPickedStyle=false; // allow auto-night to override style now
+    document.querySelectorAll('.lighting-btn').forEach(b=>b.classList.toggle('active',b.dataset.lighting===prefs.lighting));
+    autoNightCheck();
+  });
+});
+
 /* ═══════════════════════════════════════════════
    PWA — install prompt
 ═══════════════════════════════════════════════ */
@@ -837,6 +856,47 @@ let arrivedFlag=false;
 /* ── Open / close planner ──────────────────────── */
 $$('search-toggle').addEventListener('click', openPlanner);
 plannerBack.addEventListener('click', closePlanner);
+
+/* ═══════════════════════════════════════════════
+   SMOOTH MARKER ANIMATION — interpolates between GPS fixes
+   so the car doesn't teleport between 1-2 second position updates.
+═══════════════════════════════════════════════ */
+let _mFrom=null, _mTo=null, _mHdgFrom=0, _mHdgTo=0;
+let _mStart=0, _mDur=1000, _mRaf=null, _mCurHdg=0;
+const _easeIO=t=>t<0.5?2*t*t:-1+(4-2*t)*t;
+const _arc=(a,b)=>((b-a)%360+540)%360-180;
+
+function animateMarkerTo(lat,lng,hdg,dur){
+  const cur=userMarker?userMarker.getLngLat():{lat,lng};
+  if(_mRaf){cancelAnimationFrame(_mRaf);_mRaf=null;}
+  _mFrom={lat:cur.lat,lng:cur.lng};
+  _mHdgFrom=_mCurHdg;
+  _mTo={lat,lng};
+  _mHdgTo=hdg;
+  _mDur=Math.max(dur,300);
+  _mStart=performance.now();
+  _mRaf=requestAnimationFrame(_stepMarker);
+}
+
+function _stepMarker(ts){
+  const t=_easeIO(Math.min((ts-_mStart)/_mDur,1));
+  const lat=_mFrom.lat+(_mTo.lat-_mFrom.lat)*t;
+  const lng=_mFrom.lng+(_mTo.lng-_mFrom.lng)*t;
+  _mCurHdg=_mHdgFrom+_arc(_mHdgFrom,_mHdgTo)*t;
+  if(userMarker){
+    userMarker.setLngLat([lng,lat]);
+    const svg=userMarker.getElement()?.querySelector('svg');
+    if(svg) svg.style.transform=`rotate(${_mCurHdg-map.getBearing()}deg)`;
+  }
+  _mRaf=t<1?requestAnimationFrame(_stepMarker):null;
+}
+
+// Keep SVG rotation in sync when map rotates (bearing-up panning)
+map.on('rotate',()=>{
+  if(!userMarker)return;
+  const svg=userMarker.getElement()?.querySelector('svg');
+  if(svg) svg.style.transform=`rotate(${_mCurHdg-map.getBearing()}deg)`;
+});
 
 function openPlanner(){
   topbar.classList.add('hidden');
@@ -1328,6 +1388,7 @@ function endNav(){
   $$('view-toggle').classList.add('hidden');
 
   releaseWakeLock();
+  if(_mRaf){cancelAnimationFrame(_mRaf);_mRaf=null;}
   clearRoute();
   if(userMarker){userMarker.remove();userMarker=null;}
   prevPos=null;
@@ -1443,11 +1504,12 @@ function onGPS(pos){
 
   if(!userMarker){
     userMarker=makeUserMarker(lat,lng,hdg).addTo(map);
+    _mCurHdg=hdg; _mHdgTo=hdg;
+    _mFrom={lat,lng}; _mTo={lat,lng};
   } else {
-    userMarker.setLngLat([lng,lat]);
-    // Update clown car rotation in-place
-    const svg=userMarker.getElement()?.querySelector('svg');
-    if(svg) svg.style.transform=`rotate(${hdg-map.getBearing()}deg)`;
+    // Smooth interpolation over the GPS interval rather than instant jump
+    const gpsMs=prevPos?Math.min(Math.max(pos.timestamp-prevPos.ts,400),2000):800;
+    animateMarkerTo(lat,lng,hdg,gpsMs);
   }
 
   if(navState==='navigating'&&!userPanning){

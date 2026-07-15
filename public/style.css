@@ -416,7 +416,16 @@ body {
   font-size: .85rem; font-weight: 600; padding: 9px 0;
   transition: background .15s, color .15s, border-color .15s;
 }
-.unit-btn.active { background: rgba(59,130,246,.2); border-color: var(--accent); color: var(--text); }
+.unit-btn.active { background: rgba(0,207,255,.15); border-color: var(--accent); color: var(--text); }
+
+#lighting-toggle { display: flex; gap: 8px; }
+.lighting-btn {
+  flex: 1; background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--muted); cursor: pointer;
+  font-size: .85rem; font-weight: 600; padding: 9px 0;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.lighting-btn.active { background: rgba(0,207,255,.15); border-color: var(--accent); color: var(--text); }
 
 #install-btn {
   display: block; width: 100%; margin-top: 16px;
