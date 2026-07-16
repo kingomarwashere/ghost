@@ -789,6 +789,29 @@ styleBg.addEventListener('click',()=>stylePanel.classList.add('hidden'));
 $$('idle-search-btn').addEventListener('click', openPlanner);
 $$('idle-settings-btn').addEventListener('click', ()=>stylePanel.classList.remove('hidden'));
 
+/* ── Idle bar drag-up to open planner ─────────── */
+(()=>{
+  const bar = $$('idle-bar');
+  if(!bar) return;
+  let startY=0, startT=0, active=false;
+  bar.addEventListener('touchstart', e=>{
+    if(e.target.closest('button')) return;
+    startY=e.touches[0].clientY; startT=Date.now(); active=true;
+  }, {passive:true});
+  bar.addEventListener('touchmove', e=>{
+    if(!active) return;
+    const dy=startY-e.touches[0].clientY;
+    if(dy>0) bar.style.transform=`translateY(${-dy}px)`;
+  }, {passive:true});
+  bar.addEventListener('touchend', e=>{
+    if(!active) return;
+    active=false; bar.style.transform='';
+    const dy=startY-e.changedTouches[0].clientY, vel=dy/(Date.now()-startT);
+    if(dy>60||vel>0.4) openPlanner();
+  }, {passive:true});
+  bar.addEventListener('touchcancel', ()=>{ active=false; bar.style.transform=''; }, {passive:true});
+})();
+
 document.querySelectorAll('.style-btn').forEach(btn=>{ btn.addEventListener('click',()=>{ setTile(btn.dataset.style);stylePanel.classList.add('hidden'); }); });
 
 const toggleMap = { 's-voice':'voice','s-camera':'cameraAlerts','s-police':'policeAlerts','s-haptic':'haptic','s-tolls':'avoidTolls' };

@@ -473,6 +473,7 @@ body:not(.navigating) #report-btn {
   box-shadow: 0 4px 20px rgba(255,69,69,.5);
 }
 #report-btn:hover { transform: scale(1.08); }
+body.previewing #report-btn { display: none; }
 #report-btn:active { transform: scale(.95); }
 
 /* ── Re-center button ─────────────────────────── */
@@ -761,6 +762,7 @@ body:not(.nav-3d) #street-labels-overlay { display: none; }
   padding: 6px 14px calc(18px + env(safe-area-inset-bottom));
   box-shadow: 0 -6px 32px rgba(0,0,0,0.65);
   border-top: 1px solid rgba(255,255,255,0.06);
+  touch-action: pan-down;
 }
 body.navigating #idle-bar { display: none; }
 body.searching #idle-bar { display: none; }
