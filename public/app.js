@@ -1230,6 +1230,7 @@ function closePlanner(){
   // Dismiss keyboard before animating out
   fromInput.blur(); toInput.blur();
   topbar.classList.remove('hidden');
+  planner.style.height=''; // reset any expanded height
   planner.classList.remove('planner-open'); // triggers slide-down transition
   // After transition ends, hide completely so nothing underneath is blocked
   setTimeout(()=>{ if(!planner.classList.contains('planner-open')) planner.style.display='none'; }, 380);
@@ -1688,24 +1689,45 @@ const _syncPlannerH=(()=>{
   return sync;
 })();
 
-/* ── Drag-to-dismiss on the planner handle ──────────────────────────────── */
+/* ── Drag-to-expand/dismiss on the planner handle ───────────────────────── */
 (()=>{
   const pl=$$('route-planner'), handle=pl.querySelector('.handle-row');
   if(!handle) return;
-  let startY=0, startT=0, dragging=false;
-  handle.addEventListener('touchstart',e=>{ startY=e.touches[0].clientY; startT=Date.now(); dragging=true; pl.style.transition='none'; },{passive:true});
+  let startY=0, startT=0, startH=0, dragging=false;
+  handle.addEventListener('touchstart',e=>{
+    startY=e.touches[0].clientY; startT=Date.now(); dragging=true;
+    startH=pl.getBoundingClientRect().height;
+    pl.style.transition='none';
+  },{passive:true});
   handle.addEventListener('touchmove',e=>{
     if(!dragging) return;
     const dy=e.touches[0].clientY-startY;
-    if(dy>0) pl.style.transform=`translateY(${dy}px)`;
-  },{passive:true});
+    if(dy>0){
+      // dragging down → slide to dismiss
+      pl.style.height='';
+      pl.style.transform=`translateY(${dy}px)`;
+    } else {
+      // dragging up → expand height
+      pl.style.transform='';
+      pl.style.height=Math.min(startH-dy, window.innerHeight)+'px';
+    }
+  },{passive:false});
   handle.addEventListener('touchend',e=>{
     if(!dragging) return; dragging=false;
     pl.style.transition='';
     const dy=e.changedTouches[0].clientY-startY;
-    const vel=(dy)/(Date.now()-startT); // px/ms
-    if(dy>80||vel>0.4){ pl.style.transform=''; closePlanner(); }
-    else pl.style.transform='';
+    const vel=dy/(Date.now()-startT); // px/ms
+    if(dy>80||vel>0.4){
+      pl.style.height=''; pl.style.transform=''; closePlanner();
+    } else if(dy<-60||vel<-0.4){
+      // snapped to full screen
+      pl.style.transform='';
+      pl.style.transition='height .25s cubic-bezier(0.32,0.72,0,1)';
+      pl.style.height=window.innerHeight+'px';
+    } else {
+      // restore original size
+      pl.style.height=''; pl.style.transform='';
+    }
   });
 })();
 
