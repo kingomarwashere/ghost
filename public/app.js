@@ -282,6 +282,7 @@ document.querySelectorAll('.style-btn').forEach(b=>b.classList.toggle('active',b
    MARKER ARRAYS (replaces Leaflet cluster groups)
 ═══════════════════════════════════════════════ */
 let reportMarkers=[], cameraMarkers=[];
+const cameraMarkerEls=new Map(); // camId → wrapper DOM element for ripple updates
 function clearMarkers(arr){ arr.forEach(m=>m.remove()); arr.length=0; }
 
 /* ── Heatmap ──────────────────────────────── */
@@ -352,7 +353,11 @@ function playTone(freq, dur=0.25, vol=0.28, type='sine') {
     osc.start(); osc.stop(ctx.currentTime+dur);
   } catch {}
 }
-const cameraChime = () => { playTone(1047,.18); setTimeout(()=>playTone(1319,.28), 180); };
+// Camera chimes — three escalating tiers
+const cameraChimeFar  = () => { playTone(880,.14,.32); setTimeout(()=>playTone(1047,.2,.36),160); };
+const cameraChimeMid  = () => { playTone(880,.12,.4); setTimeout(()=>playTone(1047,.12,.42),130); setTimeout(()=>playTone(1319,.22,.45),260); };
+const cameraChimeNear = () => { [0,140,280,420].forEach(t=>setTimeout(()=>playTone(1319,.1,.55),t)); };
+const cameraChime = cameraChimeFar; // legacy alias
 const policeChime = () => { playTone(440,.22); setTimeout(()=>playTone(554,.18),150); setTimeout(()=>playTone(440,.3),300); };
 const schoolChime = () => { playTone(659,.2); setTimeout(()=>playTone(784,.2),200); setTimeout(()=>playTone(659,.3),400); };
 const dingChime   = () => playTone(880,.3,.2);
@@ -680,6 +685,7 @@ async function loadCameras(){
   try{
     const data=await fetch(`/api/cameras?${p}`).then(r=>r.json());
     clearMarkers(cameraMarkers);
+    cameraMarkerEls.clear();
     for(const cam of data){
       if(cam.type==='speed'&&!visibleLayers.speed) continue;
       if((cam.type==='red_light'||cam.type==='average_speed')&&!visibleLayers.red_light) continue;
@@ -687,7 +693,12 @@ async function loadCameras(){
       const label={speed:'📷 Speed camera',red_light:'🔴 Red light camera',average_speed:'📡 Avg speed'}[cam.type]??cam.type;
       const popupHtml=`<strong>${label}</strong>${cam.road?`<p>📍 ${escHtml(cam.road)}</p>`:''} ${cam.speed_limit?`<p>⚡ ${cam.speed_limit} km/h zone</p>`:''} ${cam.state?`<p>📌 ${cam.state}</p>`:''}<p style="color:#555;font-size:.7rem">Source: ${cam.source.toUpperCase()}</p>`;
       const popup=new maplibregl.Popup({offset:24,maxWidth:'260px'}).setHTML(popupHtml);
-      cameraMarkers.push(new maplibregl.Marker({element:icon.el(),anchor:'center'}).setLngLat([cam.lng,cam.lat]).setPopup(popup).addTo(map));
+      // Wrap in a ripple container so we can add CSS classes as user approaches
+      const wrap=document.createElement('div');
+      wrap.className='cam-marker-wrap';
+      wrap.appendChild(icon.el());
+      cameraMarkerEls.set(String(cam.id),wrap);
+      cameraMarkers.push(new maplibregl.Marker({element:wrap,anchor:'center'}).setLngLat([cam.lng,cam.lat]).setPopup(popup).addTo(map));
     }
   }catch{}
 }
@@ -2342,28 +2353,56 @@ function checkProximityAlerts(lat,lng,userHeading){
   if(prefs.cameraAlerts){
     for(const cam of nearCameras){
       const d=haversine(lat,lng,cam.lat,cam.lng);
+      const camId=String(cam.id);
+      const wrap=cameraMarkerEls.get(camId);
 
-      // Camera direction filtering: only alert if approaching the camera
+      // Direction filter — skip cameras we're not heading toward
       if(cam.direction!=null&&userHeading!=null){
         const diff=Math.abs(((userHeading-cam.direction+180+360)%360)-180);
         if(diff>=90){
-          if(d>600){alertedIds.delete(`c-${cam.id}-near`);alertedIds.delete(`c-${cam.id}-mid`);alertedIds.delete(`c-${cam.id}-far`);}
+          if(d>600){['far','mid','near'].forEach(k=>alertedIds.delete(`c-${camId}-${k}`));}
+          if(wrap){wrap.classList.remove('cam-approaching','cam-mid','cam-critical');}
           continue;
         }
       }
 
-      if(d<500&&d>0){
-        const key=`c-${cam.id}-${d<180?'near':d<350?'mid':'far'}`;
-        if(!alertedIds.has(key)){
-          alertedIds.add(key);
-          const label={speed:'Speed camera',red_light:'Red light camera',average_speed:'Avg speed camera'}[cam.type]??'Camera';
-          const limitStr=cam.speed_limit?` · ${cam.speed_limit} km/h`:'';
-          showAlert('📷',`${label}${limitStr}`,fmtDist(d),false,cam.lat,cam.lng,600);
-          cameraChime();
-          if(prefs.haptic&&navigator.vibrate) navigator.vibrate(200);
-        }
+      // Update ripple rings on the marker
+      if(wrap){
+        wrap.classList.toggle('cam-approaching', d<400);
+        wrap.classList.toggle('cam-mid',         d<200);
+        wrap.classList.toggle('cam-critical',    d<80);
       }
-      if(d>600){alertedIds.delete(`c-${cam.id}-near`);alertedIds.delete(`c-${cam.id}-mid`);alertedIds.delete(`c-${cam.id}-far`);}
+
+      const label={speed:'Speed camera',red_light:'Red light camera',average_speed:'Average speed camera'}[cam.type]??'Camera';
+      const limitStr=cam.speed_limit?` · ${cam.speed_limit} km/h`:'';
+      const spokenLimit=cam.speed_limit?`, ${cam.speed_limit} kilometre hour zone`:'';
+
+      if(d<80&&!alertedIds.has(`c-${camId}-near`)){
+        // Stage 3 — in capture zone
+        alertedIds.add(`c-${camId}-near`);
+        cameraChimeNear();
+        if(prefs.haptic&&navigator.vibrate) navigator.vibrate([300,80,300,80,300]);
+        showAlert(cam.type==='red_light'?'🚦':'📷',`⚠️ ${label}${limitStr} — SLOW DOWN`,fmtDist(d),false,cam.lat,cam.lng,400);
+      } else if(d<200&&!alertedIds.has(`c-${camId}-mid`)){
+        // Stage 2 — close approach
+        alertedIds.add(`c-${camId}-mid`);
+        cameraChimeMid();
+        if(prefs.haptic&&navigator.vibrate) navigator.vibrate([200,60,200]);
+        speak(`${label}${spokenLimit}`);
+        showAlert(cam.type==='red_light'?'🚦':'📷',`${label}${limitStr}`,fmtDist(d),false,cam.lat,cam.lng,400);
+      } else if(d<400&&!alertedIds.has(`c-${camId}-far`)){
+        // Stage 1 — early warning
+        alertedIds.add(`c-${camId}-far`);
+        cameraChimeFar();
+        if(prefs.haptic&&navigator.vibrate) navigator.vibrate(120);
+        speak(`${label} ahead${spokenLimit}, in ${Math.round(d/50)*50} metres`);
+        showAlert(cam.type==='red_light'?'🚦':'📷',`${label}${limitStr}`,fmtDist(d),false,cam.lat,cam.lng,400);
+      }
+
+      if(d>600){
+        ['far','mid','near'].forEach(k=>alertedIds.delete(`c-${camId}-${k}`));
+        if(wrap) wrap.classList.remove('cam-approaching','cam-mid','cam-critical');
+      }
     }
   }
   if(prefs.policeAlerts){
