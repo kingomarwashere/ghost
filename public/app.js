@@ -210,7 +210,7 @@ function setupMapLayers(){
   if(!map.getLayer('route-traveled'))
     map.addLayer({id:'route-traveled',type:'line',source:'route-traveled',
       layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
-      paint:{'line-color':'#0a3547','line-width':8,'line-opacity':0.8}});
+      paint:{'line-color':'#0a3547','line-width':8,'line-opacity':0}});
   if(!map.getLayer('route-main'))
     map.addLayer({id:'route-main',type:'line',source:'route-main',
       layout:{'line-cap':'round','line-join':'round','visibility':'visible'},

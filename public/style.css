@@ -306,7 +306,7 @@ body:not(.show-start) .field-connector { display: none; }
 #nav-speed-float {
   display: none;
   position: absolute;
-  bottom: calc(82px + env(safe-area-inset-bottom));
+  bottom: calc(96px + env(safe-area-inset-bottom));
   left: 16px; z-index: 900;
   flex-direction: column; align-items: center; gap: 6px;
 }
@@ -491,8 +491,9 @@ body.navigating #nav-speed-float { display: flex; }
 
 /* ── Report FAB — Waze-style yellow ⚠️+ ────────── */
 #report-btn {
-  position: absolute; bottom: calc(100px + env(safe-area-inset-bottom)); right: auto; left: 16px;
-  z-index: 1010;
+  position: absolute; z-index: 1010;
+  right: 16px;
+  bottom: calc(90px + env(safe-area-inset-bottom));
   width: 56px; height: 56px; border-radius: 16px;
   background: #f5b800; border: none;
   cursor: pointer;
@@ -500,10 +501,8 @@ body.navigating #nav-speed-float { display: flex; }
   transition: transform .15s;
   display: flex; align-items: center; justify-content: center;
 }
-body:not(.navigating) #report-btn {
-  left: auto; right: 16px;
-  bottom: calc(90px + env(safe-area-inset-bottom));
-  border-radius: 18px; width: 58px; height: 58px;
+body.navigating #report-btn {
+  bottom: calc(158px + env(safe-area-inset-bottom));
 }
 #report-btn:hover { transform: scale(1.06); }
 body.previewing #report-btn { display: none; }
