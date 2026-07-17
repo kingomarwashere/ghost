@@ -1191,7 +1191,7 @@ function _stepMarker(ts){
       const navZ=targetNavZoom(_mLastSpeedMs);
       // Push camera centre well ahead so the car sits in the lower third of the screen.
       // 250 m minimum; grows with speed so motorway driving shows more road ahead.
-      const lookM=Math.max(250,_mLastSpeedMs*18);
+      const lookM=Math.max(120,_mLastSpeedMs*18);
       const [aLat,aLng]=aheadPoint(lat,lng,_mCurHdg,lookM);
       map.jumpTo({center:[aLng,aLat],bearing:_mCurHdg,pitch:65,zoom:navZ});
     } else {
@@ -1778,14 +1778,19 @@ function startNav(){
   // Clear traveled line in MapLibre GeoJSON source
   map.getSource('route-traveled')?.setData(emptyFC());
 
+  // Compute initial bearing from the first route segment so the map faces the road
+  const initBrg=routePoints.length>=2
+    ? bearing(routePoints[0][0],routePoints[0][1],routePoints[1][0],routePoints[1][1])
+    : 0;
+
   // Get a FRESH high-accuracy GPS fix immediately (don't rely on stale userMarker)
   navigator.geolocation.getCurrentPosition(pos=>{
     userPanning=false;
     const {latitude:lat,longitude:lng}=pos.coords;
-    map.easeTo({center:[lng,lat],zoom:18,pitch:65,bearing:0,duration:700});
+    map.easeTo({center:[lng,lat],zoom:19,pitch:65,bearing:initBrg,duration:700});
   }, ()=>{
     const k=userMarker?userMarker.getLngLat():prevPos?{lng:prevPos.lng,lat:prevPos.lat}:null;
-    if(k) map.easeTo({center:[k.lng,k.lat],zoom:18,pitch:65,duration:700});
+    if(k) map.easeTo({center:[k.lng,k.lat],zoom:19,pitch:65,bearing:initBrg,duration:700});
   }, {enableHighAccuracy:true,timeout:8000,maximumAge:10000});
 
   loadNearCameras();
@@ -1828,13 +1833,13 @@ function gpsErr(e){console.warn('GPS',e.code,e.message);}
 /* ── Auto-zoom + look-ahead per zoom level ──────── */
 function targetNavZoom(speedMs){
   const kmh=speedMs*3.6;
-  if(perspective3D) return kmh>70?16:17;
+  if(perspective3D) return kmh>70?17:18;
   if(kmh>75) return 16;
   if(kmh>35) return 17;
   return 18;
 }
 // Max look-ahead in metres per zoom level (keeps car visible in lower third of screen)
-const LOOK_CAP={15:900,16:500,17:220,18:90};
+const LOOK_CAP={15:900,16:500,17:220,18:90,19:50};
 
 /* ── Silent reroute (mid-navigation, no preview bar) ── */
 async function reroute(lat,lng){
