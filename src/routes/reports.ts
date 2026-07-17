@@ -50,7 +50,7 @@ reports.post('/', async (c) => {
   if (lat == null || lng == null) return c.json({ error: 'lat and lng required' }, 400);
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return c.json({ error: 'invalid coordinates' }, 400);
 
-  const validTypes = ['police', 'speed_trap', 'accident', 'hazard'];
+  const validTypes = ['police', 'speed_trap', 'accident', 'hazard', 'traffic', 'closure', 'roadwork', 'weather', 'blocked_lane'];
   if (!validTypes.includes(type)) return c.json({ error: 'invalid type' }, 400);
 
   const hash = await reporterHash(c.req.raw);

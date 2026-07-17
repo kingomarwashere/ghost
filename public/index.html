@@ -12,6 +12,8 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/icon.svg">
   <title>Radar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700;900&display=swap">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
   <link rel="stylesheet" href="/style.css">
 </head>
@@ -21,17 +23,22 @@
 <!-- Street label overlay — positioned via map.project() in screen space -->
 <div id="street-labels-overlay"></div>
 
-<!-- ── Compass widget (nav mode only) ──────────── -->
-<div id="compass-widget" class="hidden" title="Tap to reset to north-up">
-  <div id="compass-rose">
-    <div id="compass-n">N</div>
-    <div id="compass-needle"></div>
+<!-- ── Compass widget ───────────────────────────── -->
+<div id="compass-widget" class="hidden" title="Tap to reset north-up">
+  <div id="compass-dial">
+    <svg id="compass-svg" viewBox="0 0 40 40" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
+      <!-- North half: pink -->
+      <polygon points="20,3 14,20 20,17 26,20" fill="#ff0099"/>
+      <!-- South half: muted -->
+      <polygon points="20,37 14,20 20,23 26,20" fill="#444"/>
+    </svg>
+    <span id="compass-n-label">N</span>
   </div>
 </div>
 
 <!-- ── Normal top bar ──────────────────────────── -->
 <div id="topbar">
-  <div id="logo"><svg viewBox="0 0 32 32" width="26" height="26" fill="#ff2d55" xmlns="http://www.w3.org/2000/svg" aria-label="Radar"><circle cx="8" cy="8" r="6.5"/><circle cx="24" cy="8" r="6.5"/><circle cx="16" cy="23" r="10"/></svg></div>
+  <div id="logo"><span id="logo-text">RADAR</span></div>
   <div id="filters">
     <button class="filter-btn active" data-layer="police" title="Police">🚔</button>
     <button class="filter-btn active" data-layer="speed"  title="Cameras">📷</button>
@@ -89,6 +96,7 @@
     </div>
     <div id="preview-actions">
       <button id="cancel-route-btn">Cancel</button>
+      <button id="share-route-btn">⬆ Share</button>
       <button id="start-nav-btn">Go now</button>
     </div>
   </div>
@@ -137,11 +145,10 @@
   </div>
   <div id="speed-block">
     <div id="speed-limit-sign" class="hidden"><span id="speed-limit-val">–</span></div>
-    <div id="current-speed">– <small>km/h</small></div>
+    <div id="current-speed">–<small>km/h</small></div>
   </div>
-  <button id="view-toggle" class="hidden" title="Switch to 2D view">2D</button>
   <button id="north-up-btn" class="hidden" title="Reset to north-up">⬆ N</button>
-  <button id="end-nav-btn">✕ End</button>
+  <button id="end-nav-btn">End</button>
 </div>
 
 <!-- ── Arrival overlay ──────────────────────────── -->
@@ -229,10 +236,12 @@
 
 <!-- ── Report FAB ──────────────────────────────── -->
 <button id="report-btn" title="Report sighting">
-  <svg viewBox="0 0 20 20" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M10 2L2 17h16L10 2z" stroke="white" stroke-width="1.8" stroke-linejoin="round" fill="rgba(255,255,255,0.15)"/>
-    <line x1="10" y1="8" x2="10" y2="12" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
-    <circle cx="10" cy="14.5" r=".9" fill="white"/>
+  <svg viewBox="0 0 28 28" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M14 3L3 22h22L14 3z" fill="rgba(0,0,0,0.25)" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+    <line x1="14" y1="10" x2="14" y2="16" stroke="#000" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="14" cy="19.5" r="1.2" fill="#000"/>
+    <line x1="22" y1="4" x2="28" y2="4" stroke="#000" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="25" y1="1" x2="25" y2="7" stroke="#000" stroke-width="2.2" stroke-linecap="round"/>
   </svg>
 </button>
 
@@ -256,6 +265,7 @@
 <div id="report-sheet" class="hidden">
   <!-- Step 1: category picker -->
   <div id="rpt-step1">
+    <div class="rpt-drag-handle"></div>
     <div class="rpt-header">
       <span class="rpt-title">What do you see?</span>
       <button class="rpt-close" id="rpt-close1">✕</button>
@@ -273,9 +283,29 @@
         <div class="rpt-icon" style="background:#2a1414">💥</div>
         <span>Crash</span>
       </button>
+      <button class="rpt-cat" data-cat="traffic">
+        <div class="rpt-icon" style="background:#1a1408">🚗</div>
+        <span>Traffic</span>
+      </button>
       <button class="rpt-cat" data-cat="hazard">
         <div class="rpt-icon" style="background:#241c0a">⚠️</div>
         <span>Hazard</span>
+      </button>
+      <button class="rpt-cat" data-cat="closure">
+        <div class="rpt-icon" style="background:#2a1010">🚧</div>
+        <span>Closure</span>
+      </button>
+      <button class="rpt-cat" data-cat="roadwork">
+        <div class="rpt-icon" style="background:#1a1608">👷</div>
+        <span>Roadwork</span>
+      </button>
+      <button class="rpt-cat" data-cat="weather">
+        <div class="rpt-icon" style="background:#0a1a2a">🌧️</div>
+        <span>Bad weather</span>
+      </button>
+      <button class="rpt-cat" data-cat="blocked_lane">
+        <div class="rpt-icon" style="background:#1a1020">🦺</div>
+        <span>Blocked lane</span>
       </button>
     </div>
   </div>

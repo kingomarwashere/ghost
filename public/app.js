@@ -221,7 +221,7 @@ function setupMapLayers(){
     map.addLayer({id:'heatmap-layer',type:'heatmap',source:'heatmap-src',layout:{visibility:'none'},paint:{
       'heatmap-weight':['coalesce',['get','w'],1],
       'heatmap-intensity':1.2,
-      'heatmap-color':['interpolate',['linear'],['heatmap-density'],0,'rgba(0,0,255,0)',0.3,'rgba(14,165,233,0.5)',1,'rgba(255,45,85,0.9)'],
+      'heatmap-color':['interpolate',['linear'],['heatmap-density'],0,'rgba(0,0,255,0)',0.3,'rgba(14,165,233,0.5)',1,'rgba(255,0,153,0.9)'],
       'heatmap-radius':28,'heatmap-opacity':0.85,
     }});
   }
@@ -318,8 +318,8 @@ const ICONS = {
   // Shield badge — police
   police: makeSvgIcon(
     `<path d="M10 1.5L3 4.5V9c0 4.2 3 7.8 7 8.8 4-1 7-4.6 7-8.8V4.5L10 1.5z" fill="white" fill-opacity=".95"/>
-     <path d="M7.5 9.5l2 2 3-3" stroke="#ff2d55" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`,
-    '#ff2d55'),
+     <path d="M7.5 9.5l2 2 3-3" stroke="#ff0099" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`,
+    '#ff0099'),
 
   // Camera + lightning flash — speed trap
   speed_trap: makeSvgIcon(
@@ -355,10 +355,10 @@ const ICONS = {
   // Traffic light — 3 circles in housing
   red_light: makeSvgIcon(
     `<rect x="6.5" y="1.5" width="7" height="17" rx="3" fill="white" fill-opacity=".95"/>
-     <circle cx="10" cy="5.5" r="1.8" fill="#ff2d55"/>
+     <circle cx="10" cy="5.5" r="1.8" fill="#ff0099"/>
      <circle cx="10" cy="10" r="1.8" fill="#fbbf24" fill-opacity=".45"/>
      <circle cx="10" cy="14.5" r="1.8" fill="#34d399" fill-opacity=".35"/>`,
-    '#ff2d55'),
+    '#ff0099'),
 
   // Radar arc + needle — average speed
   average_speed: makeSvgIcon(
@@ -368,6 +368,45 @@ const ICONS = {
      <line x1="10" y1="14" x2="7" y2="8.5" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
      <circle cx="10" cy="14" r="1.6" fill="white"/>`,
     '#8b5cf6'),
+
+  // Cars stacked — traffic
+  traffic: makeSvgIcon(
+    `<rect x="3" y="5" width="14" height="7" rx="2" fill="white" fill-opacity=".9"/>
+     <circle cx="6" cy="12" r="1.5" fill="#f59e0b"/>
+     <circle cx="14" cy="12" r="1.5" fill="#f59e0b"/>
+     <rect x="5" y="3" width="10" height="5" rx="1.5" fill="white" fill-opacity=".6"/>`,
+    '#f59e0b'),
+
+  // Barrier — closure
+  closure: makeSvgIcon(
+    `<rect x="2" y="7" width="16" height="6" rx="1.5" fill="white" fill-opacity=".9"/>
+     <path d="M2 8.5l3.5 4M6 8.5l3.5 4M10 8.5l3.5 4M14 8.5l3.5 4" stroke="#ff0099" stroke-width="1.4"/>
+     <rect x="4" y="4" width="2" height="4" rx="1" fill="white" fill-opacity=".7"/>
+     <rect x="14" y="4" width="2" height="4" rx="1" fill="white" fill-opacity=".7"/>`,
+    '#ff0099'),
+
+  // Hard hat — roadwork
+  roadwork: makeSvgIcon(
+    `<path d="M3.5 12.5h13v2.5H3.5z" fill="white" fill-opacity=".9"/>
+     <path d="M5 12.5C5 8 15 8 15 12.5" fill="white" fill-opacity=".9"/>
+     <rect x="9" y="5" width="2" height="5" rx="1" fill="#f59e0b"/>
+     <path d="M7 7.5h6" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>`,
+    '#f59e0b'),
+
+  // Rain cloud — weather
+  weather: makeSvgIcon(
+    `<path d="M14 9a4 4 0 00-7.9-.7A3 3 0 106 15h8a3 3 0 000-6z" fill="white" fill-opacity=".9"/>
+     <line x1="7" y1="16" x2="6" y2="18.5" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round"/>
+     <line x1="10" y1="16" x2="9" y2="18.5" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round"/>
+     <line x1="13" y1="16" x2="12" y2="18.5" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round"/>`,
+    '#0ea5e9'),
+
+  // Safety vest — blocked lane
+  blocked_lane: makeSvgIcon(
+    `<path d="M4 4h12l-2 14H6L4 4z" fill="white" fill-opacity=".9"/>
+     <path d="M4 4l4 5 2-2 2 2 4-5" fill="none" stroke="#f97316" stroke-width="1.4"/>
+     <rect x="5" y="11" width="10" height="2" rx="1" fill="#f97316"/>`,
+    '#f97316'),
 };
 
 /* ═══════════════════════════════════════════════
@@ -411,13 +450,13 @@ const toKmh = ms => Math.round(ms * 3.6);
 const toMph = ms => Math.round(ms * 2.237);
 function fmtSpeed(ms) {
   const v = prefs.unit==='mph' ? toMph(ms) : toKmh(ms);
-  return `${v} <small>${prefs.unit==='mph'?'mph':'km/h'}</small>`;
+  return `${v}<small>${prefs.unit==='mph'?'mph':'km/h'}</small>`;
 }
 function fmtDist(m) { return m<1000?`${Math.round(m/10)*10}m`:`${(m/1000).toFixed(1)}km`; }
 function fmtTime(s) { const m=Math.round(s/60); return m<60?`${m} min`:`${Math.floor(m/60)}h ${m%60}m`; }
 // routePoints are [lat,lng] arrays; MapLibre/GeoJSON needs [lng,lat] — declare early to avoid TDZ
 const toGL = pts => pts.map(p=>[p[1],p[0]]);
-function fmtETA(s)  { return new Date(Date.now()+s*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+function fmtETA(s)  { return new Date(Date.now()+s*1000).toLocaleTimeString([],{hour:'numeric',minute:'2-digit',hour12:true}); }
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function decodePolyline6(str){
@@ -457,14 +496,12 @@ function enable3DView() {
   document.body.classList.add('nav-3d');
   map.easeTo({pitch:65, duration:500});
   if(navState==='navigating'){ lastRefreshedMidx=-1; refreshStreetLabels(); }
-  const btn=$$('view-toggle'); if(btn){btn.textContent='2D';btn.title='Switch to 2D view';}
 }
 function disable3DView() {
   perspective3D = false;
   document.body.classList.remove('nav-3d');
   map.easeTo({pitch:0, duration:500});
   refreshStreetLabels();
-  const btn=$$('view-toggle'); if(btn){btn.textContent='3D';btn.title='Switch to 3D view';}
 }
 
 const ARROW = {1:'↑',2:'↑',3:'↑',4:'🏁',5:'🏁',6:'🏁',7:'↑',8:'↑',9:'↗',10:'→',11:'↪',12:'↩',13:'↩',14:'↩',15:'←',16:'↖',17:'↑',18:'↗',19:'↖',22:'↗',23:'↖',24:'⇒',25:'↻',26:'↑',28:'⛴'};
@@ -489,7 +526,7 @@ const NAV_SVG = {
   // Slight left
   slightL:    _navSvg('<path d="M22 22L8 8M8 8v8M8 8h8" stroke="white" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'),
   // Arrive — pin drop
-  arrive:     _navSvg('<path d="M14 4a7 7 0 010 14c0 0-7-8-7-10A7 7 0 0114 4z" fill="white"/><circle cx="14" cy="11" r="3" fill="#ff2d55" stroke="none"/>'),
+  arrive:     _navSvg('<path d="M14 4a7 7 0 010 14c0 0-7-8-7-10A7 7 0 0114 4z" fill="white"/><circle cx="14" cy="11" r="3" fill="#ff0099" stroke="none"/>'),
   // Roundabout
   roundabout: _navSvg('<circle cx="14" cy="14" r="7" stroke="white" stroke-width="2.5" fill="none"/><path d="M14 7l3 3-3 3" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'),
   // Ramp / merge right
@@ -627,10 +664,12 @@ async function loadReports(){
     const data=await fetch(`/api/reports?${p}`).then(r=>r.json());
     clearMarkers(reportMarkers);
     for(const r of data){
-      if(!visibleLayers.police) continue;
-      const icon=ICONS[r.type]??ICONS.police;
+      // speed_trap uses speed layer filter; police/all others use police filter
+      if(r.type==='speed_trap'&&!visibleLayers.speed) continue;
+      if(r.type!=='speed_trap'&&!visibleLayers.police) continue;
+      const icon=ICONS[r.type]??ICONS.hazard;
       const age=Math.round((Date.now()-r.created_at)/60000);
-      const label={police:'🚔 Police',speed_trap:'📸 Speed trap',accident:'⚠️ Accident',hazard:'🚧 Hazard'}[r.type]??r.type;
+      const label={police:'🚔 Police',speed_trap:'📸 Speed trap',accident:'💥 Crash',hazard:'⚠️ Hazard',traffic:'🚗 Traffic',closure:'🚧 Closure',roadwork:'👷 Roadwork',weather:'🌧️ Weather',blocked_lane:'🦺 Blocked lane'}[r.type]??r.type;
       const ageStr=age<60?`${age}m ago`:`${Math.round(age/60)}h ago`;
       const popupHtml=`<strong>${label}</strong>${r.description?`<p>${escHtml(r.description)}</p>`:''}<p>${ageStr} · ✅ ${r.confirms} 👎 ${r.denies}</p><div class="popup-actions"><button class="popup-confirm" onclick="vote('${r.id}','confirm')">✅ Still there</button><button class="popup-deny" onclick="vote('${r.id}','deny')">👎 Gone</button></div>`;
       const popup=new maplibregl.Popup({offset:24,maxWidth:'260px'}).setHTML(popupHtml);
@@ -686,25 +725,65 @@ const REPORT_CATS = {
   speed_trap: {
     label:'Speed trap', emoji:'📷', title:'Report speed trap',
     subtypes:[
-      {key:'speed_trap',    label:'Mobile camera', emoji:'📷', bg:'#1e1a2e'},
-      {key:'fixed_camera',  label:'Fixed camera',  emoji:'🔴', bg:'#2a1414'},
+      {key:'speed_trap',   label:'Mobile camera', emoji:'📷', bg:'#1e1a2e'},
+      {key:'fixed_camera', label:'Fixed camera',  emoji:'🔴', bg:'#2a1414'},
     ]
   },
   accident: {
     label:'Crash', emoji:'💥', title:'Report a crash',
     subtypes:[
-      {key:'accident',   label:'Crash',       emoji:'💥', bg:'#2a1414'},
-      {key:'pileup',     label:'Pile-up',     emoji:'🚗', bg:'#2a1010'},
-      {key:'other_side', label:'Other side',  emoji:'↩️', bg:'#222'},
+      {key:'accident',   label:'Crash',        emoji:'💥', bg:'#2a1414'},
+      {key:'pileup',     label:'Pile-up',      emoji:'🚗', bg:'#2a1010'},
+      {key:'other_side', label:'Other side',   emoji:'↩️', bg:'#222'},
+    ]
+  },
+  traffic: {
+    label:'Traffic', emoji:'🚗', title:'Report traffic',
+    subtypes:[
+      {key:'traffic',     label:'Heavy traffic', emoji:'🚗', bg:'#1a1408'},
+      {key:'standstill',  label:'Standstill',    emoji:'⛔', bg:'#2a1010'},
+      {key:'moderate',    label:'Moderate',      emoji:'🟡', bg:'#241c0a'},
     ]
   },
   hazard: {
     label:'Hazard', emoji:'⚠️', title:'Report a hazard',
     subtypes:[
-      {key:'hazard',    label:'Hazard',          emoji:'⚠️', bg:'#241c0a'},
-      {key:'roadwork',  label:'Roadwork',         emoji:'🚧', bg:'#1a1608'},
-      {key:'pothole',   label:'Pothole',          emoji:'🕳️', bg:'#1a1a1a'},
-      {key:'object',    label:'Object on road',   emoji:'📦', bg:'#1a1818'},
+      {key:'hazard',   label:'Hazard',          emoji:'⚠️', bg:'#241c0a'},
+      {key:'pothole',  label:'Pothole',          emoji:'🕳️', bg:'#1a1a1a'},
+      {key:'object',   label:'Object on road',   emoji:'📦', bg:'#1a1818'},
+      {key:'animal',   label:'Animal on road',   emoji:'🐄', bg:'#1a1a10'},
+    ]
+  },
+  closure: {
+    label:'Closure', emoji:'🚧', title:'Report road closure',
+    subtypes:[
+      {key:'closure',      label:'Road closed',   emoji:'🚧', bg:'#2a1010'},
+      {key:'detour',       label:'Detour',         emoji:'↪️', bg:'#241c0a'},
+    ]
+  },
+  roadwork: {
+    label:'Roadwork', emoji:'👷', title:'Report roadwork',
+    subtypes:[
+      {key:'roadwork',     label:'Roadwork',       emoji:'👷', bg:'#1a1608'},
+      {key:'lane_closed',  label:'Lane closed',    emoji:'🚧', bg:'#2a1010'},
+      {key:'slow_zone',    label:'Slow zone',      emoji:'🔽', bg:'#1a1408'},
+    ]
+  },
+  weather: {
+    label:'Bad weather', emoji:'🌧️', title:'Report bad weather',
+    subtypes:[
+      {key:'weather_rain',  label:'Heavy rain',  emoji:'🌧️', bg:'#0a1a2a'},
+      {key:'weather_fog',   label:'Fog',         emoji:'🌫️', bg:'#1a1a1a'},
+      {key:'weather_flood', label:'Flooding',    emoji:'🌊', bg:'#0a1020'},
+      {key:'weather_wind',  label:'High winds',  emoji:'💨', bg:'#0a1424'},
+    ]
+  },
+  blocked_lane: {
+    label:'Blocked lane', emoji:'🦺', title:'Report blocked lane',
+    subtypes:[
+      {key:'blocked_lane',  label:'Lane blocked',  emoji:'🦺', bg:'#1a1020'},
+      {key:'shoulder',      label:'Shoulder only', emoji:'➡️', bg:'#1a1818'},
+      {key:'breakdown',     label:'Breakdown',     emoji:'🚘', bg:'#2a1010'},
     ]
   },
 };
@@ -905,6 +984,10 @@ let fromPlace=null, toPlace=null, activeField='to';
 ═══════════════════════════════════════════════ */
 // peek must fit: handle(22) + time(42) + via(18) + gap(12) + buttons(52) + bottom-pad(16) + safe-area(≤40) ≈ 200
 const SNAP = { peek: 240, half: Math.round(window.innerHeight * 0.44), full: Math.round(window.innerHeight * 0.82) };
+window.addEventListener('resize', () => {
+  SNAP.half = Math.round(window.innerHeight * 0.44);
+  SNAP.full = Math.round(window.innerHeight * 0.82);
+});
 
 function setSheetState(state, animate=true) {
   const h = SNAP[state] ?? SNAP.peek;
@@ -987,7 +1070,80 @@ function onUserPan(){
 }
 map.on('dragstart',onUserPan);
 map.on('zoomstart',onUserPan);
+
+/* ── Long-press on map → "Drive here" ──────────────────────────────────────
+   600 ms hold on the map canvas opens a popup at the tapped location with
+   a reverse-geocoded name and a one-tap "Drive here" button.
+   Right-click (desktop) triggers the same flow.
+─────────────────────────────────────────────────────────────────────────── */
+let _lpTimer=null, _lpFired=false, _tapPopup=null, _tapMarker=null;
+
+function _clearLongPress(){ clearTimeout(_lpTimer); _lpTimer=null; }
+
+async function _openTapPopup(lngLat){
+  if(_tapMarker){ _tapMarker.remove(); _tapMarker=null; }
+  if(_tapPopup){ _tapPopup.remove(); _tapPopup=null; }
+
+  const el=document.createElement('div');
+  el.innerHTML='<span class="dest-pin">📍</span>';
+  _tapMarker=new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat(lngLat).addTo(map);
+
+  let name='Selected location';
+  try{
+    const r=await fetch(`https://photon.komoot.io/reverse?lon=${lngLat.lng}&lat=${lngLat.lat}&lang=en`);
+    const d=await r.json();
+    if(d.features?.length){
+      const p=d.features[0].properties;
+      name=san(p.name||p.street||p.city||name);
+    }
+  }catch{}
+
+  _tapPopup=new maplibregl.Popup({offset:44,closeButton:true,maxWidth:'200px'})
+    .setHTML(`<strong style="display:block;font-size:.9rem;margin-bottom:8px">${escHtml(name)}</strong><button id="tap-drive-btn" style="width:100%;padding:11px;background:#00cfff;border:none;border-radius:10px;color:#000;font-weight:900;font-size:.9rem;cursor:pointer">Drive here</button>`)
+    .setLngLat(lngLat)
+    .addTo(map);
+
+  // Wire button after popup is in DOM
+  requestAnimationFrame(()=>{
+    const btn=document.getElementById('tap-drive-btn');
+    if(!btn) return;
+    btn.addEventListener('click',()=>{
+      _tapPopup.remove(); _tapPopup=null;
+      if(_tapMarker){ _tapMarker.remove(); _tapMarker=null; }
+      toPlace={lat:lngLat.lat,lng:lngLat.lng,name};
+      toInput.value=name; toClear.classList.remove('hidden');
+      tryRoute();
+    });
+  });
+}
+
+(()=>{
+  const canvas=map.getCanvas();
+  canvas.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1||navState==='navigating') return;
+    _lpFired=false;
+    const t=e.touches[0];
+    const rect=canvas.getBoundingClientRect();
+    const pt=map.unproject([t.clientX-rect.left,t.clientY-rect.top]);
+    _lpTimer=setTimeout(()=>{
+      _lpFired=true;
+      if(navigator.vibrate) navigator.vibrate(40);
+      _openTapPopup(pt);
+    },620);
+  },{passive:true});
+  canvas.addEventListener('touchmove',_clearLongPress,{passive:true});
+  canvas.addEventListener('touchend',_clearLongPress,{passive:true});
+  canvas.addEventListener('touchcancel',_clearLongPress,{passive:true});
+})();
+// Desktop: right-click
+map.on('contextmenu',e=>{
+  if(navState==='navigating') return;
+  e.preventDefault?.();
+  _openTapPopup(e.lngLat);
+});
+
 let nearCameras=[], nearReports=[], alertedIds=new Set();
+let speedLimitWays=[]; // [{coords:[[lat,lng],...], limit:number}] — from Overpass
 let alertHideTimer=null;
 let activeAlert=null;
 let lastRefreshedMidx=-1; // {lat,lng,dismissDist} — persists bar until hazard is passed
@@ -1032,10 +1188,12 @@ function _stepMarker(ts){
   // Drive the map camera at 60fps from the same loop — silky bearing-up following
   if(navState==='navigating' && !userPanning){
     if(perspective3D){
-      const zoom=map.getZoom();
-      const lookM=Math.min(LOOK_CAP[zoom]??180,Math.max(150,_mLastSpeedMs*15));
+      const navZ=targetNavZoom(_mLastSpeedMs);
+      // Push camera centre well ahead so the car sits in the lower third of the screen.
+      // 250 m minimum; grows with speed so motorway driving shows more road ahead.
+      const lookM=Math.max(250,_mLastSpeedMs*18);
       const [aLat,aLng]=aheadPoint(lat,lng,_mCurHdg,lookM);
-      map.jumpTo({center:[aLng,aLat],bearing:_mCurHdg,pitch:65,zoom:16});
+      map.jumpTo({center:[aLng,aLat],bearing:_mCurHdg,pitch:65,zoom:navZ});
     } else {
       map.jumpTo({center:[lng,lat],bearing:headingUpMode?_mCurHdg:map.getBearing(),pitch:0,zoom:targetNavZoom(_mLastSpeedMs)});
     }
@@ -1065,10 +1223,12 @@ function openPlanner(){
   $$('avoid-highways').classList.remove('active');
   setActiveField('to');
   _syncPlannerH();
-  toInput.focus();
+  // Do NOT auto-focus — keyboard should only open on explicit tap of the input field
   showSuggestions();
 }
 function closePlanner(){
+  // Dismiss keyboard before animating out
+  fromInput.blur(); toInput.blur();
   topbar.classList.remove('hidden');
   planner.classList.remove('planner-open'); // triggers slide-down transition
   // After transition ends, hide completely so nothing underneath is blocked
@@ -1139,6 +1299,11 @@ function wireInput(input, field){
 }
 wireInput(fromInput,'from');
 wireInput(toInput,'to');
+
+// Dismiss keyboard the instant the user's finger touches the results list
+searchResultsEl.addEventListener('touchstart',()=>{
+  fromInput.blur(); toInput.blur();
+},{passive:true});
 
 fromClear.addEventListener('click',()=>{fromInput.value='';fromPlace=null;fromClear.classList.add('hidden');fromInput.focus();showSuggestions();});
 toClear.addEventListener('click',  ()=>{toInput.value='';  toPlace=null;  toClear.classList.add('hidden');  toInput.focus();  showSuggestions();});
@@ -1252,6 +1417,7 @@ async function calcRoute(fromLat,fromLng,toLat,toLng){
     selectedRouteIdx=0;
     applySelectedRoute();
     fetchSchoolZones();
+    fetchRouteSpeedLimits();
     navState='preview';
     document.body.classList.add('previewing');
     // Hide topbar so the map and route are unobstructed
@@ -1371,6 +1537,45 @@ function updateSpeedProfileCursor(){
   cursorEl.classList.remove('hidden');
 }
 
+/* ── OSM speed limits — fetched once per route from Overpass ── */
+function parseMaxspeed(raw){
+  const AU={'AU:urban':50,'AU:rural':100,'AU:motorway':110,'AU:living_street':10,'AU:school_zone':40};
+  if(AU[raw]) return AU[raw];
+  const n=parseInt(raw);
+  return(!isNaN(n)&&n>5&&n<200)?n:null;
+}
+
+function distToSegmentM(lat,lng,[la1,lo1],[la2,lo2]){
+  const cos=Math.cos(lat*Math.PI/180);
+  const dlat=(la2-la1)*111320, dlon=(lo2-lo1)*111320*cos;
+  const plat=(lat-la1)*111320, plon=(lng-lo1)*111320*cos;
+  const len2=dlat*dlat+dlon*dlon;
+  if(len2<1) return Math.hypot(plat,plon);
+  const t=Math.max(0,Math.min(1,(plat*dlat+plon*dlon)/len2));
+  return Math.hypot(plat-t*dlat,plon-t*dlon);
+}
+
+async function fetchRouteSpeedLimits(){
+  if(!routePoints.length) return;
+  const lats=routePoints.map(p=>p[0]),lngs=routePoints.map(p=>p[1]);
+  const s=Math.min(...lats)-0.002,n=Math.max(...lats)+0.002;
+  const w=Math.min(...lngs)-0.002,e=Math.max(...lngs)+0.002;
+  const q=`[out:json][timeout:25];way["maxspeed"]["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|residential|living_street|unclassified)$"](${s},${w},${n},${e});out tags geom;`;
+  try{
+    const resp=await fetch('https://overpass-api.de/api/interpreter',{
+      method:'POST',body:'data='+encodeURIComponent(q),
+      headers:{'Content-Type':'application/x-www-form-urlencoded','User-Agent':'radar-app/1.0'}
+    });
+    const {elements}=await resp.json();
+    speedLimitWays=[];
+    for(const el of elements){
+      if(!el.geometry?.length||!el.tags?.maxspeed) continue;
+      const limit=parseMaxspeed(el.tags.maxspeed);
+      if(limit) speedLimitWays.push({coords:el.geometry.map(g=>[g.lat,g.lon]),limit});
+    }
+  }catch{ speedLimitWays=[]; }
+}
+
 /* ── School zones ────────────────────────────── */
 async function fetchSchoolZones(){
   if(!routePoints.length) return;
@@ -1425,7 +1630,7 @@ function clearRoute(){
   previewBar.classList.add('hidden');
   $$('route-chips').classList.add('hidden');
   $$('speed-profile').classList.add('hidden');
-  navState='idle'; routeData=null; routePoints=[]; maneuvers=[]; allRoutes=[]; schoolZones=[];
+  navState='idle'; routeData=null; routePoints=[]; maneuvers=[]; allRoutes=[]; schoolZones=[]; speedLimitWays=[];
   fromPlace=null; toPlace=null;
   fromInput.value=''; toInput.value='';
   fromClear.classList.add('hidden'); toClear.classList.add('hidden');
@@ -1524,7 +1729,6 @@ document.addEventListener('visibilitychange',()=>{
 ═══════════════════════════════════════════════ */
 startNavBtn.addEventListener('click',startNav);
 endNavBtn.addEventListener('click',endNav);
-$$('view-toggle').addEventListener('click',()=>{ perspective3D ? disable3DView() : enable3DView(); });
 arrivalDone.addEventListener('click',()=>{arrivalOverlay.classList.add('hidden');endNav();});
 
 function startNav(){
@@ -1540,7 +1744,6 @@ function startNav(){
   arrivedFlag=false; headingUpMode=true;
 
   $$('compass-widget').classList.remove('hidden');
-  $$('view-toggle').classList.remove('hidden');
   $$('recenter-btn').classList.remove('hidden');
   acquireWakeLock();
   // Safety redraw — ensures route is visible after UI transitions settle
@@ -1588,7 +1791,6 @@ function endNav(){
   map.easeTo({bearing:0,pitch:0,duration:400});
   $$('north-up-btn').classList.add('hidden');
   $$('compass-widget').classList.add('hidden');
-  $$('view-toggle').classList.add('hidden');
 
   releaseWakeLock();
   if(_mRaf){cancelAnimationFrame(_mRaf);_mRaf=null;}
@@ -1603,8 +1805,8 @@ function gpsErr(e){console.warn('GPS',e.code,e.message);}
 
 /* ── Auto-zoom + look-ahead per zoom level ──────── */
 function targetNavZoom(speedMs){
-  if(perspective3D) return 16; // 3D always uses zoom 16 — tilt provides the depth, not zoom
   const kmh=speedMs*3.6;
+  if(perspective3D) return kmh>70?16:17;
   if(kmh>75) return 16;
   if(kmh>35) return 17;
   return 18;
@@ -1704,20 +1906,36 @@ function onGPS(pos){
 
   _mLastSpeedMs=speedMs; // expose speed to rAF camera loop
 
+  // Snap car to the nearest point on the route polyline when within 40 m.
+  // Eliminates GPS drift that places the car icon off the road.
+  let dispLat=lat, dispLng=lng, dispHdg=hdg;
+  if(navState==='navigating' && routePoints.length){
+    const {idx:sIdx,dist:sDist}=nearestOnRoute(routePoints,lat,lng);
+    if(sDist<40){
+      dispLat=routePoints[sIdx][0];
+      dispLng=routePoints[sIdx][1];
+      const nxt=routePoints[Math.min(sIdx+1,routePoints.length-1)];
+      // Only use road direction when the next point is far enough to be meaningful
+      if(haversine(dispLat,dispLng,nxt[0],nxt[1])>2){
+        dispHdg=bearing(dispLat,dispLng,nxt[0],nxt[1]);
+      }
+    }
+  }
+
   if(!userMarker){
-    userMarker=makeUserMarker(lat,lng,hdg).addTo(map);
-    _mCurHdg=hdg; _mHdgTo=hdg;
-    _mFrom={lat,lng}; _mTo={lat,lng};
+    userMarker=makeUserMarker(dispLat,dispLng,dispHdg).addTo(map);
+    _mCurHdg=dispHdg; _mHdgTo=dispHdg;
+    _mFrom={lat:dispLat,lng:dispLng}; _mTo={lat:dispLat,lng:dispLng};
   } else {
     // Smooth interpolation over the GPS interval — camera follows from _stepMarker rAF
     const gpsMs=prevPos?Math.min(Math.max(pos.timestamp-prevPos.ts,400),2000):800;
-    animateMarkerTo(lat,lng,hdg,gpsMs);
+    animateMarkerTo(dispLat,dispLng,dispHdg,gpsMs);
   }
   // Camera follow is driven by _stepMarker at 60fps — no easeTo here during nav
 
   if(navState==='navigating'){
     currentSpeedEl.innerHTML=fmtSpeed(speedMs);
-    const lim=getSpeedLimit();
+    const lim=getSpeedLimit(lat,lng);
     const dispLim=lim?(prefs.unit==='mph'?Math.round(lim*0.621):lim):null;
     const speedDisp=prefs.unit==='mph'?toMph(speedMs):toKmh(speedMs);
     const over=dispLim&&speedDisp>dispLim;
@@ -1820,13 +2038,28 @@ function updateNavPanel(distToTurn){
   }
 }
 
-function getSpeedLimit(){ const m=maneuvers[currentMidx]; return(m?.speed_limit&&m.speed_limit<200)?m.speed_limit:null; }
+function getSpeedLimit(lat,lng){
+  const m=maneuvers[currentMidx];
+  if(m?.speed_limit&&m.speed_limit<200) return m.speed_limit;
+  if(!speedLimitWays.length) return null;
+  const clat=lat??prevPos?.lat, clng=lng??prevPos?.lng;
+  if(clat==null) return null;
+  let minD=Infinity,best=null;
+  for(const way of speedLimitWays){
+    for(let i=0;i<way.coords.length-1;i++){
+      const d=distToSegmentM(clat,clng,way.coords[i],way.coords[i+1]);
+      if(d<minD){minD=d;best=way.limit;}
+    }
+  }
+  return minD<30?best:null;
+}
 
 /* ── Compass widget — driven by map's rotate event ── */
 function updateCompass(){
   const bearing=map.getBearing();
-  const needle=$$('compass-needle');
-  if(needle) needle.style.transform=`translateX(-50%) translateY(-100%) rotate(${bearing}deg)`;
+  // Rotate the N/S diamond so the pink tip always points to geographic north
+  const dial=$$('compass-svg');
+  if(dial) dial.style.transform=`rotate(${bearing}deg)`;
   const off=Math.abs(bearing%360)>0.5;
   $$('compass-widget').classList.toggle('hidden',!off);
   $$('north-up-btn').classList.toggle('hidden',!off);
@@ -1845,7 +2078,15 @@ $$('north-up-btn').addEventListener('click', resetNorthUp);
 $$('recenter-btn').addEventListener('click',()=>{
   userPanning=false;
   clearTimeout(pausePanTimer);
-  // keep recenter-btn visible during nav — just re-center the camera
+  if(prevPos && navState==='navigating'){
+    const {lat,lng}=prevPos;
+    if(perspective3D){
+      const [aLat,aLng]=aheadPoint(lat,lng,_mCurHdg,200);
+      map.easeTo({center:[aLng,aLat],bearing:_mCurHdg,pitch:65,zoom:16,duration:400});
+    } else {
+      map.easeTo({center:[lng,lat],bearing:headingUpMode?_mCurHdg:0,pitch:0,zoom:targetNavZoom(_mLastSpeedMs),duration:400});
+    }
+  }
 });
 
 /* ── Two-finger vertical drag → live 3D tilt ─────────────────────────────
