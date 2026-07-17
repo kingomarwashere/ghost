@@ -1764,6 +1764,7 @@ function startNav(){
 
   $$('compass-widget').classList.remove('hidden');
   $$('recenter-btn').classList.remove('hidden');
+  $$('nav-actions').classList.remove('hidden');
   acquireWakeLock();
   // Safety redraw — ensures route is visible after UI transitions settle
   setTimeout(()=>{ if(routePoints.length) updateRouteGeoJSON(); }, 300);
@@ -1802,7 +1803,7 @@ function startNav(){
 function endNav(){
   navState='idle';
   if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null;}
-  [navInst,navFooter,alertBar,arrivalOverlay].forEach(el=>el.classList.add('hidden'));
+  [navInst,navFooter,alertBar,arrivalOverlay,$$('nav-actions'),$$('nav-search-sheet'),$$('nav-routes-sheet')].forEach(el=>el?.classList.add('hidden'));
   topbar.classList.remove('hidden');
   document.body.classList.remove('navigating');
   $$('recenter-btn').classList.add('hidden');
@@ -2319,6 +2320,198 @@ function checkVoice(mIdx,dist){
   if(dist<=220&&dist>140&&lastVoice!==key('c')){speak(san(nextM.verbal_transition_alert_instruction??instr));lastVoice=key('c');}
   else if(dist<=550&&dist>440&&lastVoice!==key('b')){speak(`In ${fmtDist(dist)}, ${instr}`);lastVoice=key('b');}
   else if(dist<=1050&&dist>940&&lastVoice!==key('a')){speak(`In 1 kilometre, ${instr}`);lastVoice=key('a');}
+}
+
+/* ═══════════════════════════════════════════════
+   MID-NAV SEARCH & ROUTES
+═══════════════════════════════════════════════ */
+
+// ── Search sheet ─────────────────────────────────
+let nssMode='reroute';
+document.querySelectorAll('.nss-tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.nss-tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    nssMode=btn.dataset.mode;
+  });
+});
+
+$$('nav-search-btn').addEventListener('click',()=>{
+  $$('nav-routes-sheet').classList.add('hidden');
+  $$('nav-search-sheet').classList.remove('hidden');
+  $$('nss-input').focus();
+});
+
+$$('nss-close').addEventListener('click',()=>{
+  $$('nav-search-sheet').classList.add('hidden');
+  $$('nss-input').value='';
+  $$('nss-results').innerHTML='';
+});
+
+let nssDebounce=null;
+$$('nss-input').addEventListener('input',e=>{
+  clearTimeout(nssDebounce);
+  const q=e.target.value.trim();
+  if(!q){$$('nss-results').innerHTML='';return;}
+  nssDebounce=setTimeout(()=>doNavSearch(q),300);
+});
+
+async function doNavSearch(q){
+  const gps=prevPos??(userMarker?{lat:userMarker.getLngLat().lat,lng:userMarker.getLngLat().lng}:null);
+  const results=await geocode(q,gps?.lat,gps?.lng);
+  const el=$$('nss-results');
+  if(!results.length){el.innerHTML='<div class="nss-empty">No results found</div>';return;}
+  el.innerHTML='';
+  for(const r of results){
+    const div=document.createElement('div');
+    div.className='nss-result';
+    div.innerHTML=`<div class="nss-result-name">${san(r.name)}</div>${r.sub?`<div class="nss-result-sub">${san(r.sub)}</div>`:''}`;
+    div.addEventListener('click',()=>applyNavSearch(r));
+    el.appendChild(div);
+  }
+}
+
+async function applyNavSearch(place){
+  $$('nav-search-sheet').classList.add('hidden');
+  $$('nss-input').value='';
+  $$('nss-results').innerHTML='';
+  const gps=prevPos??(userMarker?{lat:userMarker.getLngLat().lat,lng:userMarker.getLngLat().lng}:null);
+  if(!gps){showToast('No GPS fix',2000);return;}
+  if(nssMode==='reroute'){
+    toPlace=place;
+    await navRerouteTo(gps.lat,gps.lng,place.lat,place.lng);
+  } else {
+    const dest=routePoints[routePoints.length-1];
+    await navRouteViaStop(gps.lat,gps.lng,place.lat,place.lng,dest[0],dest[1]);
+  }
+}
+
+function _buildCostOpts(){
+  const c={};
+  if(routeOpts.avoidTolls){c.auto=c.auto??{};c.auto.toll_booth_penalty=9999;}
+  if(routeOpts.avoidHighways){c.auto=c.auto??{};c.auto.use_highways=0.1;}
+  return c;
+}
+
+async function navRerouteTo(fromLat,fromLng,toLat,toLng){
+  showToast('Recalculating…',20000);
+  try{
+    const co=_buildCostOpts();
+    const resp=await fetch('/api/route',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        locations:[{lon:fromLng,lat:fromLat},{lon:toLng,lat:toLat}],
+        costing:'auto',alternates:2,
+        directions_options:{units:'kilometers',language:'en-US'},
+        ...(Object.keys(co).length?{costing_options:co}:{}),
+      })});
+    if(!resp.ok){showToast('Could not find route',3000);return;}
+    const data=await resp.json();
+    allRoutes=[data.trip];
+    if(data.alternates) data.alternates.forEach(a=>allRoutes.push(a.trip));
+    selectedRouteIdx=0;
+    routeData=allRoutes[0];
+    routePoints=decodePolyline6(routeData.legs[0].shape);
+    maneuvers=routeData.legs[0].maneuvers;
+    currentMidx=0;lastVoice=-1;
+    updateRouteGeoJSON();
+    map.getSource('route-traveled')?.setData(emptyFC());
+    showToast('Route updated',2000);
+    loadNearCameras();loadNearReports();
+  }catch{showToast('Routing failed',3000);}
+}
+
+async function navRouteViaStop(fromLat,fromLng,stopLat,stopLng,destLat,destLng){
+  showToast('Adding stop…',20000);
+  try{
+    const co=_buildCostOpts();
+    const resp=await fetch('/api/route',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        locations:[{lon:fromLng,lat:fromLat},{lon:stopLng,lat:stopLat},{lon:destLng,lat:destLat}],
+        costing:'auto',
+        directions_options:{units:'kilometers',language:'en-US'},
+        ...(Object.keys(co).length?{costing_options:co}:{}),
+      })});
+    if(!resp.ok){showToast('Could not add stop',3000);return;}
+    const data=await resp.json();
+    allRoutes=[data.trip];
+    selectedRouteIdx=0;
+    routeData=allRoutes[0];
+    // Merge multi-leg polylines and maneuvers
+    const pts=[];
+    for(const leg of routeData.legs){
+      const lp=decodePolyline6(leg.shape);
+      if(pts.length) lp.shift();
+      pts.push(...lp);
+    }
+    routePoints=pts;
+    maneuvers=routeData.legs.flatMap(l=>l.maneuvers);
+    currentMidx=0;lastVoice=-1;
+    updateRouteGeoJSON();
+    map.getSource('route-traveled')?.setData(emptyFC());
+    showToast('Stop added',2000);
+    loadNearCameras();loadNearReports();
+  }catch{showToast('Could not add stop',3000);}
+}
+
+// ── Routes sheet ─────────────────────────────────
+$$('nav-routes-btn').addEventListener('click',()=>{
+  $$('nav-search-sheet').classList.add('hidden');
+  $$('nav-routes-sheet').classList.remove('hidden');
+  renderNavRoutes();
+});
+
+$$('nrs-close').addEventListener('click',()=>$$('nav-routes-sheet').classList.add('hidden'));
+
+async function renderNavRoutes(){
+  const list=$$('nrs-list');
+  list.innerHTML='<div class="nss-empty">Loading…</div>';
+  // Fetch fresh alternatives from current position if we only have one
+  if(allRoutes.length<2&&prevPos&&routePoints.length){
+    const dest=routePoints[routePoints.length-1];
+    try{
+      const resp=await fetch('/api/route',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          locations:[{lon:prevPos.lng,lat:prevPos.lat},{lon:dest[1],lat:dest[0]}],
+          costing:'auto',alternates:2,
+          directions_options:{units:'kilometers',language:'en-US'},
+        })});
+      if(resp.ok){
+        const data=await resp.json();
+        const fresh=[data.trip];
+        if(data.alternates) data.alternates.forEach(a=>fresh.push(a.trip));
+        if(fresh.length>1) allRoutes=fresh;
+      }
+    }catch{}
+  }
+  list.innerHTML='';
+  if(!allRoutes.length){list.innerHTML='<div class="nss-empty">No alternatives available</div>';return;}
+  const labels=['Fastest','Alternative','Shortest'];
+  allRoutes.forEach((route,i)=>{
+    const s=route.summary;
+    const mins=Math.round(s.time/60);
+    const km=s.length.toFixed(1);
+    const via=route.legs[0].maneuvers.find(m=>m.street_names?.length)?.street_names[0]??'';
+    const div=document.createElement('div');
+    div.className='nrs-route'+(i===selectedRouteIdx?' active':'');
+    div.innerHTML=`<div class="nrs-route-top">
+      <span class="nrs-label">${labels[i]??`Route ${i+1}`}</span>
+      ${i===selectedRouteIdx?'<span class="nrs-badge">On route</span>':''}
+    </div>
+    <div class="nrs-meta">${mins} min · ${km} km${via?' · via '+san(via):''}</div>`;
+    div.addEventListener('click',()=>{
+      if(i===selectedRouteIdx){$$('nav-routes-sheet').classList.add('hidden');return;}
+      selectedRouteIdx=i;
+      routeData=allRoutes[i];
+      routePoints=decodePolyline6(routeData.legs[0].shape);
+      maneuvers=routeData.legs[0].maneuvers;
+      currentMidx=0;lastVoice=-1;
+      updateRouteGeoJSON();
+      map.getSource('route-traveled')?.setData(emptyFC());
+      $$('nav-routes-sheet').classList.add('hidden');
+      showToast('Route switched',2000);
+    });
+    list.appendChild(div);
+  });
 }
 
 /* ── Arrival ──────────────────────────────────── */
