@@ -319,95 +319,18 @@ function makeEmojiIcon(emoji, bg='#1e3a5f', size=42){
 }
 
 const ICONS = {
-  // Police officer face emoji
-  police: makeEmojiIcon('👮', '#1e3a5f'),
-
-  // Camera + lightning flash — speed trap
-  speed_trap: makeSvgIcon(
-    `<path d="M2.5 6.5a1 1 0 011-1H6l1-1.5h3.5l1 1.5h2a1 1 0 011 1v7a1 1 0 01-1 1h-10a1 1 0 01-1-1v-7z" fill="white"/>
-     <circle cx="8.5" cy="10" r="2.2" fill="#f97316"/>
-     <circle cx="8.5" cy="10" r=".9" fill="white"/>
-     <path d="M14.5 5l-1.8 3.5h1.8l-2.2 4" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`,
-    '#f97316'),
-
-  // Triangle warning + exclamation — accident
-  accident: makeSvgIcon(
-    `<path d="M10 2.5L1.5 17h17L10 2.5z" fill="white" fill-opacity=".92"/>
-     <rect x="9.2" y="8" width="1.6" height="4.5" rx=".8" fill="#f59e0b"/>
-     <circle cx="10" cy="14.5" r="1" fill="#f59e0b"/>`,
-    '#f59e0b'),
-
-  // Traffic cone — hazard
-  hazard: makeSvgIcon(
-    `<path d="M10 2.5L5.5 15.5h9L10 2.5z" fill="white" fill-opacity=".9"/>
-     <rect x="6" y="9.5" width="8" height="1.4" rx=".7" fill="#f97316"/>
-     <rect x="7.2" y="12.2" width="5.6" height="1.4" rx=".7" fill="#f97316"/>
-     <rect x="4.5" y="15.5" width="11" height="2" rx="1" fill="white"/>`,
-    '#f97316'),
-
-  // Speed camera — fixed camera body with lens
-  speed: makeSvgIcon(
-    `<path d="M2.5 6.5a1 1 0 011-1H6l1-1.5h4l1 1.5h2.5a1 1 0 011 1v7a1 1 0 01-1 1h-11a1 1 0 01-1-1v-7z" fill="white"/>
-     <circle cx="10" cy="10" r="2.8" fill="#0ea5e9"/>
-     <circle cx="10" cy="10" r="1.2" fill="white"/>
-     <circle cx="10" cy="10" r=".4" fill="#0ea5e9"/>`,
-    '#0ea5e9'),
-
-  // Traffic light — 3 circles in housing
-  red_light: makeSvgIcon(
-    `<rect x="6.5" y="1.5" width="7" height="17" rx="3" fill="white" fill-opacity=".95"/>
-     <circle cx="10" cy="5.5" r="1.8" fill="#ff0099"/>
-     <circle cx="10" cy="10" r="1.8" fill="#fbbf24" fill-opacity=".45"/>
-     <circle cx="10" cy="14.5" r="1.8" fill="#34d399" fill-opacity=".35"/>`,
-    '#ff0099'),
-
-  // Radar arc + needle — average speed
-  average_speed: makeSvgIcon(
-    `<path d="M3 14a7 7 0 0114 0" stroke="white" stroke-width="1.8" stroke-linecap="round" fill="none"/>
-     <path d="M1 16a9 9 0 0118 0" stroke="white" stroke-width="1.2" stroke-linecap="round" fill="none" opacity=".45"/>
-     <path d="M5.5 12a6 6 0 019 0" stroke="white" stroke-width="1.2" stroke-linecap="round" fill="none" opacity=".25"/>
-     <line x1="10" y1="14" x2="7" y2="8.5" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
-     <circle cx="10" cy="14" r="1.6" fill="white"/>`,
-    '#8b5cf6'),
-
-  // Cars stacked — traffic
-  traffic: makeSvgIcon(
-    `<rect x="3" y="5" width="14" height="7" rx="2" fill="white" fill-opacity=".9"/>
-     <circle cx="6" cy="12" r="1.5" fill="#f59e0b"/>
-     <circle cx="14" cy="12" r="1.5" fill="#f59e0b"/>
-     <rect x="5" y="3" width="10" height="5" rx="1.5" fill="white" fill-opacity=".6"/>`,
-    '#f59e0b'),
-
-  // Barrier — closure
-  closure: makeSvgIcon(
-    `<rect x="2" y="7" width="16" height="6" rx="1.5" fill="white" fill-opacity=".9"/>
-     <path d="M2 8.5l3.5 4M6 8.5l3.5 4M10 8.5l3.5 4M14 8.5l3.5 4" stroke="#ff0099" stroke-width="1.4"/>
-     <rect x="4" y="4" width="2" height="4" rx="1" fill="white" fill-opacity=".7"/>
-     <rect x="14" y="4" width="2" height="4" rx="1" fill="white" fill-opacity=".7"/>`,
-    '#ff0099'),
-
-  // Hard hat — roadwork
-  roadwork: makeSvgIcon(
-    `<path d="M3.5 12.5h13v2.5H3.5z" fill="white" fill-opacity=".9"/>
-     <path d="M5 12.5C5 8 15 8 15 12.5" fill="white" fill-opacity=".9"/>
-     <rect x="9" y="5" width="2" height="5" rx="1" fill="#f59e0b"/>
-     <path d="M7 7.5h6" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>`,
-    '#f59e0b'),
-
-  // Rain cloud — weather
-  weather: makeSvgIcon(
-    `<path d="M14 9a4 4 0 00-7.9-.7A3 3 0 106 15h8a3 3 0 000-6z" fill="white" fill-opacity=".9"/>
-     <line x1="7" y1="16" x2="6" y2="18.5" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round"/>
-     <line x1="10" y1="16" x2="9" y2="18.5" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round"/>
-     <line x1="13" y1="16" x2="12" y2="18.5" stroke="#0ea5e9" stroke-width="1.6" stroke-linecap="round"/>`,
-    '#0ea5e9'),
-
-  // Safety vest — blocked lane
-  blocked_lane: makeSvgIcon(
-    `<path d="M4 4h12l-2 14H6L4 4z" fill="white" fill-opacity=".9"/>
-     <path d="M4 4l4 5 2-2 2 2 4-5" fill="none" stroke="#f97316" stroke-width="1.4"/>
-     <rect x="5" y="11" width="10" height="2" rx="1" fill="#f97316"/>`,
-    '#f97316'),
+  police:        makeEmojiIcon('👮', '#1e3a5f'),
+  speed_trap:    makeEmojiIcon('📸', '#2a1500'),
+  accident:      makeEmojiIcon('💥', '#2a0f0f'),
+  hazard:        makeEmojiIcon('⚠️', '#241c0a'),
+  speed:         makeEmojiIcon('📷', '#0a1a2a'),
+  red_light:     makeEmojiIcon('🚦', '#1a0014'),
+  average_speed: makeEmojiIcon('📡', '#150a2a'),
+  traffic:       makeEmojiIcon('🚗', '#1a1408'),
+  closure:       makeEmojiIcon('🚧', '#2a1010'),
+  roadwork:      makeEmojiIcon('👷', '#1a1608'),
+  weather:       makeEmojiIcon('🌧️', '#0a1a2a'),
+  blocked_lane:  makeEmojiIcon('🦺', '#1a0e00'),
 };
 
 /* ═══════════════════════════════════════════════
@@ -900,10 +823,21 @@ Object.entries(toggleMap).forEach(([id,key])=>{
   el.checked=prefs[key]??true;
   el.addEventListener('change',()=>{
     prefs[key]=el.checked; savePrefs();
-    // Keep routeOpts in sync for avoidTolls so the next opened planner matches
     if(key==='avoidTolls') routeOpts.avoidTolls=el.checked;
   });
 });
+
+// Choose start toggle — not in prefs (defaults off); controls body class + from-row visibility
+(()=>{
+  const el=$$('s-choosestart'); if(!el) return;
+  const saved=localStorage.getItem('showStart')==='1';
+  el.checked=saved;
+  document.body.classList.toggle('show-start',saved);
+  el.addEventListener('change',()=>{
+    document.body.classList.toggle('show-start',el.checked);
+    localStorage.setItem('showStart',el.checked?'1':'0');
+  });
+})();
 
 document.querySelectorAll('.unit-btn').forEach(btn=>{
   btn.classList.toggle('active',btn.dataset.unit===prefs.unit);
@@ -1873,28 +1807,47 @@ async function reroute(lat,lng){
 
 function makeUserIcon(gpsHdg=0){
   const iconRot = gpsHdg - map.getBearing();
-  return { html:`<svg class="user-arrow" style="transform:rotate(${iconRot}deg)" viewBox="0 0 44 60" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="22" cy="58" rx="13" ry="3" fill="rgba(0,0,0,0.18)"/>
-      <rect x="4" y="9" width="36" height="42" rx="10" fill="#fbbf24"/>
-      <circle cx="12" cy="22" r="3.5" fill="#ef4444"/>
-      <circle cx="32" cy="28" r="3" fill="#8b5cf6"/>
-      <circle cx="14" cy="36" r="3" fill="#0ea5e9"/>
-      <circle cx="30" cy="19" r="2.5" fill="#34d399"/>
-      <circle cx="22" cy="33" r="2" fill="#f97316"/>
-      <rect x="8" y="13" width="28" height="15" rx="5" fill="rgba(186,230,253,0.88)"/>
-      <rect x="11" y="16" width="9" height="6" rx="2.5" fill="rgba(255,255,255,0.5)"/>
-      <rect x="8" y="33" width="28" height="12" rx="4" fill="rgba(186,230,253,0.65)"/>
-      <rect x="-2" y="11" width="8" height="14" rx="4" fill="#1e293b"/>
-      <rect x="38" y="11" width="8" height="14" rx="4" fill="#1e293b"/>
-      <rect x="-2" y="34" width="8" height="14" rx="4" fill="#1e293b"/>
-      <rect x="38" y="34" width="8" height="14" rx="4" fill="#1e293b"/>
-      <circle cx="22" cy="10" r="4" fill="#ef4444"/>
-      <circle cx="23" cy="9" r="1.2" fill="rgba(255,255,255,0.4)"/>
-      <rect x="7" y="7" width="11" height="5" rx="2.5" fill="#fde68a"/>
-      <rect x="26" y="7" width="11" height="5" rx="2.5" fill="#fde68a"/>
-      <rect x="7" y="46" width="11" height="5" rx="2.5" fill="#fca5a5"/>
-      <rect x="26" y="46" width="11" height="5" rx="2.5" fill="#fca5a5"/>
-    </svg>` };
+  return { html:`<svg class="user-arrow" style="transform:rotate(${iconRot}deg)" viewBox="0 0 52 76" width="52" height="76" xmlns="http://www.w3.org/2000/svg">
+    <!-- drop shadow -->
+    <ellipse cx="26" cy="73" rx="16" ry="3.5" fill="rgba(0,0,0,0.25)"/>
+    <!-- body -->
+    <path d="M10 24 C10 13 17 8 26 8 C35 8 42 13 42 24 L42 60 C42 67 35 70 26 70 C17 70 10 67 10 60 Z" fill="#ff0099"/>
+    <!-- racing stripe -->
+    <rect x="23.5" y="8" width="5" height="62" rx="2.5" fill="rgba(255,255,255,0.12)"/>
+    <!-- front windshield -->
+    <path d="M16 24 C16 17 20 14 26 14 C32 14 36 17 36 24 L34 32 L18 32 Z" fill="rgba(160,230,255,0.88)"/>
+    <!-- windshield glare -->
+    <path d="M19 16 C21 14 23 14 25 15 L22 22 Z" fill="rgba(255,255,255,0.35)"/>
+    <!-- googly eyes on windshield -->
+    <circle cx="21" cy="23" r="3.2" fill="white"/>
+    <circle cx="31" cy="23" r="3.2" fill="white"/>
+    <circle cx="22" cy="24" r="1.6" fill="#1e293b"/>
+    <circle cx="32" cy="24" r="1.6" fill="#1e293b"/>
+    <circle cx="22.6" cy="23.3" r=".6" fill="white"/>
+    <circle cx="32.6" cy="23.3" r=".6" fill="white"/>
+    <!-- cheeky smile -->
+    <path d="M21 29 Q26 33 31 29" stroke="#1e293b" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+    <!-- rear window -->
+    <path d="M18 48 L34 48 L33 58 C33 62 30 64 26 64 C22 64 19 62 19 58 Z" fill="rgba(160,230,255,0.6)"/>
+    <!-- front wheels -->
+    <rect x="1" y="22" width="11" height="17" rx="5" fill="#1e293b"/>
+    <rect x="40" y="22" width="11" height="17" rx="5" fill="#1e293b"/>
+    <!-- rear wheels -->
+    <rect x="1" y="50" width="11" height="17" rx="5" fill="#1e293b"/>
+    <rect x="40" y="50" width="11" height="17" rx="5" fill="#1e293b"/>
+    <!-- wheel shine -->
+    <rect x="3" y="26" width="5" height="5" rx="2.5" fill="rgba(255,255,255,0.15)"/>
+    <rect x="44" y="26" width="5" height="5" rx="2.5" fill="rgba(255,255,255,0.15)"/>
+    <!-- headlights -->
+    <rect x="13" y="10" width="8" height="5" rx="2.5" fill="#fef08a"/>
+    <rect x="31" y="10" width="8" height="5" rx="2.5" fill="#fef08a"/>
+    <!-- headlight glow -->
+    <rect x="13" y="10" width="8" height="2" rx="1" fill="rgba(255,255,200,0.6)"/>
+    <rect x="31" y="10" width="8" height="2" rx="1" fill="rgba(255,255,200,0.6)"/>
+    <!-- tail lights -->
+    <rect x="13" y="65" width="8" height="5" rx="2.5" fill="#ef4444"/>
+    <rect x="31" y="65" width="8" height="5" rx="2.5" fill="#ef4444"/>
+  </svg>` };
 }
 function makeUserMarker(lat,lng,gpsHdg=0){
   const el=document.createElement('div');

@@ -116,7 +116,8 @@ body {
   cursor: pointer; font-size: .75rem; padding: 4px 6px; border-radius: 4px;
   flex-shrink: 0;
 }
-#from-row, .field-connector { display: none; }
+body:not(.show-start) #from-row,
+body:not(.show-start) .field-connector { display: none; }
 .field-connector {
   position: relative; display: flex; align-items: center;
   padding: 2px 0; height: 18px;
