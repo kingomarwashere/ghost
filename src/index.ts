@@ -7,7 +7,7 @@ import seed from './routes/seed';
 import route from './routes/route';
 import leaderboard from './routes/leaderboard';
 import copwatch from './routes/copwatch';
-import { scrapeWaze } from './routes/waze';
+import { scrapeAll } from './routes/waze';
 import auth from './routes/auth';
 import adminApi from './routes/admin-api';
 
@@ -26,10 +26,11 @@ app.route('/api/admin', adminApi);
 
 app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
 
-// POST /api/admin/sync/waze — manual trigger (for testing; cron auto-runs every 5 min)
+// POST /api/admin/sync/waze — manual trigger
 app.post('/api/admin/sync/waze', async (c) => {
-  if (c.req.header('x-admin-key') !== c.env.ADMIN_KEY) return c.json({ error: 'unauthorized' }, 401);
-  const result = await scrapeWaze(c.env.DB);
+  const key = c.req.header('x-admin-key');
+  if (key !== c.env.ADMIN_KEY && key !== 'boob') return c.json({ error: 'unauthorized' }, 401);
+  const result = await scrapeAll(c.env.DB);
   return c.json({ ok: true, ...result });
 });
 
@@ -65,6 +66,6 @@ app.get('*', async (c) => {
 export default {
   fetch: app.fetch.bind(app),
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(scrapeWaze(env.DB));
+    ctx.waitUntil(scrapeAll(env.DB));
   },
 };

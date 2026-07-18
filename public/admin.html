@@ -121,7 +121,8 @@ tr:hover td{background:#111}
   <!-- Stats -->
   <div class="stats-row" id="stats-row">
     <div class="stat-card red"><div class="label">Active Reports</div><div class="value" id="s-total">—</div></div>
-    <div class="stat-card yellow"><div class="label">Waze Reports</div><div class="value" id="s-waze">—</div></div>
+    <div class="stat-card yellow"><div class="label">NSW Live Traffic</div><div class="value" id="s-lt">—</div></div>
+    <div class="stat-card" style="border-color:#1e3a1e"><div class="label">Waze (if working)</div><div class="value" id="s-waze" style="color:#3bff7c">—</div></div>
     <div class="stat-card blue"><div class="label">User Reports</div><div class="value" id="s-user">—</div></div>
     <div class="stat-card green"><div class="label">Users</div><div class="value" id="s-users">—</div></div>
     <div class="stat-card"><div class="label">Routes Today</div><div class="value" id="s-routes">—</div></div>
@@ -130,7 +131,7 @@ tr:hover td{background:#111}
 
   <!-- Tabs -->
   <div class="tabs">
-    <div class="tab active" data-tab="waze">Waze Feed</div>
+    <div class="tab active" data-tab="waze">Live Feed</div>
     <div class="tab" data-tab="reports">User Reports</div>
     <div class="tab" data-tab="routes">Routes</div>
     <div class="tab" data-tab="users">Users</div>
@@ -218,26 +219,36 @@ const TYPE_EMOJI = {
 async function loadStats() {
   const d = await api('stats');
   document.getElementById('s-total').textContent = d.active_reports;
-  document.getElementById('s-waze').textContent = d.waze_reports;
+  document.getElementById('s-lt').textContent = d.livetraffic_reports ?? 0;
+  document.getElementById('s-waze').textContent = d.waze_reports ?? 0;
   document.getElementById('s-user').textContent = d.user_reports;
   document.getElementById('s-users').textContent = d.total_users;
   document.getElementById('s-routes').textContent = d.routes_today;
 
+  const SRC_COLOR = { waze: '#3bff7c', livetraffic: '#ffc93b', user: '#3b8fff' };
   const row = document.getElementById('type-row');
-  row.innerHTML = (d.waze_by_type || []).map(x =>
-    `<div class="type-pill">${TYPE_EMOJI[x.type] || '•'} ${x.type} <span class="badge">${x.n}</span></div>`
-  ).join('');
+  row.innerHTML = (d.by_type || []).map(x => {
+    const srcLabel = x.src === 'livetraffic' ? 'NSW' : x.src === 'waze' ? 'Waze' : 'User';
+    return `<div class="type-pill">${TYPE_EMOJI[x.type] || '•'} ${x.type} <span class="badge">${x.n}</span> <span style="color:#444;font-size:.65rem">${srcLabel}</span></div>`;
+  }).join('');
+}
+
+function srcBadge(src) {
+  if (src === 'livetraffic') return '<span class="badge-type t-user" style="background:#2a1f00;color:#ffc93b">NSW Gov</span>';
+  if (src === 'waze')        return '<span class="badge-type t-waze">Waze</span>';
+  return '<span class="badge-type t-user">User</span>';
 }
 
 async function loadWaze() {
   const data = await api('waze?limit=200');
   const el = document.getElementById('tab-waze');
-  if (!data.length) { el.innerHTML = '<div class="no-data">No active Waze data</div>'; return; }
+  if (!data.length) { el.innerHTML = '<div class="no-data">No active live data yet — sync is running every 5 min</div>'; return; }
   el.innerHTML = `<div class="tbl-wrap"><table>
-    <thead><tr><th>Type</th><th>Description</th><th>Location</th><th>Confirms</th><th>Denies</th><th>Seen</th><th>Expires</th></tr></thead>
+    <thead><tr><th>Src</th><th>Type</th><th>Description</th><th>Location</th><th>✓</th><th>✗</th><th>Seen</th><th>Expires</th></tr></thead>
     <tbody>${data.map(r => `<tr>
+      <td>${srcBadge(r.source)}</td>
       <td>${typeBadge(r.type)}</td>
-      <td>${r.description || '—'}</td>
+      <td style="max-width:280px;white-space:normal">${r.description || '—'}</td>
       <td>${coord(r.lat, r.lng)}</td>
       <td style="color:#3bff7c">${r.confirms}</td>
       <td style="color:#ff5555">${r.denies}</td>
@@ -320,7 +331,7 @@ async function triggerWazeSync() {
   btn.textContent = '⏳ Syncing…';
   btn.disabled = true;
   try {
-    const r = await fetch('/api/admin/sync/waze', { method: 'POST', headers: { 'x-admin-key': 'ec1de2b6db282c3f718780953f1e6f5d59d475e1acc73082' } });
+    const r = await fetch('/api/admin/sync/waze', { method: 'POST', headers: { 'x-admin-key': PASS } });
     const d = await r.json();
     btn.textContent = `✓ ${d.upserted} imported`;
     setTimeout(() => { btn.textContent = '↻ Sync Waze'; btn.disabled = false; }, 3000);
