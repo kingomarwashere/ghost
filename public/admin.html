@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Radar Admin</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0a0a0f;color:#e0e0e0;min-height:100vh}
+
+/* Gate */
+#gate{display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:16px}
+#gate h1{font-size:2rem;font-weight:700;letter-spacing:2px;color:#ff3b3b}
+#gate p{color:#666;font-size:.9rem}
+#pw-wrap{display:flex;gap:8px;margin-top:8px}
+#pw{background:#161620;border:1px solid #2a2a3a;color:#e0e0e0;padding:10px 16px;border-radius:8px;font-size:1rem;width:220px;outline:none}
+#pw:focus{border-color:#ff3b3b}
+#pw-btn{background:#ff3b3b;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:1rem;font-weight:600}
+#pw-btn:hover{background:#ff5555}
+#pw-err{color:#ff3b3b;font-size:.85rem;display:none}
+
+/* Dashboard */
+#dash{display:none}
+header{background:#13131f;border-bottom:1px solid #1e1e30;padding:14px 24px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10}
+header h1{font-size:1.2rem;font-weight:700;color:#ff3b3b;letter-spacing:1px}
+header span{color:#444;font-size:.85rem;margin-left:auto}
+#sync-btn{background:#1e1e30;border:1px solid #2a2a3a;color:#aaa;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:.8rem}
+#sync-btn:hover{background:#2a2a3a;color:#fff}
+
+/* Stats */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;padding:20px 24px 0}
+.stat-card{background:#13131f;border:1px solid #1e1e30;border-radius:10px;padding:16px 20px}
+.stat-card .label{font-size:.75rem;color:#666;text-transform:uppercase;letter-spacing:.5px}
+.stat-card .value{font-size:2rem;font-weight:700;margin-top:4px;color:#e0e0e0}
+.stat-card.red .value{color:#ff3b3b}
+.stat-card.blue .value{color:#3b8fff}
+.stat-card.green .value{color:#3bff7c}
+.stat-card.yellow .value{color:#ffc93b}
+
+/* Waze type breakdown */
+.type-row{display:flex;flex-wrap:wrap;gap:8px;padding:12px 24px}
+.type-pill{background:#1e1e30;border:1px solid #2a2a3a;border-radius:20px;padding:4px 12px;font-size:.8rem;display:flex;gap:6px;align-items:center}
+.type-pill .badge{font-weight:700;color:#ff9f3b}
+
+/* Tabs */
+.tabs{display:flex;gap:0;padding:20px 24px 0;border-bottom:1px solid #1e1e30;margin:0 0 0 0}
+.tab{padding:10px 20px;cursor:pointer;font-size:.9rem;color:#666;border-bottom:2px solid transparent;transition:all .15s}
+.tab:hover{color:#aaa}
+.tab.active{color:#ff3b3b;border-bottom-color:#ff3b3b}
+
+/* Tables */
+.tab-content{padding:20px 24px;display:none}
+.tab-content.active{display:block}
+.tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid #1e1e30}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{background:#13131f;color:#555;text-transform:uppercase;font-size:.7rem;letter-spacing:.5px;padding:10px 12px;text-align:left;border-bottom:1px solid #1e1e30}
+td{padding:9px 12px;border-bottom:1px solid #111;vertical-align:top;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#111}
+
+/* Type badges */
+.badge-type{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:600;text-transform:uppercase}
+.t-police{background:#3d1a1a;color:#ff5555}
+.t-accident{background:#3d2a1a;color:#ff9f3b}
+.t-hazard{background:#2a2a1a;color:#ffd93b}
+.t-traffic{background:#1a2a3d;color:#3b8fff}
+.t-weather{background:#1a2a2a;color:#3bffd9}
+.t-roadwork{background:#2a1a3d;color:#c43bff}
+.t-closure{background:#3d1a2a;color:#ff3b8f}
+.t-blocked_lane{background:#2a1a1a;color:#ff7b3b}
+.t-speed_trap{background:#3d1a3d;color:#ff3bff}
+.t-waze{background:#1a3d2a;color:#3bff7c;font-size:.65rem}
+.t-user{background:#1a1a3d;color:#7b8fff;font-size:.65rem}
+
+/* Coords */
+.coord{color:#555;font-size:.75rem;font-family:monospace}
+
+/* Timestamp */
+.ts{color:#444;font-size:.75rem}
+
+/* No data */
+.no-data{padding:40px;text-align:center;color:#333;font-size:.9rem}
+
+/* Loading */
+.loading{padding:40px;text-align:center;color:#444}
+
+/* Refresh indicator */
+#last-updated{color:#333;font-size:.75rem;margin-left:8px}
+
+/* User avatar */
+.avatar{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#1e1e30;font-size:.75rem;font-weight:700;color:#ff3b3b;margin-right:6px;vertical-align:middle}
+
+@media(max-width:600px){
+  .stats-row{grid-template-columns:repeat(2,1fr);padding:12px}
+  .tabs .tab{padding:8px 12px;font-size:.8rem}
+  .tab-content{padding:12px}
+}
+</style>
+</head>
+<body>
+
+<!-- Password gate -->
+<div id="gate">
+  <h1>⚠ RADAR ADMIN</h1>
+  <p>Restricted access</p>
+  <div id="pw-wrap">
+    <input type="password" id="pw" placeholder="Password" autofocus>
+    <button id="pw-btn">Enter</button>
+  </div>
+  <div id="pw-err">Wrong password</div>
+</div>
+
+<!-- Dashboard -->
+<div id="dash">
+  <header>
+    <h1>⚡ RADAR ADMIN</h1>
+    <button id="sync-btn" onclick="triggerWazeSync()">↻ Sync Waze</button>
+    <span id="last-updated"></span>
+  </header>
+
+  <!-- Stats -->
+  <div class="stats-row" id="stats-row">
+    <div class="stat-card red"><div class="label">Active Reports</div><div class="value" id="s-total">—</div></div>
+    <div class="stat-card yellow"><div class="label">Waze Reports</div><div class="value" id="s-waze">—</div></div>
+    <div class="stat-card blue"><div class="label">User Reports</div><div class="value" id="s-user">—</div></div>
+    <div class="stat-card green"><div class="label">Users</div><div class="value" id="s-users">—</div></div>
+    <div class="stat-card"><div class="label">Routes Today</div><div class="value" id="s-routes">—</div></div>
+  </div>
+  <div class="type-row" id="type-row"></div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="waze">Waze Feed</div>
+    <div class="tab" data-tab="reports">User Reports</div>
+    <div class="tab" data-tab="routes">Routes</div>
+    <div class="tab" data-tab="users">Users</div>
+    <div class="tab" data-tab="history">History</div>
+  </div>
+
+  <div id="tab-waze" class="tab-content active">
+    <div class="loading">Loading…</div>
+  </div>
+  <div id="tab-reports" class="tab-content">
+    <div class="loading">Loading…</div>
+  </div>
+  <div id="tab-routes" class="tab-content">
+    <div class="loading">Loading…</div>
+  </div>
+  <div id="tab-users" class="tab-content">
+    <div class="loading">Loading…</div>
+  </div>
+  <div id="tab-history" class="tab-content">
+    <div class="loading">Loading…</div>
+  </div>
+</div>
+
+<script>
+const PASS = 'boob';
+let authed = false;
+
+// Gate
+document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') attempt(); });
+document.getElementById('pw-btn').addEventListener('click', attempt);
+
+function attempt() {
+  if (document.getElementById('pw').value === PASS) {
+    authed = true;
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('dash').style.display = 'block';
+    init();
+  } else {
+    document.getElementById('pw-err').style.display = 'block';
+    document.getElementById('pw').value = '';
+  }
+}
+
+// Tabs
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+  });
+});
+
+async function api(path) {
+  const r = await fetch('/api/admin/' + path, { headers: { 'x-admin-key': PASS } });
+  return r.json();
+}
+
+function ts(ms) {
+  if (!ms) return '—';
+  const d = new Date(ms);
+  const now = Date.now();
+  const diff = now - ms;
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return Math.floor(diff/60000) + 'm ago';
+  if (diff < 86400000) return Math.floor(diff/3600000) + 'h ago';
+  return d.toLocaleDateString('en-AU', { day:'numeric', month:'short' }) + ' ' + d.toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit' });
+}
+
+function coord(lat, lng) {
+  if (!lat && !lng) return '<span class="coord">—</span>';
+  return `<span class="coord">${(+lat).toFixed(4)}, ${(+lng).toFixed(4)}</span>`;
+}
+
+function typeBadge(type) {
+  return `<span class="badge-type t-${type}">${type}</span>`;
+}
+
+const TYPE_EMOJI = {
+  police:'🚔', speed_trap:'📷', accident:'💥', hazard:'⚠️',
+  traffic:'🚗', closure:'🚧', roadwork:'🔨', weather:'🌧️',
+  blocked_lane:'🚫', waze:'📡', user:'👤',
+};
+
+async function loadStats() {
+  const d = await api('stats');
+  document.getElementById('s-total').textContent = d.active_reports;
+  document.getElementById('s-waze').textContent = d.waze_reports;
+  document.getElementById('s-user').textContent = d.user_reports;
+  document.getElementById('s-users').textContent = d.total_users;
+  document.getElementById('s-routes').textContent = d.routes_today;
+
+  const row = document.getElementById('type-row');
+  row.innerHTML = (d.waze_by_type || []).map(x =>
+    `<div class="type-pill">${TYPE_EMOJI[x.type] || '•'} ${x.type} <span class="badge">${x.n}</span></div>`
+  ).join('');
+}
+
+async function loadWaze() {
+  const data = await api('waze?limit=200');
+  const el = document.getElementById('tab-waze');
+  if (!data.length) { el.innerHTML = '<div class="no-data">No active Waze data</div>'; return; }
+  el.innerHTML = `<div class="tbl-wrap"><table>
+    <thead><tr><th>Type</th><th>Description</th><th>Location</th><th>Confirms</th><th>Denies</th><th>Seen</th><th>Expires</th></tr></thead>
+    <tbody>${data.map(r => `<tr>
+      <td>${typeBadge(r.type)}</td>
+      <td>${r.description || '—'}</td>
+      <td>${coord(r.lat, r.lng)}</td>
+      <td style="color:#3bff7c">${r.confirms}</td>
+      <td style="color:#ff5555">${r.denies}</td>
+      <td class="ts">${ts(r.created_at)}</td>
+      <td class="ts">${ts(r.expires_at)}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+async function loadReports() {
+  const data = await api('reports?limit=200');
+  const el = document.getElementById('tab-reports');
+  if (!data.length) { el.innerHTML = '<div class="no-data">No user reports yet</div>'; return; }
+  el.innerHTML = `<div class="tbl-wrap"><table>
+    <thead><tr><th>Type</th><th>Description</th><th>Location</th><th>Confirms</th><th>Denies</th><th>Submitted</th><th>Expires</th></tr></thead>
+    <tbody>${data.map(r => `<tr>
+      <td>${typeBadge(r.type)}</td>
+      <td>${r.description || '—'}</td>
+      <td>${coord(r.lat, r.lng)}</td>
+      <td style="color:#3bff7c">${r.confirms}</td>
+      <td style="color:#ff5555">${r.denies}</td>
+      <td class="ts">${ts(r.created_at)}</td>
+      <td class="ts">${ts(r.expires_at)}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+async function loadRoutes() {
+  const data = await api('routes?limit=200');
+  const el = document.getElementById('tab-routes');
+  if (!data.length) { el.innerHTML = '<div class="no-data">No routes logged yet</div>'; return; }
+  el.innerHTML = `<div class="tbl-wrap"><table>
+    <thead><tr><th>From</th><th>To</th><th>User</th><th>When</th></tr></thead>
+    <tbody>${data.map(r => `<tr>
+      <td>${coord(r.from_lat, r.from_lng)}</td>
+      <td>${coord(r.to_lat, r.to_lng)}</td>
+      <td>${r.username ? `<span class="avatar">${r.username[0].toUpperCase()}</span>${r.username}` : '<span class="ts">anonymous</span>'}</td>
+      <td class="ts">${ts(r.created_at)}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+async function loadUsers() {
+  const data = await api('users?limit=200');
+  const el = document.getElementById('tab-users');
+  if (!data.length) { el.innerHTML = '<div class="no-data">No registered users yet</div>'; return; }
+  el.innerHTML = `<div class="tbl-wrap"><table>
+    <thead><tr><th>Gamertag</th><th>Email</th><th>Score</th><th>Last Seen</th><th>Joined</th></tr></thead>
+    <tbody>${data.map(u => `<tr>
+      <td><span class="avatar">${u.username[0].toUpperCase()}</span><strong>${u.username}</strong></td>
+      <td style="color:#666">${u.email}</td>
+      <td style="color:#ffc93b;font-weight:700">${u.score}</td>
+      <td class="ts">${ts(u.last_seen)}</td>
+      <td class="ts">${ts(u.created_at)}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+async function loadHistory() {
+  const data = await api('history?limit=200');
+  const el = document.getElementById('tab-history');
+  const byType = data.by_type || [];
+  const recent = data.recent || [];
+  el.innerHTML = `
+    <div class="type-row" style="padding:0 0 16px 0">${byType.map(x =>
+      `<div class="type-pill">${TYPE_EMOJI[x.type] || '•'} ${x.type} <span class="badge">${x.n}</span></div>`
+    ).join('')}</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Type</th><th>Location</th><th>When</th></tr></thead>
+      <tbody>${recent.map(r => `<tr>
+        <td>${typeBadge(r.type)}</td>
+        <td>${coord(r.lat, r.lng)}</td>
+        <td class="ts">${ts(r.created_at)}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
+async function triggerWazeSync() {
+  const btn = document.getElementById('sync-btn');
+  btn.textContent = '⏳ Syncing…';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/admin/sync/waze', { method: 'POST', headers: { 'x-admin-key': 'ec1de2b6db282c3f718780953f1e6f5d59d475e1acc73082' } });
+    const d = await r.json();
+    btn.textContent = `✓ ${d.upserted} imported`;
+    setTimeout(() => { btn.textContent = '↻ Sync Waze'; btn.disabled = false; }, 3000);
+    refresh();
+  } catch {
+    btn.textContent = '↻ Sync Waze';
+    btn.disabled = false;
+  }
+}
+
+async function refresh() {
+  await Promise.allSettled([loadStats(), loadWaze(), loadReports(), loadRoutes(), loadUsers(), loadHistory()]);
+  document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-AU');
+}
+
+function init() {
+  refresh();
+  setInterval(refresh, 30_000); // auto-refresh every 30s
+}
+</script>
+</body>
+</html>

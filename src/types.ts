@@ -5,6 +5,15 @@ export interface Env {
   ADMIN_KEY: string;
 }
 
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  score: number;
+  created_at: number;
+  last_seen: number | null;
+}
+
 export interface Report {
   id: string;
   lat: number;

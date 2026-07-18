@@ -8,6 +8,8 @@ import route from './routes/route';
 import leaderboard from './routes/leaderboard';
 import copwatch from './routes/copwatch';
 import { scrapeWaze } from './routes/waze';
+import auth from './routes/auth';
+import adminApi from './routes/admin-api';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -19,6 +21,8 @@ app.route('/api/admin/seed', seed);
 app.route('/api/route', route);
 app.route('/api/leaderboard', leaderboard);
 app.route('/api/copwatch', copwatch);
+app.route('/api/auth', auth);
+app.route('/api/admin', adminApi);
 
 app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
 
