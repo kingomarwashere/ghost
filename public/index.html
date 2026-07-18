@@ -145,6 +145,31 @@
   <div id="gta-score-display">🏆 <span id="gta-score-val">0</span></div>
 </div>
 
+<!-- ── Score submit modal ──────────────────────────────── -->
+<div id="score-modal" class="hidden">
+  <div id="score-modal-card">
+    <div id="score-modal-title">🏆 Drive Complete!</div>
+    <div id="score-modal-score"></div>
+    <div id="score-modal-stars"></div>
+    <input id="score-modal-nick" type="text" placeholder="Your name (max 20 chars)" maxlength="20" autocomplete="off">
+    <div id="score-modal-btns">
+      <button id="score-modal-skip">Skip</button>
+      <button id="score-modal-submit">Submit to leaderboard</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Leaderboard modal ────────────────────────────────── -->
+<div id="lb-modal" class="hidden">
+  <div id="lb-card">
+    <div id="lb-header">
+      <span>🏆 Most Wanted</span>
+      <button id="lb-close">✕</button>
+    </div>
+    <div id="lb-list"><div class="lb-loading">Loading…</div></div>
+  </div>
+</div>
+
 <!-- ── GTA overlays ───────────────────────────────────── -->
 <div id="gta-wanted-banner" class="hidden">
   <span id="gta-wanted-text">WANTED</span>
@@ -215,6 +240,10 @@
         <div class="style-thumb" style="background:#c5d8a4;border:1px solid #aaa"></div>
         <span>Terrain</span>
       </button>
+      <button class="style-btn" data-style="gta">
+        <div class="style-thumb" style="background:#0d1117;border:1px solid #fbbf24;position:relative"><span style="position:absolute;bottom:1px;right:2px;font-size:7px;color:#fbbf24;font-weight:900">GTA</span></div>
+        <span>GTA</span>
+      </button>
     </div>
 
     <div class="settings-section-label" style="margin-top:18px">Display mode</div>
@@ -233,6 +262,8 @@
       <label class="setting-row"><span>🚫 Avoid tolls by default</span><input type="checkbox" id="s-tolls" checked></label>
       <label class="setting-row"><span>📍 Choose custom start point</span><input type="checkbox" id="s-choosestart"></label>
     </div>
+
+    <button id="open-leaderboard-btn" style="width:100%;margin-top:16px;padding:14px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.4);border-radius:12px;color:#fbbf24;font-weight:800;font-size:.95rem;cursor:pointer;font-family:inherit">🏆 Most Wanted Leaderboard</button>
 
     <div class="settings-section-label" style="margin-top:18px">🏎️ Your ride</div>
     <div id="car-grid"></div>

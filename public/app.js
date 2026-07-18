@@ -48,7 +48,7 @@ const routeOpts = { avoidTolls: prefs.avoidTolls??true, avoidHighways: false };
 ═══════════════════════════════════════════════ */
 // styleOverride is now persisted via prefs.styleOverride (see DEFAULT_PREFS)
 const LIGHT_STYLES = new Set(['light','voyager','terrain','satellite']);
-const DARK_STYLES  = new Set(['dark']);
+const DARK_STYLES  = new Set(['dark','gta']);
 
 function isDark(lat, lng) {
   const now   = new Date();
@@ -96,6 +96,7 @@ const VECTOR_STYLES = {
   dark:    'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
   light:   'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
   voyager: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+  gta:     'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json', // base = dark, then recoloured
 };
 const RASTER_TILES = {
   satellite: { url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', sub:'', attr:'©Esri' },
@@ -180,6 +181,7 @@ map.on('style.load', () => {
   _palApplied = false;
   fixPalestineLabels();
   setupMapLayers();
+  if(prefs.mapStyle==='gta') applyGtaColors();
   // Re-draw route after any style swap — covers preview and active nav
   if(routePoints.length) updateRouteGeoJSON();
   if(!_mapReady){
@@ -1887,8 +1889,8 @@ document.addEventListener('visibilitychange',()=>{
    NAVIGATION
 ═══════════════════════════════════════════════ */
 startNavBtn.addEventListener('click',startNav);
-endNavBtn.addEventListener('click',endNav);
-arrivalDone.addEventListener('click',()=>{arrivalOverlay.classList.add('hidden');endNav();});
+endNavBtn.addEventListener('click',()=>{ endNav(); showScoreSubmit(); });
+arrivalDone.addEventListener('click',()=>{arrivalOverlay.classList.add('hidden');showScoreSubmit();});
 
 function startNav(){
   previewBar.classList.add('hidden');
@@ -1905,6 +1907,7 @@ function startNav(){
   $$('compass-widget').classList.remove('hidden');
   $$('recenter-btn').classList.remove('hidden');
   gtaStartNav();
+  _navDistance=0; _prevNavPos=null;
   acquireWakeLock();
   // Safety redraw — ensures route is visible after UI transitions settle
   setTimeout(()=>{ if(routePoints.length) updateRouteGeoJSON(); }, 300);
@@ -2151,12 +2154,172 @@ function makePeachIcon(gpsHdg=0){
   return {html:_kart(driver,iconRot,{bodyColor:'#ec4899',bumpColor:'#fbbf24',tailColor:'#fda4af',headColor:'#fde047'})};
 }
 
+/* ── GTA Car SVGs ────────────────────────────────────── */
+function makeGtaMuscleIcon(gpsHdg=0){ // Red American muscle (Sabre GT)
+  const r=gpsHdg-map.getBearing();
+  return {html:`<svg class="user-arrow" style="transform:rotate(${r}deg)" viewBox="0 0 90 120" width="90" height="120" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="45" cy="116" rx="32" ry="4" fill="rgba(0,0,0,.3)"/>
+  <path d="M12 30 C12 16 24 10 45 10 C66 10 78 16 78 30 L80 90 C80 100 64 108 45 108 C26 108 10 100 10 90 Z" fill="#c0392b"/>
+  <path d="M18 32 C18 20 28 16 45 16 C62 16 72 20 72 32 L72 88" stroke="rgba(255,100,80,.3)" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- hood scoop -->
+  <ellipse cx="45" cy="35" rx="10" ry="14" fill="#a93226"/>
+  <ellipse cx="45" cy="30" rx="6" ry="5" fill="#333"/>
+  <!-- windshield -->
+  <path d="M22 40 L22 58 L68 58 L68 40 Q68 32 45 32 Q22 32 22 40 Z" fill="rgba(150,220,255,.7)"/>
+  <!-- rear window -->
+  <path d="M24 78 L66 78 L64 94 C64 98 56 102 45 102 C34 102 26 98 26 94 Z" fill="rgba(150,220,255,.55)"/>
+  <!-- roof -->
+  <rect x="24" y="58" width="42" height="20" rx="3" fill="#a93226"/>
+  <!-- wide rear haunches -->
+  <path d="M10 70 L2 75 L2 95 L12 98 L10 70Z" fill="#922b21"/>
+  <path d="M80 70 L88 75 L88 95 L78 98 L80 70Z" fill="#922b21"/>
+  <!-- wheels -->
+  <rect x="1" y="22" width="16" height="26" rx="8" fill="#1c1c1c"/><rect x="73" y="22" width="16" height="26" rx="8" fill="#1c1c1c"/>
+  <rect x="1" y="78" width="16" height="28" rx="8" fill="#1c1c1c"/><rect x="73" y="78" width="16" height="28" rx="8" fill="#1c1c1c"/>
+  <circle cx="9" cy="35" r="5" fill="#555"/><circle cx="81" cy="35" r="5" fill="#555"/>
+  <circle cx="9" cy="92" r="5" fill="#555"/><circle cx="81" cy="92" r="5" fill="#555"/>
+  <!-- headlights -->
+  <rect x="18" y="10" width="16" height="6" rx="3" fill="#fef08a"/><rect x="56" y="10" width="16" height="6" rx="3" fill="#fef08a"/>
+  <!-- tail lights -->
+  <rect x="16" y="102" width="18" height="6" rx="3" fill="#ef4444"/><rect x="56" y="102" width="18" height="6" rx="3" fill="#ef4444"/>
+  <!-- racing stripe -->
+  <rect x="42" y="10" width="6" height="90" rx="3" fill="rgba(255,255,255,.1)"/>
+  </svg>`};
+}
+function makeGtaSportsIcon(gpsHdg=0){ // Yellow Infernus/Ferrari-style
+  const r=gpsHdg-map.getBearing();
+  return {html:`<svg class="user-arrow" style="transform:rotate(${r}deg)" viewBox="0 0 90 120" width="90" height="120" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="45" cy="116" rx="30" ry="4" fill="rgba(0,0,0,.3)"/>
+  <path d="M18 38 C16 22 26 10 45 10 C64 10 74 22 72 38 L74 94 C74 102 62 108 45 108 C28 108 16 102 16 94 Z" fill="#f59e0b"/>
+  <!-- aerodynamic body -->
+  <path d="M20 40 C18 28 30 18 45 18 C60 18 72 28 70 40" stroke="rgba(255,220,0,.3)" stroke-width="3" fill="none"/>
+  <!-- low wide windshield -->
+  <path d="M20 44 L22 62 L68 62 L70 44 Q68 34 45 34 Q22 34 20 44 Z" fill="rgba(150,220,255,.75)"/>
+  <!-- rear engine cover -->
+  <path d="M24 82 L66 82 L64 96 C64 100 56 106 45 106 C34 106 26 100 26 96 Z" fill="rgba(150,220,255,.5)"/>
+  <!-- low roofline -->
+  <rect x="23" y="62" width="44" height="20" rx="4" fill="#d97706"/>
+  <!-- air vents sides -->
+  <rect x="10" y="50" width="8" height="12" rx="3" fill="#92400e"/><rect x="72" y="50" width="8" height="12" rx="3" fill="#92400e"/>
+  <!-- wheels — wide low-profile -->
+  <rect x="1" y="24" width="17" height="24" rx="8" fill="#111"/><rect x="72" y="24" width="17" height="24" rx="8" fill="#111"/>
+  <rect x="1" y="80" width="17" height="26" rx="8" fill="#111"/><rect x="72" y="80" width="17" height="26" rx="8" fill="#111"/>
+  <circle cx="9.5" cy="36" r="6" fill="#444"/><circle cx="80.5" cy="36" r="6" fill="#444"/>
+  <circle cx="9.5" cy="93" r="6" fill="#444"/><circle cx="80.5" cy="93" r="6" fill="#444"/>
+  <!-- headlights thin -->
+  <rect x="18" y="10" width="14" height="5" rx="2.5" fill="#fef9c3"/><rect x="58" y="10" width="14" height="5" rx="2.5" fill="#fef9c3"/>
+  <!-- tail lights -->
+  <rect x="18" y="103" width="14" height="5" rx="2.5" fill="#ef4444"/><rect x="58" y="103" width="14" height="5" rx="2.5" fill="#ef4444"/>
+  <!-- prancing horse badge -->
+  <circle cx="45" cy="22" r="5" fill="#333"/><circle cx="45" cy="22" r="2.5" fill="#fbbf24"/>
+  </svg>`};
+}
+function makeGtaLowriderIcon(gpsHdg=0){ // Purple Voodoo-style lowrider
+  const r=gpsHdg-map.getBearing();
+  return {html:`<svg class="user-arrow" style="transform:rotate(${r}deg)" viewBox="0 0 90 120" width="90" height="120" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="45" cy="117" rx="34" ry="4" fill="rgba(0,0,0,.35)"/>
+  <!-- wide flat body -->
+  <path d="M8 36 C8 22 20 12 45 12 C70 12 82 22 82 36 L84 92 C84 102 66 110 45 110 C24 110 6 102 6 92 Z" fill="#7c3aed"/>
+  <path d="M14 38 C14 26 24 18 45 18 C66 18 76 26 76 38 L76 90" stroke="rgba(200,160,255,.25)" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <!-- chrome side trim -->
+  <rect x="6" y="62" width="6" height="24" rx="3" fill="silver"/><rect x="78" y="62" width="6" height="24" rx="3" fill="silver"/>
+  <!-- windshield -->
+  <path d="M18 42 L20 60 L70 60 L72 42 Q70 32 45 32 Q20 32 18 42 Z" fill="rgba(180,160,255,.7)"/>
+  <!-- rear -->
+  <path d="M22 80 L68 80 L66 96 C66 102 58 108 45 108 C32 108 24 102 24 96 Z" fill="rgba(180,160,255,.5)"/>
+  <!-- roof -->
+  <rect x="21" y="60" width="48" height="20" rx="2" fill="#6d28d9"/>
+  <!-- big chrome wheels -->
+  <rect x="0" y="22" width="18" height="28" rx="9" fill="#1a1a2e"/><rect x="72" y="22" width="18" height="28" rx="9" fill="#1a1a2e"/>
+  <rect x="0" y="80" width="18" height="30" rx="9" fill="#1a1a2e"/><rect x="72" y="80" width="18" height="30" rx="9" fill="#1a1a2e"/>
+  <!-- chrome spinner -->
+  <circle cx="9" cy="36" r="7" fill="#c0c0c0"/><circle cx="9" cy="36" r="3" fill="#888"/>
+  <circle cx="81" cy="36" r="7" fill="#c0c0c0"/><circle cx="81" cy="36" r="3" fill="#888"/>
+  <circle cx="9" cy="95" r="7" fill="#c0c0c0"/><circle cx="9" cy="95" r="3" fill="#888"/>
+  <circle cx="81" cy="95" r="7" fill="#c0c0c0"/><circle cx="81" cy="95" r="3" fill="#888"/>
+  <!-- headlights -->
+  <rect x="16" y="12" width="18" height="7" rx="3.5" fill="#fef08a"/><rect x="56" y="12" width="18" height="7" rx="3.5" fill="#fef08a"/>
+  <!-- tail lights wide -->
+  <rect x="10" y="103" width="28" height="7" rx="3.5" fill="#ef4444"/><rect x="52" y="103" width="28" height="7" rx="3.5" fill="#ef4444"/>
+  <!-- flame decal -->
+  <path d="M36 70 Q38 62 36 58 Q40 65 42 58 Q44 66 45 58 Q46 66 48 58 Q50 65 54 58 Q52 62 54 70" fill="rgba(251,191,36,.4)" stroke="none"/>
+  </svg>`};
+}
+function makeGtaPoliceIcon(gpsHdg=0){ // LSPD cruiser — ironic choice
+  const r=gpsHdg-map.getBearing();
+  return {html:`<svg class="user-arrow" style="transform:rotate(${r}deg)" viewBox="0 0 90 120" width="90" height="120" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="45" cy="116" rx="31" ry="4" fill="rgba(0,0,0,.3)"/>
+  <path d="M12 32 C12 18 24 10 45 10 C66 10 78 18 78 32 L80 92 C80 102 64 108 45 108 C26 108 10 102 10 92 Z" fill="#e5e7eb"/>
+  <!-- black lower half -->
+  <path d="M10 68 L10 92 C10 102 26 108 45 108 C64 108 80 102 80 92 L80 68 Z" fill="#1f2937"/>
+  <!-- push bar -->
+  <rect x="14" y="8" width="62" height="6" rx="3" fill="#9ca3af"/>
+  <rect x="20" y="6" width="4" height="8" rx="2" fill="#6b7280"/><rect x="66" y="6" width="4" height="8" rx="2" fill="#6b7280"/>
+  <!-- windshield -->
+  <path d="M20 38 L22 58 L68 58 L70 38 Q68 28 45 28 Q22 28 20 38 Z" fill="rgba(150,200,255,.7)"/>
+  <!-- light bar -->
+  <rect x="28" y="22" width="34" height="8" rx="4" fill="#1f2937"/>
+  <rect x="30" y="23" width="13" height="6" rx="3" fill="#ef4444"/><rect x="47" y="23" width="13" height="6" rx="3" fill="#3b82f6"/>
+  <!-- rear window -->
+  <path d="M25 78 L65 78 L63 95 C63 100 55 106 45 106 C35 106 27 100 27 95 Z" fill="rgba(100,140,180,.5)"/>
+  <!-- roof -->
+  <rect x="22" y="58" width="46" height="20" rx="3" fill="#d1d5db"/>
+  <!-- "POLICE" door markings -->
+  <rect x="14" y="70" width="28" height="8" rx="2" fill="rgba(59,130,246,.5)"/>
+  <rect x="48" y="70" width="28" height="8" rx="2" fill="rgba(59,130,246,.5)"/>
+  <!-- wheels -->
+  <rect x="1" y="22" width="16" height="26" rx="8" fill="#111"/><rect x="73" y="22" width="16" height="26" rx="8" fill="#111"/>
+  <rect x="1" y="78" width="16" height="28" rx="8" fill="#111"/><rect x="73" y="78" width="16" height="28" rx="8" fill="#111"/>
+  <circle cx="9" cy="35" r="5" fill="#555"/><circle cx="81" cy="35" r="5" fill="#555"/>
+  <circle cx="9" cy="92" r="5" fill="#555"/><circle cx="81" cy="92" r="5" fill="#555"/>
+  <!-- headlights -->
+  <rect x="16" y="10" width="16" height="6" rx="3" fill="#fef9c3"/><rect x="58" y="10" width="16" height="6" rx="3" fill="#fef9c3"/>
+  <!-- tail lights -->
+  <rect x="16" y="102" width="16" height="6" rx="3" fill="#ef4444"/><rect x="58" y="102" width="16" height="6" rx="3" fill="#ef4444"/>
+  </svg>`};
+}
+function makeGtaTaxiIcon(gpsHdg=0){ // Yellow Cabbie
+  const r=gpsHdg-map.getBearing();
+  return {html:`<svg class="user-arrow" style="transform:rotate(${r}deg)" viewBox="0 0 90 120" width="90" height="120" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="45" cy="116" rx="30" ry="4" fill="rgba(0,0,0,.3)"/>
+  <path d="M14 34 C14 20 26 12 45 12 C64 12 76 20 76 34 L78 92 C78 102 62 108 45 108 C28 108 12 102 12 92 Z" fill="#fbbf24"/>
+  <!-- checkerboard stripe -->
+  <rect x="12" y="62" width="66" height="8" fill="none"/>
+  <rect x="12" y="62" width="8" height="8" fill="#111"/><rect x="28" y="62" width="8" height="8" fill="#111"/>
+  <rect x="44" y="62" width="8" height="8" fill="#111"/><rect x="60" y="62" width="8" height="8" fill="#111"/>
+  <rect x="20" y="62" width="8" height="8" fill="#fbbf24"/><rect x="36" y="62" width="8" height="8" fill="#fbbf24"/>
+  <rect x="52" y="62" width="8" height="8" fill="#fbbf24"/><rect x="68" y="62" width="8" height="8" fill="#fbbf24"/>
+  <!-- taxi light -->
+  <rect x="34" y="14" width="22" height="9" rx="4" fill="#fff"/>
+  <rect x="36" y="16" width="18" height="5" rx="2" fill="#fbbf24"/>
+  <!-- windshield -->
+  <path d="M20 40 L22 60 L68 60 L70 40 Q68 30 45 30 Q22 30 20 40 Z" fill="rgba(150,220,255,.75)"/>
+  <!-- roof -->
+  <rect x="22" y="60" width="46" height="20" rx="3" fill="#f59e0b"/>
+  <!-- rear -->
+  <path d="M24 82 L66 82 L64 96 C64 100 56 106 45 106 C34 106 26 100 26 96 Z" fill="rgba(150,220,255,.5)"/>
+  <!-- wheels -->
+  <rect x="1" y="24" width="16" height="26" rx="8" fill="#1c1c1c"/><rect x="73" y="24" width="16" height="26" rx="8" fill="#1c1c1c"/>
+  <rect x="1" y="80" width="16" height="28" rx="8" fill="#1c1c1c"/><rect x="73" y="80" width="16" height="28" rx="8" fill="#1c1c1c"/>
+  <circle cx="9" cy="37" r="5" fill="#555"/><circle cx="81" cy="37" r="5" fill="#555"/>
+  <circle cx="9" cy="94" r="5" fill="#555"/><circle cx="81" cy="94" r="5" fill="#555"/>
+  <!-- headlights -->
+  <rect x="18" y="12" width="14" height="6" rx="3" fill="#fef9c3"/><rect x="58" y="12" width="14" height="6" rx="3" fill="#fef9c3"/>
+  <rect x="18" y="103" width="14" height="5" rx="2.5" fill="#ef4444"/><rect x="58" y="103" width="14" height="5" rx="2.5" fill="#ef4444"/>
+  </svg>`};
+}
+
 const CARS=[
-  {id:'luigi',  name:'Luigi',   emoji:'🟢', fn:makeLuigiIcon},
-  {id:'mario',  name:'Mario',   emoji:'🔴', fn:makeMarioIcon},
-  {id:'pikachu',name:'Pikachu', emoji:'⚡', fn:makePikachuIcon},
-  {id:'bowser', name:'Bowser',  emoji:'🐢', fn:makeBowserIcon},
-  {id:'peach',  name:'Peach',   emoji:'👸', fn:makePeachIcon},
+  {id:'luigi',   name:'Luigi',    emoji:'🟢', fn:makeLuigiIcon},
+  {id:'mario',   name:'Mario',    emoji:'🔴', fn:makeMarioIcon},
+  {id:'pikachu', name:'Pikachu',  emoji:'⚡', fn:makePikachuIcon},
+  {id:'bowser',  name:'Bowser',   emoji:'🐢', fn:makeBowserIcon},
+  {id:'peach',   name:'Peach',    emoji:'👸', fn:makePeachIcon},
+  {id:'muscle',  name:'Sabre GT', emoji:'🚗', fn:makeGtaMuscleIcon},
+  {id:'sports',  name:'Infernus', emoji:'🏎️', fn:makeGtaSportsIcon},
+  {id:'lowrider',name:'Lowrider', emoji:'🟣', fn:makeGtaLowriderIcon},
+  {id:'police',  name:'LSPD',     emoji:'🚔', fn:makeGtaPoliceIcon},
+  {id:'taxi',    name:'Cabbie',   emoji:'🟡', fn:makeGtaTaxiIcon},
 ];
 let selectedCar=localStorage.getItem('selectedCar')??(CARS[0].id);
 function getCarFn(){ return CARS.find(c=>c.id===selectedCar)?.fn ?? makeLuigiIcon; }
@@ -2448,6 +2611,7 @@ function onGPS(pos){
   checkProximityAlerts(lat,lng,hdg);
   const _gtaLim=getSpeedLimit(lat,lng);
   updateGta(speedMs,_gtaLim,lat,lng);
+  trackNavDistance();
   if(perspective3D&&currentMidx!==lastRefreshedMidx){lastRefreshedMidx=currentMidx;refreshStreetLabels();}
   updateSpeedProfileCursor();
 
@@ -3064,3 +3228,97 @@ function triggerArrival(){
   [navInst,navFooter,alertBar].forEach(el=>el.classList.add('hidden'));
   releaseWakeLock();
 }
+
+/* ═══════════════════════════════════════════════
+   GTA MAP COLOURS
+═══════════════════════════════════════════════ */
+function applyGtaColors(){
+  // Override CartoDB dark-matter colours with GTA San Andreas / V palette
+  const tryPaint=(layer,prop,val)=>{try{if(map.getLayer(layer)) map.setPaintProperty(layer,prop,val);}catch{}};
+  // Land
+  tryPaint('background','background-color','#0d1117');
+  ['landcover','landuse','landuse_overlay'].forEach(l=>tryPaint(l,'fill-color','#111827'));
+  tryPaint('park','fill-color','#0d2b12');
+  tryPaint('national_park','fill-color','#0d2b12');
+  // Water
+  ['water','waterway','waterway_casing'].forEach(l=>tryPaint(l,'fill-color','#0a1628'));
+  // Buildings
+  tryPaint('building','fill-color','#161b2e');
+  tryPaint('building','fill-outline-color','#1e2a40');
+  // Roads — make them pop like GTA (warm amber for major, dim gray for minor)
+  ['road_motorway','road_trunk','motorway'].forEach(l=>tryPaint(l,'line-color','#c8963c'));
+  ['road_primary','road_secondary','primary','secondary'].forEach(l=>tryPaint(l,'line-color','#8a7040'));
+  ['road_tertiary','road_minor','tertiary','minor_road','road'].forEach(l=>tryPaint(l,'line-color','#2a2a3a'));
+  ['road_path','path','footway'].forEach(l=>tryPaint(l,'line-color','#1e1e2e'));
+  // Tweak UI surface too
+  document.documentElement.style.setProperty('--surface','#0d1117');
+  document.documentElement.style.setProperty('--surface2','#111827');
+}
+
+/* ═══════════════════════════════════════════════
+   LEADERBOARD + SCORE SUBMIT
+═══════════════════════════════════════════════ */
+let _navDistance=0, _prevNavPos=null;
+
+// Track distance during navigation (hook into onGPS flow)
+const _origPrevPos_hook=()=>{
+  if(navState==='navigating'&&prevPos&&_prevNavPos){
+    _navDistance+=haversine(prevPos.lat,prevPos.lng,_prevNavPos.lat,_prevNavPos.lng);
+  }
+  _prevNavPos=prevPos?{...prevPos}:null;
+};
+
+// Wire distance tracking — called at end of onGPS
+function trackNavDistance(){
+  if(navState!=='navigating') return;
+  if(_prevNavPos&&prevPos){
+    _navDistance+=haversine(prevPos.lat,prevPos.lng,_prevNavPos.lat,_prevNavPos.lng);
+  }
+  _prevNavPos=prevPos?{...prevPos}:null;
+}
+
+function showScoreSubmit(){
+  if(gta.score<100){ endNav(); return; } // Not worth showing for tiny scores
+  const modal=$$('score-modal'); if(!modal) return;
+  $$('score-modal-score').textContent=fmtScore(Math.floor(gta.score))+' pts';
+  $$('score-modal-stars').textContent='★'.repeat(gta.highStars)+'☆'.repeat(5-gta.highStars);
+  modal.classList.remove('hidden');
+}
+
+$$('score-modal-skip').addEventListener('click',()=>{
+  $$('score-modal').classList.add('hidden'); endNav();
+});
+$$('score-modal-submit').addEventListener('click',async()=>{
+  const nick=($$('score-modal-nick').value.trim())||'Driver';
+  try{
+    await fetch('/api/leaderboard',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({nickname:nick,score:Math.floor(gta.score),stars_reached:gta.highStars,distance_km:_navDistance/1000})});
+    showToast('Score submitted! 🏆',2500);
+  }catch{ showToast('Could not submit score',2000); }
+  $$('score-modal').classList.add('hidden');
+  _navDistance=0; _prevNavPos=null;
+  endNav();
+});
+
+// Leaderboard modal
+$$('open-leaderboard-btn').addEventListener('click',async()=>{
+  $$('lb-modal').classList.remove('hidden');
+  const list=$$('lb-list');
+  list.innerHTML='<div class="lb-loading">Loading…</div>';
+  try{
+    const rows=await fetch('/api/leaderboard').then(r=>r.json());
+    if(!rows.length){list.innerHTML='<div class="lb-loading">No scores yet. Be the first!</div>';return;}
+    const rankEmoji=(i)=>i===0?'🥇':i===1?'🥈':i===2?'🥉':`${i+1}`;
+    const rankClass=(i)=>i===0?'gold':i===1?'silver':i===2?'bronze':'';
+    list.innerHTML=rows.map((r,i)=>`
+      <div class="lb-row">
+        <span class="lb-rank ${rankClass(i)}">${rankEmoji(i)}</span>
+        <span class="lb-name">${escHtml(r.nickname)}</span>
+        <span class="lb-stars">${'★'.repeat(r.stars_reached??0)}</span>
+        <span class="lb-score">${fmtScore(r.score)}</span>
+      </div>`).join('');
+  }catch{list.innerHTML='<div class="lb-loading">Could not load scores</div>';}
+});
+$$('lb-close').addEventListener('click',()=>$$('lb-modal').classList.add('hidden'));
+$$('lb-modal').addEventListener('click',e=>{ if(e.target===$$('lb-modal')) $$('lb-modal').classList.add('hidden'); });
+$$('score-modal').addEventListener('click',e=>{ if(e.target===$$('score-modal')){ $$('score-modal').classList.add('hidden'); endNav(); } });
