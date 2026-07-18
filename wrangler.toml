@@ -19,3 +19,6 @@ bucket_name = "radar-copwatch"
 [[routes]]
 pattern = "radar.theradicalparty.com/*"
 zone_name = "theradicalparty.com"
+
+[triggers]
+crons = ["*/5 * * * *"]

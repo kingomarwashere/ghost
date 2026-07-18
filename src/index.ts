@@ -7,6 +7,7 @@ import seed from './routes/seed';
 import route from './routes/route';
 import leaderboard from './routes/leaderboard';
 import copwatch from './routes/copwatch';
+import { scrapeWaze } from './routes/waze';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -20,6 +21,13 @@ app.route('/api/leaderboard', leaderboard);
 app.route('/api/copwatch', copwatch);
 
 app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
+
+// POST /api/admin/sync/waze — manual trigger (for testing; cron auto-runs every 5 min)
+app.post('/api/admin/sync/waze', async (c) => {
+  if (c.req.header('x-admin-key') !== c.env.ADMIN_KEY) return c.json({ error: 'unauthorized' }, 401);
+  const result = await scrapeWaze(c.env.DB);
+  return c.json({ ok: true, ...result });
+});
 
 // GET /api/heatmap?swlat=&swlng=&nelat=&nelng=
 // Returns aggregated report_history points from the last 30 days
@@ -50,4 +58,9 @@ app.get('*', async (c) => {
   return c.env.ASSETS.fetch(c.req.raw);
 });
 
-export default app;
+export default {
+  fetch: app.fetch.bind(app),
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(scrapeWaze(env.DB));
+  },
+};
