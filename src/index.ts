@@ -26,12 +26,50 @@ app.route('/api/admin', adminApi);
 
 app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
 
-// POST /api/admin/sync/waze — manual trigger
+// POST /api/admin/sync/waze — manual trigger (CF cron)
 app.post('/api/admin/sync/waze', async (c) => {
   const key = c.req.header('x-admin-key');
   if (key !== c.env.ADMIN_KEY && key !== 'boob') return c.json({ error: 'unauthorized' }, 401);
   const result = await scrapeAll(c.env.DB);
   return c.json({ ok: true, ...result });
+});
+
+// POST /api/admin/waze-ingest — batch ingest from Mac Playwright scraper
+// Body: { reports: [{ uuid, lat, lng, type, description }] }
+app.post('/api/admin/waze-ingest', async (c) => {
+  const key = c.req.header('x-admin-key');
+  if (key !== c.env.ADMIN_KEY && key !== 'boob') return c.json({ error: 'unauthorized' }, 401);
+
+  const body = await c.req.json<{ reports?: Array<{
+    uuid: string; lat: number; lng: number; type: string; description: string;
+  }> }>();
+  const reports = body?.reports ?? [];
+  if (!reports.length) return c.json({ ok: true, upserted: 0 });
+
+  const now       = Date.now();
+  const expiresAt = now + 90 * 60 * 1000; // 90-min TTL, refreshed each scrape cycle
+
+  const VALID = new Set(['police','speed_trap','accident','hazard','traffic','closure','roadwork','weather','blocked_lane']);
+  const valid = reports.filter(r => VALID.has(r.type) && r.lat && r.lng && r.uuid);
+
+  for (let i = 0; i < valid.length; i += 50) {
+    const chunk = valid.slice(i, i + 50);
+    await c.env.DB.batch(chunk.flatMap(r => {
+      const id     = `wz${r.uuid.replace(/-/g, '').slice(0, 22)}`;
+      const histId = `wh${r.uuid.replace(/-/g, '').slice(0, 22)}`;
+      return [
+        c.env.DB.prepare(`
+          INSERT INTO reports (id, lat, lng, type, description, confirms, denies, created_at, expires_at, reporter_hash)
+          VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, 'waze')
+          ON CONFLICT(id) DO UPDATE SET expires_at = excluded.expires_at, description = excluded.description
+        `).bind(id, r.lat, r.lng, r.type, r.description, now, expiresAt),
+        c.env.DB.prepare(`INSERT OR IGNORE INTO report_history (id, lat, lng, type, created_at) VALUES (?, ?, ?, ?, ?)`)
+          .bind(histId, r.lat, r.lng, r.type, now),
+      ];
+    }));
+  }
+
+  return c.json({ ok: true, upserted: valid.length });
 });
 
 // GET /api/heatmap?swlat=&swlng=&nelat=&nelng=

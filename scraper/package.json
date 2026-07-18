@@ -1,0 +1,10 @@
+{
+  "name": "radar-waze-scraper",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.mjs",
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
