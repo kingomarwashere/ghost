@@ -333,7 +333,7 @@ async function triggerWazeSync() {
   try {
     const r = await fetch('/api/admin/sync/waze', { method: 'POST', headers: { 'x-admin-key': PASS } });
     const d = await r.json();
-    btn.textContent = `✓ ${d.upserted} imported`;
+    btn.textContent = `✓ ${(d.livetraffic ?? 0) + (d.waze ?? 0)} imported (${d.livetraffic ?? 0} NSW, ${d.waze ?? 0} Waze)`;
     setTimeout(() => { btn.textContent = '↻ Sync Waze'; btn.disabled = false; }, 3000);
     refresh();
   } catch {
