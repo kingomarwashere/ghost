@@ -2156,14 +2156,14 @@ function makePeachIcon(gpsHdg=0){
 
 /* ═══════════════════════════════════════════════
    GTA CAR SYSTEM — Unlucky Studio realistic sprites
-   Sprites face DOWN (front at bottom), so we add
-   180° to the heading rotation to correct this.
+   PNGs pre-flipped so front faces UP — rotation is
+   just gpsHdg - mapBearing, matching the SVG cars.
 ═══════════════════════════════════════════════ */
-function _pngCar(src, gpsHdg, extraRot=0){
-  const rot=gpsHdg-map.getBearing()+extraRot;
+function _pngCar(src, gpsHdg){
+  const rot=gpsHdg-map.getBearing();
   return {html:`<div class="user-arrow" style="transform:rotate(${rot}deg)"><img class="car-sprite" src="${src}" draggable="false"></div>`};
 }
-const _pc=(src,r=180)=>(h)=>_pngCar(src,h,r);
+const _pc=(src)=>(h)=>_pngCar(src,h);
 const _pi=(src)=>`<img src="${src}" class="car-pick-img">`;
 
 const CARS=[
