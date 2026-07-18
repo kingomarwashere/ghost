@@ -264,6 +264,7 @@
     </div>
 
     <button id="open-leaderboard-btn" style="width:100%;margin-top:16px;padding:14px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.4);border-radius:12px;color:#fbbf24;font-weight:800;font-size:.95rem;cursor:pointer;font-family:inherit">🏆 Most Wanted Leaderboard</button>
+    <button id="open-cw-gallery-btn" style="width:100%;margin-top:10px;padding:14px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.4);border-radius:12px;color:#60a5fa;font-weight:800;font-size:.95rem;cursor:pointer;font-family:inherit">🎥 Cop Watch Feed</button>
 
     <div class="settings-section-label" style="margin-top:18px">🏎️ Your ride</div>
     <div id="car-grid"></div>
@@ -302,6 +303,79 @@
     <line x1="25" y1="1" x2="25" y2="7" stroke="#000" stroke-width="2.2" stroke-linecap="round"/>
   </svg>
 </button>
+
+<!-- ── Cop Watch FAB ──────────────────────────────────────── -->
+<button id="cw-fab" title="Cop Watch — report police plate">
+  <svg viewBox="0 0 28 28" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="14" cy="14" r="11" stroke="currentColor" stroke-width="2"/>
+    <path d="M10 10 L14 8 L18 10 L18 16 C18 19 14 21 14 21 C14 21 10 19 10 16 Z" fill="currentColor" opacity=".3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+    <circle cx="14" cy="13" r="2.5" fill="currentColor"/>
+  </svg>
+</button>
+
+<!-- ── Cop Watch submission sheet ─────────────────────────── -->
+<div id="cw-sheet" class="hidden">
+  <div class="rpt-drag-handle"></div>
+  <div class="rpt-header">
+    <span class="rpt-title">🎥 Cop Watch</span>
+    <button class="rpt-close" id="cw-close">✕</button>
+  </div>
+
+  <!-- Type selector -->
+  <div id="cw-types">
+    <button class="cw-type-btn active" data-type="sighting">👁️ Sighting</button>
+    <button class="cw-type-btn" data-type="speeding">💨 Speeding cop</button>
+    <button class="cw-type-btn" data-type="checkpoint">✋ Checkpoint</button>
+    <button class="cw-type-btn" data-type="unmarked">🕵️ Unmarked</button>
+    <button class="cw-type-btn" data-type="misconduct">⚠️ Misconduct</button>
+  </div>
+
+  <!-- Plate input -->
+  <div class="cw-field">
+    <label class="cw-label">Plate number <span class="cw-optional">(optional)</span></label>
+    <input id="cw-plate" type="text" placeholder="e.g. ABC123" maxlength="10" autocomplete="off" spellcheck="false">
+  </div>
+
+  <!-- Photo capture -->
+  <div class="cw-field">
+    <label class="cw-label">Photo <span class="cw-optional">(+200 pts bonus!)</span></label>
+    <div id="cw-photo-area">
+      <div id="cw-photo-preview" class="hidden"><img id="cw-preview-img" alt=""/><button id="cw-photo-clear">✕</button></div>
+      <div id="cw-photo-btns">
+        <button id="cw-camera-btn">📷 Take photo</button>
+        <button id="cw-gallery-btn">🖼️ Choose from gallery</button>
+      </div>
+      <input id="cw-camera-input" type="file" accept="image/*" capture="environment" style="display:none">
+      <input id="cw-gallery-input" type="file" accept="image/*" style="display:none">
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="cw-field">
+    <label class="cw-label">Notes <span class="cw-optional">(optional)</span></label>
+    <textarea id="cw-notes" placeholder="What did you witness?" rows="2"></textarea>
+  </div>
+
+  <!-- Points preview -->
+  <div id="cw-pts-preview">🏆 +150 pts — add a photo for +200 bonus!</div>
+
+  <button id="cw-submit">Submit Report (+150 pts)</button>
+</div>
+
+<!-- ── Cop Watch gallery / feed ───────────────────────────── -->
+<div id="cw-gallery" class="hidden">
+  <div id="cw-gallery-card">
+    <div id="cw-gallery-header">
+      <span>🎥 Cop Watch Feed</span>
+      <button id="cw-gallery-close">✕</button>
+    </div>
+    <div id="cw-search-bar">
+      <input id="cw-plate-search" type="text" placeholder="Search plate…" maxlength="10" autocomplete="off">
+      <button id="cw-plate-search-btn">Search</button>
+    </div>
+    <div id="cw-feed"></div>
+  </div>
+</div>
 
 <!-- ── Street name pill (shows current road name during nav) ── -->
 <div id="street-pill" class="hidden"></div>

@@ -6,6 +6,7 @@ import cameras from './routes/cameras';
 import seed from './routes/seed';
 import route from './routes/route';
 import leaderboard from './routes/leaderboard';
+import copwatch from './routes/copwatch';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -16,6 +17,7 @@ app.route('/api/cameras', cameras);
 app.route('/api/admin/seed', seed);
 app.route('/api/route', route);
 app.route('/api/leaderboard', leaderboard);
+app.route('/api/copwatch', copwatch);
 
 app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
 

@@ -12,6 +12,10 @@ binding = "DB"
 database_name = "radar-db"
 database_id = "b3d3f114-24fc-4869-a84a-0deb0f7675a0"
 
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "radar-copwatch"
+
 [[routes]]
 pattern = "radar.theradicalparty.com/*"
 zone_name = "theradicalparty.com"

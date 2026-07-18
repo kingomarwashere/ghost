@@ -3322,3 +3322,199 @@ $$('open-leaderboard-btn').addEventListener('click',async()=>{
 $$('lb-close').addEventListener('click',()=>$$('lb-modal').classList.add('hidden'));
 $$('lb-modal').addEventListener('click',e=>{ if(e.target===$$('lb-modal')) $$('lb-modal').classList.add('hidden'); });
 $$('score-modal').addEventListener('click',e=>{ if(e.target===$$('score-modal')){ $$('score-modal').classList.add('hidden'); endNav(); } });
+
+/* ═══════════════════════════════════════════════
+   COP WATCH
+═══════════════════════════════════════════════ */
+(()=>{
+  const fab=$$('cw-fab'), sheet=$$('cw-sheet');
+  let cwType='sighting', cwPhotoFile=null;
+
+  // Open/close sheet
+  fab.addEventListener('click',()=>{ sheet.classList.remove('hidden'); });
+  $$('cw-close').addEventListener('click',closeCwSheet);
+  function closeCwSheet(){
+    sheet.classList.add('hidden');
+    $$('cw-plate').value='';
+    $$('cw-notes').value='';
+    cwPhotoFile=null;
+    $$('cw-photo-preview').classList.add('hidden');
+    $$('cw-photo-btns').classList.remove('hidden');
+    updateCwPtsPreview();
+  }
+
+  // Type selector
+  document.querySelectorAll('.cw-type-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.cw-type-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      cwType=btn.dataset.type;
+    });
+  });
+
+  // Photo handling
+  function handlePhotoFile(file){
+    if(!file||!file.type.startsWith('image/')) return;
+    // Compress client-side
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const MAX=1200, scale=Math.min(1,MAX/Math.max(img.width,img.height));
+        const canvas=document.createElement('canvas');
+        canvas.width=Math.round(img.width*scale);
+        canvas.height=Math.round(img.height*scale);
+        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+        canvas.toBlob(blob=>{
+          cwPhotoFile=new File([blob],'photo.jpg',{type:'image/jpeg'});
+          $$('cw-preview-img').src=URL.createObjectURL(cwPhotoFile);
+          $$('cw-photo-preview').classList.remove('hidden');
+          $$('cw-photo-btns').classList.add('hidden');
+          updateCwPtsPreview();
+        },'image/jpeg',0.82);
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+  $$('cw-camera-btn').addEventListener('click',()=>$$('cw-camera-input').click());
+  $$('cw-gallery-btn').addEventListener('click',()=>$$('cw-gallery-input').click());
+  $$('cw-camera-input').addEventListener('change',e=>handlePhotoFile(e.target.files[0]));
+  $$('cw-gallery-input').addEventListener('change',e=>handlePhotoFile(e.target.files[0]));
+  $$('cw-photo-clear').addEventListener('click',()=>{
+    cwPhotoFile=null;
+    $$('cw-photo-preview').classList.add('hidden');
+    $$('cw-photo-btns').classList.remove('hidden');
+    $$('cw-camera-input').value='';
+    $$('cw-gallery-input').value='';
+    updateCwPtsPreview();
+  });
+
+  function updateCwPtsPreview(){
+    const pts=150+(cwPhotoFile?200:0);
+    $$('cw-pts-preview').textContent=cwPhotoFile
+      ? `📸 Photo included — +${pts} pts total!`
+      : `🏆 +150 pts — add a photo for +200 bonus!`;
+    $$('cw-submit').textContent=`Submit Report (+${pts} pts)`;
+  }
+
+  // Submit
+  $$('cw-submit').addEventListener('click',async()=>{
+    const gps=prevPos??(userMarker?{lat:userMarker.getLngLat().lat,lng:userMarker.getLngLat().lng}:null);
+    if(!gps){ showToast('No GPS fix — move outdoors',2000); return; }
+
+    $$('cw-submit').disabled=true;
+    $$('cw-submit').textContent='Submitting…';
+
+    const fd=new FormData();
+    fd.append('lat',String(gps.lat));
+    fd.append('lng',String(gps.lng));
+    fd.append('plate',($$('cw-plate').value||'').trim().toUpperCase());
+    fd.append('description',($$('cw-notes').value||'').trim());
+    fd.append('report_type',cwType);
+    if(cwPhotoFile) fd.append('photo',cwPhotoFile,'photo.jpg');
+
+    try{
+      const resp=await fetch('/api/copwatch',{method:'POST',body:fd});
+      const data=await resp.json();
+      if(data.ok){
+        // Award GTA points
+        gta.score+=data.pts;
+        renderGtaStars(gta.stars);
+        showGtaPopup(`+${data.pts} WATCHDOG`,'#60a5fa',40,250);
+        showToast(`Submitted! +${data.pts} pts 🎥`,2500);
+        closeCwSheet();
+        loadCwMarkers(); // refresh map markers
+      } else {
+        showToast('Submission failed',2000);
+      }
+    }catch{ showToast('Network error',2000); }
+    $$('cw-submit').disabled=false;
+    updateCwPtsPreview();
+  });
+
+  /* ── Map markers for cop watch reports ──── */
+  let cwMarkers=[];
+  async function loadCwMarkers(){
+    if(map.getZoom()<12) return;
+    const b=map.getBounds();
+    const p=new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});
+    try{
+      const data=await fetch(`/api/copwatch?${p}`).then(r=>r.json());
+      cwMarkers.forEach(m=>m.remove()); cwMarkers=[];
+      for(const r of data){
+        const el=document.createElement('div');
+        el.className='cw-map-marker';
+        el.title=r.plate||'Cop Watch';
+        el.innerHTML='🎥';
+        el.addEventListener('click',()=>openCwGallery());
+        cwMarkers.push(new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([r.lng,r.lat]).addTo(map));
+      }
+    }catch{}
+  }
+  map.on('moveend',()=>{ if(navState==='idle') loadCwMarkers(); });
+  map.on('zoomend',()=>{ if(navState==='idle') loadCwMarkers(); });
+
+  /* ── Gallery / feed ──────────────────────── */
+  const gallery=$$('cw-gallery');
+  function openCwGallery(plate=null){
+    gallery.classList.remove('hidden');
+    if(plate) $$('cw-plate-search').value=plate;
+    loadCwFeed(plate||'');
+  }
+  function closeCwGallery(){ gallery.classList.add('hidden'); }
+  $$('cw-gallery-close').addEventListener('click',closeCwGallery);
+  gallery.addEventListener('click',e=>{ if(e.target===gallery) closeCwGallery(); });
+  $$('open-cw-gallery-btn').addEventListener('click',()=>openCwGallery());
+  $$('cw-plate-search-btn').addEventListener('click',()=>loadCwFeed($$('cw-plate-search').value.trim()));
+  $$('cw-plate-search').addEventListener('keydown',e=>{ if(e.key==='Enter') loadCwFeed($$('cw-plate-search').value.trim()); });
+
+  const TYPE_LABELS={'sighting':'👁️ Sighting','speeding':'💨 Speeding','checkpoint':'✋ Checkpoint','unmarked':'🕵️ Unmarked','misconduct':'⚠️ Misconduct'};
+
+  async function loadCwFeed(plate=''){
+    const feed=$$('cw-feed');
+    feed.innerHTML='<div class="lb-loading">Loading…</div>';
+    const url=plate?`/api/copwatch?plate=${encodeURIComponent(plate)}`:'/api/copwatch';
+    try{
+      const rows=await fetch(url).then(r=>r.json());
+      if(!rows.length){ feed.innerHTML='<div class="lb-loading">No reports yet. Be the first!</div>'; return; }
+      feed.innerHTML='';
+      for(const r of rows){
+        const ago=Math.round((Date.now()-r.created_at)/60000);
+        const agoStr=ago<60?`${ago}m ago`:ago<1440?`${Math.round(ago/60)}h ago`:`${Math.round(ago/1440)}d ago`;
+        const div=document.createElement('div');
+        div.className='cw-entry';
+        div.innerHTML=`
+          <div class="cw-entry-top">
+            ${r.plate?`<span class="cw-entry-plate">${escHtml(r.plate)}</span>`:'<span class="cw-entry-plate" style="opacity:.5">No plate</span>'}
+            <span class="cw-entry-type">${TYPE_LABELS[r.report_type]??r.report_type}</span>
+            <span class="cw-entry-time">${agoStr}</span>
+          </div>
+          ${r.photo_key?`<img class="cw-entry-photo" src="/api/copwatch/photo/${r.id}.jpg" loading="lazy" alt="Cop photo"/>`:''}
+          ${r.description?`<div class="cw-entry-desc">${escHtml(r.description)}</div>`:''}
+          <div class="cw-entry-footer">
+            <button class="cw-confirm-btn" data-id="${r.id}">👍 Confirm</button>
+            <span class="cw-confirms">${r.confirms} confirmations</span>
+          </div>`;
+        feed.appendChild(div);
+      }
+      // Wire confirm buttons
+      feed.querySelectorAll('.cw-confirm-btn').forEach(btn=>{
+        btn.addEventListener('click',async()=>{
+          try{
+            const res=await fetch(`/api/copwatch/${btn.dataset.id}/confirm`,{method:'POST'});
+            const d=await res.json();
+            if(d.ok){
+              gta.score+=d.pts; renderGtaStars(gta.stars);
+              showGtaPopup('+50 CONFIRMED','#60a5fa',80,300);
+              btn.textContent='✅ Confirmed';
+              btn.disabled=true;
+              const c=btn.nextElementSibling;
+              if(c) c.textContent=(parseInt(c.textContent)+1)+' confirmations';
+            }
+          }catch{}
+        });
+      });
+    }catch{ feed.innerHTML='<div class="lb-loading">Could not load feed</div>'; }
+  }
+})();
