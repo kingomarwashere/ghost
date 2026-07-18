@@ -1227,9 +1227,7 @@ body.navigating #cw-fab { bottom: calc(158px + env(safe-area-inset-bottom)); }
   -webkit-tap-highlight-color: transparent;
 }
 .cw-photo-label:active { background: rgba(255,255,255,.18); }
-.cw-photo-label input[type="file"] {
-  position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
-}
+.cw-photo-label input[type="file"] { display: none; }
 #cw-photo-preview { position: relative; display: flex; justify-content: center; }
 #cw-preview-img { max-height: 160px; border-radius: 10px; object-fit: cover; }
 #cw-photo-clear {
