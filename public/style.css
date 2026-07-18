@@ -663,16 +663,17 @@ body.previewing #report-btn { display: none; }
   width: auto; height: auto;
   max-width: 72px; max-height: 106px;
 }
-/* ── GTA car sprite (Kenney CC0 PNGs) ─────────── */
+/* ── GTA car sprite (Unlucky Studio realistic PNGs) ── */
 .car-sprite {
-  width: 54px; height: auto; display: block;
+  width: 64px; height: 64px; display: block;
+  object-fit: contain;
   image-rendering: auto;
 }
 /* car picker thumbnail */
 .car-pick-img {
-  height: 2.2rem; width: auto;
+  width: 44px; height: 44px;
+  object-fit: contain;
   display: block; margin: 0 auto;
-  image-rendering: auto;
 }
 
 /* Palestine labels are now handled at the vector tile render level via

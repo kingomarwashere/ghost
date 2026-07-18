@@ -2155,38 +2155,33 @@ function makePeachIcon(gpsHdg=0){
 }
 
 /* ═══════════════════════════════════════════════
-   GTA CAR SYSTEM — Kenney CC0 top-down sprites
-   Sprites face UP in the PNG, so rotation is just
-   gpsHdg - mapBearing with no extra offset needed.
+   GTA CAR SYSTEM — Unlucky Studio realistic sprites
+   Sprites face DOWN (front at bottom), so we add
+   180° to the heading rotation to correct this.
 ═══════════════════════════════════════════════ */
-function _pngCar(src, gpsHdg){
-  const rot=gpsHdg-map.getBearing();
+function _pngCar(src, gpsHdg, extraRot=0){
+  const rot=gpsHdg-map.getBearing()+extraRot;
   return {html:`<div class="user-arrow" style="transform:rotate(${rot}deg)"><img class="car-sprite" src="${src}" draggable="false"></div>`};
 }
-const _pc=(src)=>(h)=>_pngCar(src,h);
+const _pc=(src,r=180)=>(h)=>_pngCar(src,h,r);
 const _pi=(src)=>`<img src="${src}" class="car-pick-img">`;
 
 const CARS=[
   // ── Mario Kart characters (SVG) ──────────────
-  {id:'luigi',   name:'Luigi',   icon:'🟢', fn:makeLuigiIcon},
-  {id:'mario',   name:'Mario',   icon:'🔴', fn:makeMarioIcon},
-  {id:'pikachu', name:'Pikachu', icon:'⚡', fn:makePikachuIcon},
-  {id:'bowser',  name:'Bowser',  icon:'🐢', fn:makeBowserIcon},
-  {id:'peach',   name:'Peach',   icon:'👸', fn:makePeachIcon},
-  // ── GTA cars (Kenney CC0) ─────────────────────
-  {id:'muscle',  name:'Muscle',  icon:_pi('/cars/car_red_1.png'),    fn:_pc('/cars/car_red_1.png')},
-  {id:'blksuv',  name:'SUV',     icon:_pi('/cars/car_black_1.png'),  fn:_pc('/cars/car_black_1.png')},
-  {id:'bluesuv', name:'Cruiser', icon:_pi('/cars/car_blue_1.png'),   fn:_pc('/cars/car_blue_1.png')},
-  {id:'hatch',   name:'Hatch',   icon:_pi('/cars/car_red_2.png'),    fn:_pc('/cars/car_red_2.png')},
-  {id:'stealth', name:'Stealth', icon:_pi('/cars/car_black_2.png'),  fn:_pc('/cars/car_black_2.png')},
-  {id:'banshee', name:'Banshee', icon:_pi('/cars/car_blue_3.png'),   fn:_pc('/cars/car_blue_3.png')},
-  {id:'taxi',    name:'Taxi',    icon:_pi('/cars/car_yellow_3.png'), fn:_pc('/cars/car_yellow_3.png')},
-  {id:'sabre',   name:'Sabre',   icon:_pi('/cars/car_yellow_1.png'), fn:_pc('/cars/car_yellow_1.png')},
-  {id:'cruiser', name:'GT',      icon:_pi('/cars/car_blue_5.png'),   fn:_pc('/cars/car_blue_5.png')},
-  {id:'wagon',   name:'Wagon',   icon:_pi('/cars/car_green_3.png'),  fn:_pc('/cars/car_green_3.png')},
-  {id:'van',     name:'Van',     icon:_pi('/cars/car_green_4.png'),  fn:_pc('/cars/car_green_4.png')},
-  {id:'moto',    name:'Moto',    icon:_pi('/cars/motorcycle_red.png'),   fn:_pc('/cars/motorcycle_red.png')},
-  {id:'motob',   name:'Moto B',  icon:_pi('/cars/motorcycle_blue.png'),  fn:_pc('/cars/motorcycle_blue.png')},
+  {id:'luigi',     name:'Luigi',     icon:'🟢', fn:makeLuigiIcon},
+  {id:'mario',     name:'Mario',     icon:'🔴', fn:makeMarioIcon},
+  {id:'pikachu',   name:'Pikachu',   icon:'⚡', fn:makePikachuIcon},
+  {id:'bowser',    name:'Bowser',    icon:'🐢', fn:makeBowserIcon},
+  {id:'peach',     name:'Peach',     icon:'👸', fn:makePeachIcon},
+  // ── Realistic 3D sprites (Unlucky Studio, free) ──
+  {id:'audi',      name:'Audi',      icon:_pi('/cars/Audi.png'),       fn:_pc('/cars/Audi.png')},
+  {id:'viper',     name:'Viper',     icon:_pi('/cars/Black_viper.png'),fn:_pc('/cars/Black_viper.png')},
+  {id:'police',    name:'Police',    icon:_pi('/cars/Police.png'),     fn:_pc('/cars/Police.png')},
+  {id:'taxi',      name:'Taxi',      icon:_pi('/cars/taxi.png'),       fn:_pc('/cars/taxi.png')},
+  {id:'suv',       name:'SUV',       icon:_pi('/cars/Car.png'),        fn:_pc('/cars/Car.png')},
+  {id:'ambulance', name:'Ambulance', icon:_pi('/cars/Ambulance.png'),  fn:_pc('/cars/Ambulance.png')},
+  {id:'van',       name:'Van',       icon:_pi('/cars/Mini_van.png'),   fn:_pc('/cars/Mini_van.png')},
+  {id:'pickup',    name:'Pickup',    icon:_pi('/cars/Mini_truck.png'), fn:_pc('/cars/Mini_truck.png')},
 ];
 let selectedCar=localStorage.getItem('selectedCar')??(CARS[0].id);
 function getCarFn(){ return CARS.find(c=>c.id===selectedCar)?.fn ?? makeLuigiIcon; }
