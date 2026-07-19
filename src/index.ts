@@ -36,6 +36,27 @@ app.route('/api/admin', adminApi);
 
 app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
 
+// ── Nominatim geocoder proxy (adds required User-Agent, caches 5 min) ────────
+app.get('/api/geocode', async (c) => {
+  const q   = c.req.query('q')   ?? '';
+  const lat = c.req.query('lat') ?? '';
+  const lon = c.req.query('lon') ?? '';
+  if (!q) return c.json([]);
+  const params = new URLSearchParams({
+    q, format: 'jsonv2', countrycodes: 'au',
+    limit: '8', addressdetails: '1',
+    ...(lat && lon ? { lat, lon } : {}),
+  });
+  const url = `https://nominatim.openstreetmap.org/search?${params}`;
+  const resp = await fetch(url, {
+    headers: { 'User-Agent': 'ghost-nav/1.0 (ghost.theradicalparty.com)', 'Accept': 'application/json' },
+    // @ts-ignore
+    cf: { cacheTtl: 300, cacheEverything: true },
+  });
+  if (!resp.ok) return c.json([]);
+  return c.json(await resp.json());
+});
+
 // ── NSW Traffic Cameras ──────────────────────────────────────────────────────
 
 // GET /api/traffic-cams — camera metadata list (cached 1h at edge)

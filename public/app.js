@@ -534,15 +534,81 @@ function mergeResults(arrays, lat, lng){
 function enrichPhoton(results, lat, lng){
   return results.map(r=>{
     const dist=lat&&lng?haversine(lat,lng,r.lat,r.lng):null;
-    const distStr=dist!=null?(dist<1000?`${Math.round(dist)}m`:`${(dist/1000).toFixed(1)}km`):null;
-    return {
-      ...r,
-      dist,
-      sub: r.sub?(distStr?r.sub+' · '+distStr:r.sub):(distStr??''),
-      _emoji: placeEmoji(r),
-    };
+    return { ...r, dist, _emoji: placeEmoji(r) };
   });
 }
+
+// ── Nominatim AU — proxied via our worker for proper User-Agent ───────────────
+async function geocodeNominatimAU(q, lat, lng){
+  const params=new URLSearchParams({ q, lat:String(lat??''), lon:String(lng??'') });
+  try{
+    const data=await fetch(`/api/geocode?${params}`).then(r=>r.json());
+    return (data??[]).map(r=>{
+      const a=r.address??{};
+      const raw=r.name||a.road||a.suburb||r.display_name?.split(',')[0]||'Place';
+      const parts=[
+        a.road&&!raw.includes(a.road)?a.road:null,
+        a.suburb||a.quarter||a.village||a.town||a.city_district,
+        a.state_district||a.state,
+      ].filter(Boolean);
+      return {
+        lat:parseFloat(r.lat), lng:parseFloat(r.lon),
+        name:san(raw), sub:san(parts.join(', ')),
+        osmKey:r.category||'', osmVal:r.type||'',
+        importance:r.importance??0.5,
+      };
+    });
+  }catch{return [];}
+}
+
+// ── Coordinate paste ("−33.86, 151.21") ──────────────────────────────────────
+function parseCoords(q){
+  const m=q.match(/^(-?\d{1,3}\.?\d*)[,\s]+(-?\d{1,3}\.?\d*)$/);
+  if(!m) return null;
+  const lat=parseFloat(m[1]), lng=parseFloat(m[2]);
+  if(lat<-90||lat>90||lng<-180||lng>180) return null;
+  return {lat,lng,name:`${lat.toFixed(5)}, ${lng.toFixed(5)}`,sub:'Custom location',dist:0};
+}
+
+// ── Highlight query term inside a string (returns safe HTML) ─────────────────
+function highlightQuery(text, q){
+  if(!text||!q) return escHtml(text||'');
+  const idx=text.toLowerCase().indexOf(q.toLowerCase());
+  if(idx<0) return escHtml(text);
+  return escHtml(text.slice(0,idx))
+    +`<mark>${escHtml(text.slice(idx,idx+q.length))}</mark>`
+    +escHtml(text.slice(idx+q.length));
+}
+
+// ── Relevance score (higher = better) ────────────────────────────────────────
+function scoreResult(r, q, lat, lng){
+  const ql=q.toLowerCase().trim();
+  const nl=(r.name??'').toLowerCase();
+  const sl=(r.sub??'').toLowerCase();
+  // Text match
+  let txt=0;
+  if(nl===ql)                                         txt=1.00;
+  else if(nl.startsWith(ql))                          txt=0.90;
+  else if(nl.includes(' '+ql)||nl.includes(ql+' '))   txt=0.80;
+  else if(nl.includes(ql))                             txt=0.68;
+  else if(sl.includes(ql))                             txt=0.42;
+  else{
+    const toks=ql.split(/\s+/).filter(t=>t.length>1);
+    const hits=toks.filter(t=>nl.includes(t)||sl.includes(t)).length;
+    txt=hits?hits/toks.length*0.55:0;
+  }
+  // Proximity (log decay, full score inside 200 m)
+  const dist=r.dist??(lat&&lng?haversine(lat,lng,r.lat,r.lng):50000);
+  const prox=dist<200?1:Math.max(0,1-Math.log10(dist/200)/3.2);
+  // Place importance
+  const imp=Math.min(1,r.importance??0.5);
+  // History boost
+  const hist=isFav(r.name)?0.25:(getRecent().some(x=>x.name===r.name)?0.12:0);
+  return txt*0.48+prox*0.24+imp*0.18+hist*0.10;
+}
+
+// ── Format distance string ────────────────────────────────────────────────────
+function fmtDist(m){ return m==null?'':(m<1000?`${Math.round(m)}m`:`${(m/1000).toFixed(1)}km`); }
 
 // ── POI category → Overpass filter + emoji ──────────────────────────────────
 const OVERPASS_CAT = {
@@ -1418,8 +1484,9 @@ function wireInput(input, field){
     const q=input.value.trim();
     (field==='from'?fromClear:toClear).classList.toggle('hidden',!q);
     clearTimeout(srchDebounce);
-    if(q.length<2){showSuggestions();return;}
-    srchDebounce=setTimeout(()=>doSearch(q),350);
+    if(!q){showSuggestions();return;}
+    if(q.length===1){ doSearch(q); return; } // instant on first char (local only)
+    srchDebounce=setTimeout(()=>doSearch(q),180);
   });
 }
 wireInput(fromInput,'from');
@@ -1442,41 +1509,99 @@ swapBtn.addEventListener('click',()=>{
 });
 
 async function doSearch(q){
-  searchResultsEl.innerHTML=`<div class="no-results">Searching…</div>`;
   const gps=userMarker?userMarker.getLngLat():null;
   const lat=gps?.lat??map.getCenter().lat, lng=gps?.lng??map.getCenter().lng;
 
-  // Known category → Overpass only
+  // ① Coordinate paste — instant
+  const coords=parseCoords(q);
+  if(coords){
+    searchResultsEl.innerHTML=resultRow(coords,false,true,'📍','Custom location',q);
+    bindResultClicks(); return;
+  }
+
+  // ② Local matches (recents + favs) shown immediately while APIs load
+  const locals=[...getFavs(),...getRecent()]
+    .filter(p=>p.name&&p.name.toLowerCase().includes(q.toLowerCase()))
+    .reduce((acc,p)=>{ if(!acc.find(x=>x.name===p.name))acc.push(p); return acc; },[])
+    .map(p=>({...p,dist:lat&&lng?haversine(lat,lng,p.lat,p.lng):null}))
+    .sort((a,b)=>(a.dist??9e9)-(b.dist??9e9));
+
+  function renderLocals(extras=[], extraLabel=''){
+    let html='';
+    if(locals.length){
+      html+=`<div class="results-section-label">🕐 Recent &amp; saved</div>`;
+      html+=locals.slice(0,3).map(r=>resultRow(r,isFav(r.name),true,placeEmoji(r),null,q)).join('');
+    }
+    if(extras.length){
+      html+=`<div class="results-section-label">${extraLabel}</div>`;
+      html+=extras.map(r=>resultRow(r,isFav(r.name),true,r._emoji??placeEmoji(r),placeLabel(r),q)).join('');
+    }
+    if(!html) html=`<div class="no-results srch-spin">Searching…</div>`;
+    searchResultsEl.innerHTML=html;
+    bindResultClicks();
+  }
+
+  renderLocals(); // show locals + spinner immediately
+
+  // ③ Category → Overpass only
   const cat=detectCategory(q);
   if(cat){
     let results=await overpassSearch(cat[0],cat[1],lat,lng,6000);
     if(results.length<4) results=await overpassSearch(cat[0],cat[1],lat,lng,20000);
-    if(!results.length){searchResultsEl.innerHTML=`<div class="no-results">None found nearby</div>`;return;}
-    searchResultsEl.innerHTML=results.slice(0,25).map(r=>resultRow(r,isFav(r.name),true,r._emoji)).join('');
-    bindResultClicks();
+    if(!results.length){ searchResultsEl.innerHTML=`<div class="no-results">None nearby — try zooming out</div>`; return; }
+    results.forEach(r=>{ r.dist=haversine(lat,lng,r.lat,r.lng); r._score=scoreResult(r,q,lat,lng); });
+    results.sort((a,b)=>b._score-a._score);
+    searchResultsEl.innerHTML=results.slice(0,25).map(r=>resultRow(r,isFav(r.name),true,r._emoji,null,q)).join('');
+    bindResultClicks(); return;
+  }
+
+  // ④ Free-text: fan out to three sources in parallel
+  const [photonRaw, nomRaw, overpassByName]=await Promise.all([
+    geocode(q,lat,lng),
+    geocodeNominatimAU(q,lat,lng),
+    overpassNameSearch(q,lat,lng,12000),
+  ]);
+
+  const enriched=[
+    ...enrichPhoton(photonRaw,lat,lng),
+    ...enrichPhoton(nomRaw,lat,lng),
+    ...overpassByName,
+  ];
+  const merged=mergeResults([enriched],lat,lng); // dedup
+  if(!merged.length&&!locals.length){
+    searchResultsEl.innerHTML=`<div class="no-results">Nothing found for "<strong>${escHtml(q)}</strong>"<br><small>Check spelling or try a suburb name</small></div>`;
     return;
   }
 
-  // Free-text: run Photon + Overpass name-search in parallel
-  const [photon, overpassByName] = await Promise.all([
-    geocode(q),
-    overpassNameSearch(q, lat, lng, 8000),
-  ]);
-  const enriched = enrichPhoton(photon, lat, lng);
-  const merged = mergeResults([overpassByName, enriched], lat, lng);
-  if(!merged.length){searchResultsEl.innerHTML=`<div class="no-results">No results for "${escHtml(q)}"</div>`;return;}
-  searchResultsEl.innerHTML=merged.slice(0,25).map(r=>resultRow(r,isFav(r.name),true,r._emoji??placeEmoji(r),placeLabel(r))).join('');
+  // ⑤ Score every result and sort
+  merged.forEach(r=>{ r._score=scoreResult(r,q,lat,lng); });
+  merged.sort((a,b)=>b._score-a._score);
+
+  // ⑥ Render — sections: locals first, then place results
+  let html='';
+  if(locals.length){
+    html+=`<div class="results-section-label">🕐 Recent &amp; saved</div>`;
+    html+=locals.slice(0,2).map(r=>resultRow(r,isFav(r.name),true,placeEmoji(r),null,q)).join('');
+  }
+  if(merged.length){
+    if(locals.length) html+=`<div class="results-section-label">🔍 Results</div>`;
+    html+=merged.slice(0,20).map(r=>resultRow(r,isFav(r.name),true,r._emoji??placeEmoji(r),placeLabel(r),q)).join('');
+  }
+  searchResultsEl.innerHTML=html||`<div class="no-results">Nothing found</div>`;
   bindResultClicks();
 }
 
-function resultRow(p, faved, showFav=true, emoji='📍', label=null){
+function resultRow(p, faved, showFav=true, emoji='📍', label=null, q=''){
+  const nameHtml=q?highlightQuery(p.name,q):escHtml(p.name);
+  const dist=fmtDist(p.dist);
   return `<div class="search-result" data-lat="${p.lat}" data-lng="${p.lng}" data-name="${escHtml(p.name)}" data-sub="${escHtml(p.sub??'')}">
     <span class="result-emoji">${emoji}</span>
     <span class="result-body">
-      <strong>${escHtml(p.name)}</strong>
+      <strong>${nameHtml}</strong>
       ${label?`<em>${escHtml(label)}</em>`:''}
       <span>${escHtml(p.sub??'')}</span>
     </span>
+    ${dist?`<span class="result-dist">${dist}</span>`:''}
     ${showFav?`<button class="result-fav-btn${faved?' saved':''}" title="${faved?'Remove':'Save'}">${faved?'⭐':'☆'}</button>`:''}
   </div>`;
 }
@@ -2928,23 +3053,43 @@ async function doNavSearch(q){
   const lat=gps?.lat??map.getCenter().lat, lng=gps?.lng??map.getCenter().lng;
   const el=$$('nss-results');
   el.innerHTML='<div class="nss-empty">Searching…</div>';
+
+  const coords=parseCoords(q);
+  if(coords){ renderNssResult(el,[coords],q,lat,lng); return; }
+
   const cat=detectCategory(q);
   let places=[];
   if(cat){
     places=await overpassSearch(cat[0],cat[1],lat,lng,6000);
     if(places.length<4) places=await overpassSearch(cat[0],cat[1],lat,lng,20000);
   } else {
-    const [photon, overpassByName]=await Promise.all([geocode(q,lat,lng), overpassNameSearch(q,lat,lng,8000)]);
-    places=mergeResults([overpassByName, enrichPhoton(photon,lat,lng)], lat, lng);
+    const [photon,nom,byName]=await Promise.all([
+      geocode(q,lat,lng),
+      geocodeNominatimAU(q,lat,lng),
+      overpassNameSearch(q,lat,lng,12000),
+    ]);
+    places=mergeResults([[...enrichPhoton(photon,lat,lng),...enrichPhoton(nom,lat,lng),...byName]],lat,lng);
   }
+  places.forEach(r=>{ r.dist=r.dist??haversine(lat,lng,r.lat,r.lng); r._score=scoreResult(r,q,lat,lng); });
+  places.sort((a,b)=>b._score-a._score);
   if(!places.length){el.innerHTML='<div class="nss-empty">No results found</div>';return;}
+  renderNssResult(el,places.slice(0,20),q,lat,lng);
+}
+
+function renderNssResult(el,places,q,lat,lng){
   el.innerHTML='';
-  for(const r of places.slice(0,20)){
+  for(const r of places){
     const div=document.createElement('div');
     div.className='nss-result';
     const emoji=r._emoji??placeEmoji(r);
-    div.innerHTML=`<span style="margin-right:8px;font-size:1.1rem">${emoji}</span><span><div class="nss-result-name">${san(r.name)}</div>${r.sub?`<div class="nss-result-sub">${san(r.sub)}</div>`:''}</span>`;
-    div.style.display='flex';div.style.alignItems='center';
+    const dist=fmtDist(r.dist);
+    div.innerHTML=`
+      <span class="nss-r-icon">${emoji}</span>
+      <span class="nss-r-body">
+        <div class="nss-result-name">${highlightQuery(san(r.name),q)}</div>
+        ${r.sub?`<div class="nss-result-sub">${escHtml(san(r.sub))}</div>`:''}
+      </span>
+      ${dist?`<span class="nss-r-dist">${dist}</span>`:''}`;
     div.addEventListener('click',()=>applyNavSearch(r));
     el.appendChild(div);
   }
