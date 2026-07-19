@@ -1,8 +1,9 @@
 /**
- * One-time setup: opens a real Chromium window so you can log into Waze,
- * then saves the session cookies to waze-cookies.json for the headless scraper.
+ * Waze cookie setup — opens a Chromium window for login, saves cookies.
+ * Detection: watches for Waze auth cookies (_web_session, _csrf_token).
+ * Does NOT require georss to work (that may be blocked by IP regardless of login).
  *
- * Run: node /Users/maverick/radar/scraper/setup.mjs
+ * Run: node setup.mjs
  */
 
 import { chromium } from 'playwright';
@@ -10,26 +11,26 @@ import { writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-const DIR         = dirname(fileURLToPath(import.meta.url));
+const DIR          = dirname(fileURLToPath(import.meta.url));
 const COOKIES_FILE = join(DIR, 'waze-cookies.json');
 
-async function testAuth(page) {
-  const status = await page.evaluate(async () => {
-    try {
-      const r = await fetch('https://www.waze.com/live-map/api/georss?top=-33.5&bottom=-34.2&left=150.5&right=151.5&env=row&types=alerts&ma=1', {
-        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-      });
-      return r.status;
-    } catch { return 0; }
-  });
-  return status === 200;
+// Auth cookies that only exist when logged into Waze
+const AUTH_COOKIES = ['_web_session', 'csrf_token', '_csrf_token', 'waze_session'];
+
+async function getWazeCookies(context) {
+  return context.cookies(['https://www.waze.com', 'https://waze.com']);
+}
+
+function isLoggedIn(cookies) {
+  const names = cookies.map(c => c.name);
+  return AUTH_COOKIES.some(n => names.includes(n));
 }
 
 console.log('\n══════════════════════════════════════════════════');
-console.log('  RADAR — Waze one-time login setup');
+console.log('  RADAR — Waze login setup');
 console.log('══════════════════════════════════════════════════\n');
-console.log('A browser window will open. Log in to Waze (via Google');
-console.log('or your Waze account), then come back here.\n');
+console.log('A browser window will open at waze.com/login.');
+console.log('Log in via Google (or email), then come back here.\n');
 
 const browser = await chromium.launch({
   headless: false,
@@ -51,38 +52,65 @@ await context.addInitScript(() => {
 });
 
 const page = await context.newPage();
-await page.goto('https://www.waze.com/en-GB/live-map', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+await page.goto('https://www.waze.com/en-GB/login', { waitUntil: 'domcontentloaded', timeout: 60_000 });
 
-console.log('Browser open — log in to Waze now.');
-console.log('Checking every 5 seconds...\n');
+console.log('Browser open — log into Waze now.');
+console.log('(Checking for auth cookies every 3 seconds...)\n');
 
-let attempts = 0;
 let loggedIn = false;
-
-while (attempts < 60) { // wait up to 5 minutes
-  await new Promise(r => setTimeout(r, 5_000));
-  attempts++;
-
-  loggedIn = await testAuth(page);
-  if (loggedIn) break;
-
-  if (attempts % 6 === 0) {
-    process.stdout.write(`Still waiting for login... (${attempts * 5}s)\n`);
+for (let i = 0; i < 200; i++) { // wait up to ~10 min
+  await new Promise(r => setTimeout(r, 3_000));
+  const cookies = await getWazeCookies(context);
+  if (isLoggedIn(cookies)) {
+    loggedIn = true;
+    console.log(`\n✓ Auth cookies detected: ${cookies.filter(c => AUTH_COOKIES.includes(c.name)).map(c => c.name).join(', ')}`);
+    break;
+  }
+  if (i > 0 && i % 10 === 0) {
+    const names = cookies.map(c => c.name);
+    console.log(`Still waiting... (${Math.round((i+1)*3)}s) — cookies so far: ${names.slice(0,5).join(', ')}`);
   }
 }
 
 if (!loggedIn) {
-  console.error('\nTimed out waiting for login. Try again.');
+  // Save whatever we have anyway and let the scraper try
+  const cookies = await getWazeCookies(context);
+  console.warn('\n⚠ No auth cookies detected after 10 min — saving what we have and continuing.');
+  writeFileSync(COOKIES_FILE, JSON.stringify(cookies, null, 2));
+  console.log(`Saved ${cookies.length} cookies.`);
   await browser.close();
-  process.exit(1);
+  process.exit(0);
 }
 
-console.log('\n✓ Login detected! Saving cookies...');
+// Wait a moment for any additional cookies to settle after login
+await new Promise(r => setTimeout(r, 3_000));
+
+// Navigate to live-map to get all session cookies
+await page.goto('https://www.waze.com/en-GB/live-map', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+await new Promise(r => setTimeout(r, 4_000));
+
 const cookies = await context.cookies();
 writeFileSync(COOKIES_FILE, JSON.stringify(cookies, null, 2));
-console.log(`✓ Saved ${cookies.length} cookies to ${COOKIES_FILE}`);
-console.log('\nNow start the scraper:');
-console.log('  pm2 start /Users/maverick/radar/scraper/ecosystem.config.cjs\n');
+console.log(`✓ Saved ${cookies.length} cookies → ${COOKIES_FILE}`);
+
+// Quick georss test (informational only — 403 doesn't mean failure)
+try {
+  const georss = await page.evaluate(async () => {
+    try {
+      const r = await fetch('https://www.waze.com/live-map/api/georss?top=-33.5&bottom=-34.2&left=150.5&right=151.5&env=row&types=alerts&ma=1',
+        { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      return r.status;
+    } catch { return 0; }
+  });
+  if (georss === 200) {
+    console.log('✓ Georss API works! Police data will flow.');
+  } else {
+    console.log(`ℹ Georss returned ${georss} — IP may be restricted, but scraper will keep retrying.`);
+  }
+} catch {}
 
 await browser.close();
+
+console.log('\nStart the scraper:');
+console.log('  pm2 start /Users/maverick/radar/scraper/ecosystem.config.cjs\n');
 process.exit(0);

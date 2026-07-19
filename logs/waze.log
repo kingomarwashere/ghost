@@ -1,0 +1,1932 @@
+[1:10:11 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… [1:15:15 am] Scraping Waze…
+0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 2 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 2 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:20:17 am] Scraping Waze…
+  Sydney… 1 reports so far
+  Blue Mtns / W Sydney… 1 reports so far
+  Wollongong… 1 reports so far
+  Newcastle… 1 reports so far
+  Canberra area… 1 reports so far
+  Tamworth… 1 reports so far
+  NW NSW… 1 reports so far
+Total: 1 unique reports from 2 tiles
+  Sample: {"uuid":"wj-338656_1512085","lat":-33.865629,"lng":151.208502,"type":"traffic","description":"Road blocked on Hunter St"}
+Ingested: 1 — raw: {"ok":true,"upserted":1}
+[1:25:05 am] Scraping Waze…
+  Sydney… 1 reports so far
+  Blue Mtns / W Sydney… 1 reports so far
+  Wollongong… 1 reports so far
+  Newcastle… 1 reports so far
+  Canberra area… 1 reports so far
+  Tamworth… 1 reports so far
+  NW NSW… 1 reports so far
+Total: 1 unique reports from 4 tiles
+  Sample: {"uuid":"wj-338656_1512085","lat":-33.865629,"lng":151.208502,"type":"traffic","description":"Road blocked on Hunter St"}
+Ingested: 1 — raw: {"ok":true,"upserted":1}
+[1:30:11 am] Scraping Waze…
+  Sydney… 1 reports so far
+  Blue Mtns / W Sydney… 1 reports so far
+  Wollongong… 1 reports so far
+  Newcastle… 1 reports so far
+  Canberra area… 1 reports so far
+  Tamworth… 1 reports so far
+  NW NSW… 1 reports so far
+Total: 1 unique reports from 2 tiles
+  Sample: {"uuid":"wj-338656_1512085","lat":-33.865629,"lng":151.208502,"type":"traffic","description":"Road blocked on Hunter St"}
+Ingested: 1 — raw: {"ok":true,"upserted":1}
+[1:35:10 am] Scraping Waze…
+  Sydney… 2 reports so far
+  Blue Mtns / W Sydney… 2 reports so far
+  Wollongong… 2 reports so far
+  Newcastle… 2 reports so far
+  Canberra area… 2 reports so far
+  Tamworth… 2 reports so far
+  NW NSW… 2 reports so far
+Total: 2 unique reports from 2 tiles
+  Sample: {"lat":-33.868856,"lng":151.20808,"type":"police","description":"Police on King St"}
+Ingested: 1 — raw: {"ok":true,"upserted":1}
+[1:40:11 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:45:10 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:50:13 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:55:01 am] Scraping Waze…
+  Sydney… 2 reports so far
+  Blue Mtns / W Sydney… 2 reports so far
+  Wollongong… 2 reports so far
+  Newcastle… 2 reports so far
+  Canberra area… 2 reports so far
+  Tamworth… 2 reports so far
+  NW NSW… 2 reports so far
+Total: 2 unique reports from 1 tiles
+  Sample: {"lat":-33.868856,"lng":151.20808,"type":"police","description":"Police on King St"}
+Ingested: 1 — raw: {"ok":true,"upserted":1}
+[2:00:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:05:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:10:02 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:15:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:20:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:25:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:30:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:35:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:40:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:45:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:50:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:55:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:00:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:05:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:10:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:15:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:20:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:25:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:30:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:35:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:40:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:45:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:50:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:55:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:00:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:05:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:10:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:15:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:20:00 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:25:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:30:00 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:35:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:40:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:45:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:50:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:55:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[5:00:02 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[5:05:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[5:10:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[5:15:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[5:20:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[5:25:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[5:30:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[5:35:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[5:40:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[5:45:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[5:50:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[5:55:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[6:00:01 am] Scraping Waze…
+  Sydney… 1 reports so far
+  Blue Mtns / W Sydney… 1 reports so far
+  Wollongong… 1 reports so far
+  Newcastle… 1 reports so far
+  Canberra area… 1 reports so far
+  Tamworth… 1 reports so far
+  NW NSW… 1 reports so far
+Total: 1 unique reports from 1 tiles
+  Sample: {"uuid":"wj-338656_1512085","lat":-33.865629,"lng":151.208502,"type":"traffic","description":"Road blocked on Hunter St"}
+Ingested: 1 — raw: {"ok":true,"upserted":1}
+[6:05:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[6:10:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[6:15:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[6:20:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[6:25:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[6:30:00 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[6:35:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[6:40:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[6:45:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[6:50:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[6:55:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[7:00:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[7:05:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[7:10:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[7:15:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[7:20:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[7:25:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[7:30:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[7:35:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[7:40:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[7:45:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[7:50:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[7:55:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[8:00:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[8:05:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[8:10:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[8:15:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[8:20:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[8:25:00 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[8:30:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[8:35:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[8:40:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[8:45:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[8:50:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[8:55:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[9:00:02 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[9:05:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[9:10:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[9:15:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[9:20:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[9:25:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[9:30:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[9:35:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[9:40:02 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[9:45:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[9:50:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[9:55:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[10:00:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[10:05:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[10:10:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[10:15:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[10:20:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[10:25:00 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[10:30:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[10:35:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[10:40:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[10:45:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[10:50:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[10:55:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[11:00:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[11:05:00 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[11:10:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[11:15:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[11:20:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[11:25:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[11:30:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[11:35:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[11:40:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[11:45:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[11:50:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[11:55:01 am] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[12:00:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[12:05:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[12:10:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[12:15:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[12:20:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[12:25:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[12:30:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[12:35:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[12:40:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[12:45:00 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[12:50:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[12:55:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:00:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:05:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:10:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:15:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:20:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:25:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:30:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:35:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:40:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:45:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:50:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[1:55:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:00:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:05:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:10:00 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:15:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:20:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:25:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:30:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:35:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:40:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:45:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:50:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[2:55:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:00:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:05:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:10:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:15:00 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:20:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:25:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:30:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:35:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:40:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:45:00 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:50:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[3:55:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:00:00 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:05:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:10:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:15:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:20:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:25:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:30:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:35:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:40:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:45:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:50:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[4:55:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[5:00:00 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[5:05:00 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 0 reports so far
+  Tamworth… 0 reports so far
+  NW NSW… 0 reports so far
+Total: 0 unique reports from 0 tiles
+Nothing to ingest — Waze may still be blocking or no NSW activity.
+[5:10:01 pm] Scraping Waze…
+  Sydney… 0 reports so far
+  Blue Mtns / W Sydney… 0 reports so far
+  Wollongong… 0 reports so far
+  Newcastle… 0 reports so far
+  Canberra area… 

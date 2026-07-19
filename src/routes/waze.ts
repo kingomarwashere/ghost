@@ -128,138 +128,145 @@ async function scrapeLiveTraffic(db: D1Database, now: number): Promise<number> {
   return seen.size;
 }
 
-// ─── WAZE ────────────────────────────────────────────────────────────────────
-// Waze added reCAPTCHA gate in 2025; CF Worker IPs typically get 403.
-// We still attempt with every valid header — if it works, great.
+// ─── OPENWEBNINJA (Waze proxy) ────────────────────────────────────────────────
+// Proxies Waze data via residential IPs — bypasses Waze's IP block.
 
-const WAZE_BASE = 'https://www.waze.com/live-map/api/georss';
+const OWN_BASE  = 'https://api.openwebninja.com/waze/alerts-and-jams';
 const WAZE_TTL_MS = 90 * 60 * 1000;
 
-const NSW = { n: -28.15, s: -37.51, w: 140.99, e: 153.64 };
+const NSW  = { n: -28.15, s: -37.51, w: 140.99, e: 153.64 };
 const ROWS = 3;
 const COLS = 4;
 
-interface WazeAlert {
-  uuid: string;
+interface OWNAlert {
+  alert_id: string;
   type: string;
-  subtype?: string;
-  street?: string;
-  city?: string;
-  location: { x: number; y: number };
-  pubMillis: number;
+  subtype: string | null;
+  street: string | null;
+  city: string | null;
+  latitude: number;
+  longitude: number;
+  num_thumbs_up: number;
+  publish_datetime_utc: string | null;
 }
-interface WazeJam {
-  uuid: string;
+interface OWNJam {
+  jam_id: string;
   level: number;
-  speedKMH: number;
-  street?: string;
-  line: Array<{ x: number; y: number }>;
-  pubMillis: number;
+  speed_kmh: number;
+  street: string | null;
+  city: string | null;
+  line_coordinates: Array<{ lat: number; lon: number }>;
 }
-interface WazeResponse { alerts?: WazeAlert[]; jams?: WazeJam[] }
+interface OWNResponse {
+  status: string;
+  data?: { alerts?: OWNAlert[]; jams?: OWNJam[] };
+}
 
-function mapWazeAlert(type: string, sub: string): { type: ReportType; label: string } | null {
+function mapOWNAlert(type: string, sub: string | null): { type: ReportType; label: string } | null {
+  const s = sub ?? '';
   switch (type) {
     case 'POLICE':
-      return { type: 'police', label: sub === 'POLICE_HIDING' ? 'Hidden police' : sub === 'POLICE_CAR_STOPPED' ? 'Police stopped' : 'Police' };
+      if (s === 'POLICE_HIDING')             return { type: 'police', label: 'Hidden police' };
+      if (s === 'POLICE_WITH_MOBILE_CAMERA') return { type: 'police', label: 'Mobile speed camera' };
+      return                                        { type: 'police', label: 'Police' };
     case 'ACCIDENT':
-      return { type: 'accident', label: sub === 'ACCIDENT_MAJOR' ? 'Major accident' : 'Accident' };
+      return { type: 'accident', label: s === 'ACCIDENT_MAJOR' ? 'Major accident' : 'Accident' };
     case 'HAZARD':
-      if (sub.includes('WEATHER_FOG'))    return { type: 'weather',      label: 'Fog' };
-      if (sub.includes('WEATHER_RAIN'))   return { type: 'weather',      label: 'Heavy rain' };
-      if (sub.includes('WEATHER_FLOOD'))  return { type: 'weather',      label: 'Flooding' };
-      if (sub.includes('WEATHER_HAIL'))   return { type: 'weather',      label: 'Hail' };
-      if (sub.includes('WEATHER'))        return { type: 'weather',      label: 'Weather hazard' };
-      if (sub.includes('CONSTRUCTION') || sub.includes('ROAD_WORK')) return { type: 'roadwork', label: 'Road works' };
-      if (sub === 'HAZARD_ON_ROAD_LANE_CLOSED')          return { type: 'blocked_lane', label: 'Lane closed' };
-      if (sub === 'HAZARD_ON_ROAD_OBJECT')               return { type: 'hazard',       label: 'Object on road' };
-      if (sub === 'HAZARD_ON_ROAD_POT_HOLE')             return { type: 'hazard',       label: 'Pothole' };
-      if (sub === 'HAZARD_ON_ROAD_TRAFFIC_LIGHT_FAULT')  return { type: 'hazard',       label: 'Traffic light fault' };
-      if (sub === 'HAZARD_ON_ROAD_CAR_STOPPED')          return { type: 'hazard',       label: 'Broken down vehicle' };
-      if (sub === 'HAZARD_ON_SHOULDER_ANIMALS')          return { type: 'hazard',       label: 'Animals on road' };
-      if (sub === 'HAZARD_ON_ROAD_ICE')                  return { type: 'weather',      label: 'Ice on road' };
+      if (s.includes('WEATHER_FOG'))    return { type: 'weather',      label: 'Fog' };
+      if (s.includes('WEATHER_RAIN'))   return { type: 'weather',      label: 'Heavy rain' };
+      if (s.includes('WEATHER_FLOOD'))  return { type: 'weather',      label: 'Flooding' };
+      if (s.includes('WEATHER_HAIL'))   return { type: 'weather',      label: 'Hail' };
+      if (s.includes('WEATHER'))        return { type: 'weather',      label: 'Weather hazard' };
+      if (s.includes('CONSTRUCTION') || s.includes('ROAD_WORK')) return { type: 'roadwork', label: 'Road works' };
+      if (s === 'HAZARD_ON_ROAD_LANE_CLOSED')         return { type: 'blocked_lane', label: 'Lane closed' };
+      if (s === 'HAZARD_ON_ROAD_OBJECT')              return { type: 'hazard',       label: 'Object on road' };
+      if (s === 'HAZARD_ON_ROAD_POT_HOLE')            return { type: 'hazard',       label: 'Pothole' };
+      if (s === 'HAZARD_ON_ROAD_TRAFFIC_LIGHT_FAULT') return { type: 'hazard',       label: 'Traffic light fault' };
+      if (s === 'HAZARD_ON_ROAD_CAR_STOPPED')         return { type: 'hazard',       label: 'Broken down vehicle' };
+      if (s === 'HAZARD_ON_SHOULDER_ANIMALS')         return { type: 'hazard',       label: 'Animals on road' };
+      if (s === 'HAZARD_ON_ROAD_ICE')                 return { type: 'weather',      label: 'Ice on road' };
       return { type: 'hazard', label: 'Road hazard' };
     case 'ROAD_CLOSED':
-      return { type: sub === 'ROAD_CLOSED_CONSTRUCTION' ? 'roadwork' : 'closure', label: 'Road closed' };
+      return { type: s === 'ROAD_CLOSED_CONSTRUCTION' ? 'roadwork' : 'closure', label: 'Road closed' };
+    case 'JAM':
+      return null; // handled separately via jams array
     default: return null;
   }
 }
 
-async function fetchWazeTile(left: number, bottom: number, right: number, top: number): Promise<WazeResponse> {
+async function fetchOWNTile(
+  apiKey: string,
+  bottom: number, left: number, top: number, right: number,
+): Promise<OWNResponse> {
   try {
-    const url = `${WAZE_BASE}?top=${top}&bottom=${bottom}&left=${left}&right=${right}&env=row&types=alerts,traffic&ma=500&mj=300`;
+    const url = `${OWN_BASE}?bottom_left=${bottom},${left}&top_right=${top},${right}&alert_types=POLICE,ACCIDENT,HAZARD,ROAD_CLOSED,JAM&max_alerts=200&max_jams=300`;
     const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'Accept-Language': 'en-AU,en-GB;q=0.9,en;q=0.8',
-        'Referer': 'https://www.waze.com/live-map',
-        'X-Requested-With': 'XMLHttpRequest',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-origin',
-      },
-      signal: AbortSignal.timeout(12_000),
+      headers: { 'x-api-key': apiKey },
+      signal: AbortSignal.timeout(15_000),
     });
-    if (!res.ok) return {};
-    return await res.json() as WazeResponse;
+    if (!res.ok) return { status: 'ERROR' };
+    return await res.json() as OWNResponse;
   } catch {
-    return {};
+    return { status: 'ERROR' };
   }
 }
 
-async function scrapeWazeTiles(db: D1Database, now: number): Promise<{ upserted: number; attempted: number }> {
+async function scrapeOpenWebNinja(db: D1Database, apiKey: string, now: number): Promise<number> {
   const latStep = (NSW.n - NSW.s) / ROWS;
   const lngStep = (NSW.e - NSW.w) / COLS;
 
-  const tiles: Promise<WazeResponse>[] = [];
+  const fetches = [];
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const bottom = NSW.s + r * latStep;
       const left   = NSW.w + c * lngStep;
-      tiles.push(fetchWazeTile(left, bottom, left + lngStep, bottom + latStep));
+      fetches.push(fetchOWNTile(apiKey, bottom, left, bottom + latStep, left + lngStep));
     }
   }
 
-  const results = await Promise.allSettled(tiles);
+  const results = await Promise.allSettled(fetches);
   const seen = new Map<string, { lat: number; lng: number; type: ReportType; desc: string }>();
 
   for (const res of results) {
-    if (res.status !== 'fulfilled') continue;
-    const data = res.value;
+    if (res.status !== 'fulfilled' || res.value.status !== 'OK') continue;
+    const { alerts = [], jams = [] } = res.value.data ?? {};
 
-    for (const alert of data.alerts ?? []) {
-      if (seen.has(alert.uuid)) continue;
-      const mapped = mapWazeAlert(alert.type, alert.subtype ?? '');
+    for (const alert of alerts) {
+      if (seen.has(alert.alert_id)) continue;
+      const mapped = mapOWNAlert(alert.type, alert.subtype);
       if (!mapped) continue;
       const street = alert.street ? ` on ${alert.street}` : '';
-      const city   = alert.city   ? `, ${alert.city}`    : '';
-      seen.set(alert.uuid, {
-        lat: alert.location.y, lng: alert.location.x,
+      const city   = alert.city   ? `, ${alert.city}`     : '';
+      seen.set(alert.alert_id, {
+        lat: alert.latitude, lng: alert.longitude,
         type: mapped.type, desc: `${mapped.label}${street}${city}`,
       });
     }
 
-    for (const jam of data.jams ?? []) {
-      if (seen.has(jam.uuid)) continue;
-      if ((jam.level ?? 0) < 3 || !jam.line?.length) continue;
-      const mid = jam.line[Math.floor(jam.line.length / 2)];
-      const street   = jam.street ? ` on ${jam.street}` : '';
-      const severity = jam.level >= 5 ? 'Road blocked' : jam.level === 4 ? 'Standstill' : 'Heavy traffic';
-      const speed    = jam.speedKMH != null ? ` (${Math.round(jam.speedKMH)} km/h)` : '';
-      seen.set(jam.uuid, { lat: mid.y, lng: mid.x, type: 'traffic', desc: `${severity}${speed}${street}` });
+    for (const jam of jams) {
+      if (seen.has(jam.jam_id)) continue;
+      if ((jam.level ?? 0) < 3 || !jam.line_coordinates?.length) continue;
+      const mid    = jam.line_coordinates[Math.floor(jam.line_coordinates.length / 2)];
+      const street = jam.street ? ` on ${jam.street}` : '';
+      const sev    = jam.level >= 5 ? 'Road blocked' : jam.level === 4 ? 'Standstill' : 'Heavy traffic';
+      const spd    = jam.speed_kmh != null ? ` (${Math.round(jam.speed_kmh)} km/h)` : '';
+      seen.set(jam.jam_id, {
+        lat: mid.lat, lng: mid.lon,
+        type: 'traffic', desc: `${sev}${spd}${street}`,
+      });
     }
   }
 
-  if (!seen.size) return { upserted: 0, attempted: tiles.length };
+  if (!seen.size) return 0;
 
   const expiresAt = now + WAZE_TTL_MS;
-  const entries = [...seen.entries()];
+  const entries   = [...seen.entries()];
   for (let i = 0; i < entries.length; i += 50) {
     const chunk = entries.slice(i, i + 50);
-    await db.batch(chunk.flatMap(([uuid, r]) => {
-      const id     = `wz${uuid.replace(/-/g, '').slice(0, 22)}`;
-      const histId = `wh${uuid.replace(/-/g, '').slice(0, 22)}`;
+    await db.batch(chunk.flatMap(([rawId, r]) => {
+      // Stable 24-char ID from the alert/jam ID
+      const id     = `wz${rawId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 22)}`;
+      const histId = `wh${rawId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 22)}`;
       return [
         db.prepare(`
           INSERT INTO reports (id, lat, lng, type, description, confirms, denies, created_at, expires_at, reporter_hash)
@@ -271,21 +278,20 @@ async function scrapeWazeTiles(db: D1Database, now: number): Promise<{ upserted:
       ];
     }));
   }
-  return { upserted: seen.size, attempted: tiles.length };
+  return seen.size;
 }
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
-export async function scrapeAll(db: D1Database): Promise<{
-  livetraffic: number; waze: number; waze_tiles: number;
+export async function scrapeAll(db: D1Database, apiKey = ''): Promise<{
+  livetraffic: number; waze: number;
 }> {
   const now = Date.now();
-  const [ltCount, wazeResult] = await Promise.all([
+  const [ltCount, wazeCount] = await Promise.all([
     scrapeLiveTraffic(db, now),
-    scrapeWazeTiles(db, now),
+    apiKey ? scrapeOpenWebNinja(db, apiKey, now) : Promise.resolve(0),
   ]);
-  return { livetraffic: ltCount, waze: wazeResult.upserted, waze_tiles: wazeResult.attempted };
+  return { livetraffic: ltCount, waze: wazeCount };
 }
 
-// Keep old name as alias so nothing else breaks
 export { scrapeAll as scrapeWaze };

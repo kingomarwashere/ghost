@@ -4,6 +4,7 @@ export interface Env {
   PHOTOS: R2Bucket;
   ADMIN_KEY: string;
   TFNSW_API_KEY?: string;
+  OPENWEB_NINJA_KEY: string;
 }
 
 export interface User {

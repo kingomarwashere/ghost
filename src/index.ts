@@ -94,7 +94,7 @@ app.get('/api/traffic-cams/image', async (c) => {
 app.post('/api/admin/sync/waze', async (c) => {
   const key = c.req.header('x-admin-key');
   if (key !== c.env.ADMIN_KEY && key !== 'boob') return c.json({ error: 'unauthorized' }, 401);
-  const result = await scrapeAll(c.env.DB);
+  const result = await scrapeAll(c.env.DB, c.env.OPENWEB_NINJA_KEY);
   return c.json({ ok: true, ...result });
 });
 
@@ -168,6 +168,6 @@ app.get('*', async (c) => {
 export default {
   fetch: app.fetch.bind(app),
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(scrapeAll(env.DB));
+    ctx.waitUntil(scrapeAll(env.DB, env.OPENWEB_NINJA_KEY));
   },
 };
