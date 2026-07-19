@@ -42,12 +42,17 @@ body {
   white-space: nowrap; max-width: calc(100vw - 20px);
   box-shadow: 0 4px 32px rgba(0,0,0,.7), 0 0 0 1px rgba(255,0,153,0.08);
 }
-#logo { line-height: 1; padding-right: 2px; }
+#logo { line-height: 1; padding-right: 2px; display: flex; align-items: center; gap: 5px; }
 #logo-text {
   font-family: var(--font);
   font-size: .85rem; font-weight: 900;
   letter-spacing: .18em; color: var(--accent);
   text-transform: uppercase;
+}
+#logo-stars {
+  font-size: .6rem; letter-spacing: 1px; color: #ffd700;
+  filter: drop-shadow(0 0 4px rgba(255,215,0,.8));
+  line-height: 1; padding-top: 1px;
 }
 #filters { display: flex; gap: 2px; }
 .filter-btn {
@@ -1032,7 +1037,10 @@ body:not(.navigating) #street-pill { display: none; }
   font-size: 1rem; font-weight: 900; color: #fff;
   letter-spacing: .25em; text-shadow: 0 0 20px rgba(255,100,100,.8);
 }
-#gta-wanted-stars { font-size: 1.1rem; letter-spacing: 2px; }
+#gta-wanted-stars {
+  font-size: 1.3rem; letter-spacing: 3px;
+  color: #ffd700; text-shadow: 0 0 10px #ffd700, 0 0 20px rgba(255,215,0,.5);
+}
 
 /* ── BUSTED overlay ─────────────────────────── */
 #gta-busted-overlay {

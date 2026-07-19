@@ -212,15 +212,15 @@ function setupMapLayers(){
   if(!map.getLayer('route-alts'))
     map.addLayer({id:'route-alts',type:'line',source:'route-alts',
       layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
-      paint:{'line-color':'#336677','line-width':4,'line-opacity':0.6}});
+      paint:{'line-color':'#997a00','line-width':4,'line-opacity':0.6}});
   if(!map.getLayer('route-traveled'))
     map.addLayer({id:'route-traveled',type:'line',source:'route-traveled',
       layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
-      paint:{'line-color':'#0a3547','line-width':8,'line-opacity':0}});
+      paint:{'line-color':'#5a4700','line-width':8,'line-opacity':0}});
   if(!map.getLayer('route-main'))
     map.addLayer({id:'route-main',type:'line',source:'route-main',
       layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
-      paint:{'line-color':'#00cfff','line-width':10,'line-opacity':1}});
+      paint:{'line-color':'#ffd700','line-width':10,'line-opacity':1}});
   // Warning flash overlay — same source as route-main, drawn on top
   if(!map.getLayer('route-warn'))
     map.addLayer({id:'route-warn',type:'line',source:'route-main',
