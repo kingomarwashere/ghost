@@ -325,13 +325,37 @@ function makeSvgIcon(paths, bg, size=42){
   const html=`<div style="width:${size}px;height:${size}px;border-radius:13px;background:${bg};display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.18);cursor:pointer"><svg viewBox="0 0 20 20" width="22" height="22" xmlns="http://www.w3.org/2000/svg">${paths}</svg></div>`;
   return { el:()=>{ const d=document.createElement('div'); d.innerHTML=html; return d.firstChild; } };
 }
+// ── Pig cop SVG — used for all police visual icons ───────────────────────────
+const PIG_COP_SVG = (w=30,h=30) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="${w}" height="${h}">
+  <rect x="6" y="11" width="28" height="3.5" rx="1.5" fill="#0a0a2a"/>
+  <rect x="11" y="4" width="18" height="8" rx="2.5" fill="#1c1c4a"/>
+  <rect x="11" y="10" width="18" height="2" rx="0.5" fill="#ffd700"/>
+  <ellipse cx="8.5" cy="21" rx="4.5" ry="5.5" fill="#f9a8c0"/>
+  <ellipse cx="31.5" cy="21" rx="4.5" ry="5.5" fill="#f9a8c0"/>
+  <ellipse cx="8.5" cy="21" rx="2.8" ry="3.5" fill="#f07090"/>
+  <ellipse cx="31.5" cy="21" rx="2.8" ry="3.5" fill="#f07090"/>
+  <circle cx="20" cy="24" r="13.5" fill="#f9a8c0"/>
+  <circle cx="14.5" cy="21" r="3.2" fill="white"/>
+  <circle cx="25.5" cy="21" r="3.2" fill="white"/>
+  <circle cx="14.5" cy="21.5" r="1.9" fill="#111"/>
+  <circle cx="25.5" cy="21.5" r="1.9" fill="#111"/>
+  <circle cx="15.1" cy="20.8" r="0.65" fill="white"/>
+  <circle cx="26.1" cy="20.8" r="0.65" fill="white"/>
+  <ellipse cx="20" cy="29" rx="7.5" ry="5.5" fill="#f07090"/>
+  <ellipse cx="17.2" cy="29.5" rx="2" ry="2.2" fill="#c0405a"/>
+  <ellipse cx="22.8" cy="29.5" rx="2" ry="2.2" fill="#c0405a"/>
+  <path d="M8,35 C8,38.5 13,40 20,40 C27,40 32,38.5 32,35 L30,31 C27,33 13,33 10,31Z" fill="#1c1c4a"/>
+  <circle cx="20" cy="36.5" r="2.5" fill="#ffd700"/>
+  <polygon points="20,34.8 20.4,35.8 21.5,35.8 20.7,36.5 21,37.5 20,36.8 19,37.5 19.3,36.5 18.5,35.8 19.6,35.8" fill="#0a0a2a"/>
+</svg>`;
+
 function makeEmojiIcon(emoji, bg='#1e3a5f', size=42){
   const html=`<div style="width:${size}px;height:${size}px;border-radius:13px;background:${bg};display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.18);cursor:pointer;font-size:24px;line-height:1;user-select:none">${emoji}</div>`;
   return { el:()=>{ const d=document.createElement('div'); d.innerHTML=html; return d.firstChild; } };
 }
 
 const ICONS = {
-  police:        makeEmojiIcon('👮', '#0ea5e9'),
+  police:        makeEmojiIcon(PIG_COP_SVG(28,28), '#0ea5e9'),
   speed_trap:    makeEmojiIcon('📷', '#2a1500'),
   accident:      makeEmojiIcon('💥', '#2a0f0f'),
   hazard:        makeEmojiIcon('💀', '#241c0a'),
@@ -697,7 +721,7 @@ const OVERPASS_CAT = {
   anz:                 ['[amenity=bank][name~"ANZ",i]','🏦'],
   nab:                 ['[amenity=bank][name~"NAB",i]','🏦'],
   // Other
-  police:              ['[amenity=police]','👮'],
+  police:              ['[amenity=police]','🐷'],
   gym:                 ['[leisure~"fitness_centre|gym"]','🏋️'],
   fitness:             ['[leisure~"fitness_centre|gym"]','🏋️'],
   'anytime fitness':   ['[leisure=fitness_centre][name~"Anytime",i]','🏋️'],
@@ -795,7 +819,7 @@ function placeEmoji(r) {
   if(k==='railway') return v==='tram_stop'?'🚋':'🚆';
   if(k==='public_transport') return '🚉';
   if(k==='aeroway') return '✈️';
-  if(k==='amenity'){const m={hospital:'🏥',clinic:'🏥',pharmacy:'💊',fuel:'⛽',restaurant:'🍽️',cafe:'☕',fast_food:'🍔',bar:'🍺',bank:'🏦',school:'🏫',university:'🎓',library:'📚',police:'👮',fire_station:'🚒',cinema:'🎬',theatre:'🎭'};return m[v]||'📍';}
+  if(k==='amenity'){const m={hospital:'🏥',clinic:'🏥',pharmacy:'💊',fuel:'⛽',restaurant:'🍽️',cafe:'☕',fast_food:'🍔',bar:'🍺',bank:'🏦',school:'🏫',university:'🎓',library:'📚',police:'🐷',fire_station:'🚒',cinema:'🎬',theatre:'🎭'};return m[v]||'📍';}
   if(k==='tourism'){return {hotel:'🏨',motel:'🏨',museum:'🏛️',attraction:'⭐',viewpoint:'🔭',beach:'🏖️',zoo:'🦁'}[v]||'⭐';}
   if(k==='shop') return '🛍️';
   if(k==='leisure'){return {park:'🌳',sports_centre:'🏋️',stadium:'🏟️',golf_course:'⛳',swimming_pool:'🏊',beach:'🏖️'}[v]||'🌿';}
@@ -837,7 +861,7 @@ async function loadReports(){
       if(r.type!=='speed_trap'&&!visibleLayers.police) continue;
       const icon=ICONS[r.type]??ICONS.hazard;
       const age=Math.round((Date.now()-r.created_at)/60000);
-      const label={police:'👮 5-0',speed_trap:'📷 Speed trap',accident:'💥 Crash',hazard:'💀 Hazard',traffic:'🚗 Traffic',closure:'🚧 Closure',roadwork:'🔧 Roadwork',weather:'🌧️ Weather',blocked_lane:'🦺 Blocked lane'}[r.type]??r.type;
+      const label={police:'🐷 5-0',speed_trap:'📷 Speed trap',accident:'💥 Crash',hazard:'💀 Hazard',traffic:'🚗 Traffic',closure:'🚧 Closure',roadwork:'🔧 Roadwork',weather:'🌧️ Weather',blocked_lane:'🦺 Blocked lane'}[r.type]??r.type;
       const ageStr=age<60?`${age}m ago`:`${Math.round(age/60)}h ago`;
       const popupHtml=`<strong>${label}</strong>${r.description?`<p>${escHtml(r.description)}</p>`:''}<p>${ageStr} · ✅ ${r.confirms} 👎 ${r.denies}</p><div class="popup-actions"><button class="popup-confirm" onclick="vote('${r.id}','confirm')">✅ Still there</button><button class="popup-deny" onclick="vote('${r.id}','deny')">👎 Gone</button></div>`;
       const popup=new maplibregl.Popup({offset:24,maxWidth:'260px'}).setHTML(popupHtml);
@@ -889,9 +913,9 @@ document.querySelectorAll('.filter-btn').forEach(btn=>{
 ═══════════════════════════════════════════════ */
 const REPORT_CATS = {
   police: {
-    label:'5-0', emoji:'👮', title:'Report police',
+    label:'5-0', emoji:'🐷', title:'Report police',
     subtypes:[
-      {key:'police',     label:'Police',        emoji:'👮', bg:'#1a2540'},
+      {key:'police',     label:'Police',        emoji:'🐷', bg:'#1a2540'},
       {key:'hidden',     label:'Hidden',        emoji:'👁️', bg:'#1e2030'},
       {key:'other_side', label:'Other side',    emoji:'↩️', bg:'#222'},
     ]
