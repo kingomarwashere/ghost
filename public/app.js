@@ -331,11 +331,11 @@ function makeEmojiIcon(emoji, bg='#1e3a5f', size=42){
 }
 
 const ICONS = {
-  police:        makeEmojiIcon('🚨', '#0ea5e9'),
-  speed_trap:    makeEmojiIcon('🎯', '#2a1500'),
+  police:        makeEmojiIcon('👮', '#0ea5e9'),
+  speed_trap:    makeEmojiIcon('📷', '#2a1500'),
   accident:      makeEmojiIcon('💥', '#2a0f0f'),
   hazard:        makeEmojiIcon('💀', '#241c0a'),
-  speed:         makeEmojiIcon('🎯', '#0a1a2a'),
+  speed:         makeEmojiIcon('📷', '#0a1a2a'),
   bus_lane:      makeEmojiIcon('🚌', '#92400e'),
   red_light:     makeEmojiIcon('🚦', '#1a0014'),
   average_speed: makeEmojiIcon('📡', '#150a2a'),
@@ -697,7 +697,7 @@ const OVERPASS_CAT = {
   anz:                 ['[amenity=bank][name~"ANZ",i]','🏦'],
   nab:                 ['[amenity=bank][name~"NAB",i]','🏦'],
   // Other
-  police:              ['[amenity=police]','🚨'],
+  police:              ['[amenity=police]','👮'],
   gym:                 ['[leisure~"fitness_centre|gym"]','🏋️'],
   fitness:             ['[leisure~"fitness_centre|gym"]','🏋️'],
   'anytime fitness':   ['[leisure=fitness_centre][name~"Anytime",i]','🏋️'],
@@ -795,7 +795,7 @@ function placeEmoji(r) {
   if(k==='railway') return v==='tram_stop'?'🚋':'🚆';
   if(k==='public_transport') return '🚉';
   if(k==='aeroway') return '✈️';
-  if(k==='amenity'){const m={hospital:'🏥',clinic:'🏥',pharmacy:'💊',fuel:'⛽',restaurant:'🍽️',cafe:'☕',fast_food:'🍔',bar:'🍺',bank:'🏦',school:'🏫',university:'🎓',library:'📚',police:'🚨',fire_station:'🚒',cinema:'🎬',theatre:'🎭'};return m[v]||'📍';}
+  if(k==='amenity'){const m={hospital:'🏥',clinic:'🏥',pharmacy:'💊',fuel:'⛽',restaurant:'🍽️',cafe:'☕',fast_food:'🍔',bar:'🍺',bank:'🏦',school:'🏫',university:'🎓',library:'📚',police:'👮',fire_station:'🚒',cinema:'🎬',theatre:'🎭'};return m[v]||'📍';}
   if(k==='tourism'){return {hotel:'🏨',motel:'🏨',museum:'🏛️',attraction:'⭐',viewpoint:'🔭',beach:'🏖️',zoo:'🦁'}[v]||'⭐';}
   if(k==='shop') return '🛍️';
   if(k==='leisure'){return {park:'🌳',sports_centre:'🏋️',stadium:'🏟️',golf_course:'⛳',swimming_pool:'🏊',beach:'🏖️'}[v]||'🌿';}
@@ -837,7 +837,7 @@ async function loadReports(){
       if(r.type!=='speed_trap'&&!visibleLayers.police) continue;
       const icon=ICONS[r.type]??ICONS.hazard;
       const age=Math.round((Date.now()-r.created_at)/60000);
-      const label={police:'🚨 5-0',speed_trap:'🎯 Speed trap',accident:'💥 Crash',hazard:'💀 Hazard',traffic:'🚗 Traffic',closure:'🚧 Closure',roadwork:'🔧 Roadwork',weather:'🌧️ Weather',blocked_lane:'🦺 Blocked lane'}[r.type]??r.type;
+      const label={police:'👮 5-0',speed_trap:'📷 Speed trap',accident:'💥 Crash',hazard:'💀 Hazard',traffic:'🚗 Traffic',closure:'🚧 Closure',roadwork:'🔧 Roadwork',weather:'🌧️ Weather',blocked_lane:'🦺 Blocked lane'}[r.type]??r.type;
       const ageStr=age<60?`${age}m ago`:`${Math.round(age/60)}h ago`;
       const popupHtml=`<strong>${label}</strong>${r.description?`<p>${escHtml(r.description)}</p>`:''}<p>${ageStr} · ✅ ${r.confirms} 👎 ${r.denies}</p><div class="popup-actions"><button class="popup-confirm" onclick="vote('${r.id}','confirm')">✅ Still there</button><button class="popup-deny" onclick="vote('${r.id}','deny')">👎 Gone</button></div>`;
       const popup=new maplibregl.Popup({offset:24,maxWidth:'260px'}).setHTML(popupHtml);
@@ -859,7 +859,7 @@ async function loadCameras(){
       if(cam.type==='speed'&&!visibleLayers.speed) continue;
       if((cam.type==='red_light'||cam.type==='average_speed'||cam.type==='bus_lane')&&!visibleLayers.red_light) continue;
       const icon=ICONS[cam.type]??ICONS.speed;
-      const label={speed:'🎯 Speed camera',red_light:'🔴 Red light camera',average_speed:'📡 Avg speed',bus_lane:'🚌 Bus lane camera'}[cam.type]??cam.type;
+      const label={speed:'📷 Speed camera',red_light:'🔴 Red light camera',average_speed:'📡 Avg speed',bus_lane:'🚌 Bus lane camera'}[cam.type]??cam.type;
       const popupHtml=`<strong>${label}</strong>${cam.road?`<p>📍 ${escHtml(cam.road)}</p>`:''} ${cam.speed_limit?`<p>⚡ ${cam.speed_limit} km/h zone</p>`:''} ${cam.state?`<p>📌 ${cam.state}</p>`:''}<p style="color:#555;font-size:.7rem">Source: ${cam.source.toUpperCase()}</p>`;
       const popup=new maplibregl.Popup({offset:24,maxWidth:'260px'}).setHTML(popupHtml);
       // Wrap in a ripple container so we can add CSS classes as user approaches
@@ -889,17 +889,17 @@ document.querySelectorAll('.filter-btn').forEach(btn=>{
 ═══════════════════════════════════════════════ */
 const REPORT_CATS = {
   police: {
-    label:'5-0', emoji:'🚨', title:'Report police',
+    label:'5-0', emoji:'👮', title:'Report police',
     subtypes:[
-      {key:'police',     label:'Police',        emoji:'🚨', bg:'#1a2540'},
+      {key:'police',     label:'Police',        emoji:'👮', bg:'#1a2540'},
       {key:'hidden',     label:'Hidden',        emoji:'👁️', bg:'#1e2030'},
       {key:'other_side', label:'Other side',    emoji:'↩️', bg:'#222'},
     ]
   },
   speed_trap: {
-    label:'Speed trap', emoji:'🎯', title:'Report speed trap',
+    label:'Speed trap', emoji:'📷', title:'Report speed trap',
     subtypes:[
-      {key:'speed_trap',   label:'Mobile camera', emoji:'🎯', bg:'#1e1a2e'},
+      {key:'speed_trap',   label:'Mobile camera', emoji:'📷', bg:'#1e1a2e'},
       {key:'fixed_camera', label:'Fixed camera',  emoji:'🔴', bg:'#2a1414'},
     ]
   },

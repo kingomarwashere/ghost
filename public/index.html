@@ -41,8 +41,8 @@
 <div id="topbar">
   <div id="logo"><span id="logo-text">GHOST</span></div>
   <div id="filters">
-    <button class="filter-btn active" data-layer="police" title="Police">🚨</button>
-    <button class="filter-btn active" data-layer="speed"  title="Cameras">🎯</button>
+    <button class="filter-btn active" data-layer="police" title="Police">👮</button>
+    <button class="filter-btn active" data-layer="speed"  title="Cameras">📷</button>
     <button class="filter-btn active" data-layer="red_light" title="Red light">🔴</button>
     <button class="filter-btn" id="heatmap-btn" title="Report heatmap">🔥</button>
     <button class="filter-btn" id="trafficcam-btn" title="Traffic cameras">📡</button>
@@ -135,7 +135,7 @@
 
 <!-- ── Camera / hazard alert bar ────────────────── -->
 <div id="alert-bar" class="hidden">
-  <span id="alert-icon">🎯</span>
+  <span id="alert-icon">📷</span>
   <span id="alert-text">Speed camera ahead</span>
   <span id="alert-dist">–</span>
 </div>
@@ -259,8 +259,8 @@
     <div class="settings-section-label" style="margin-top:18px">Alerts & navigation</div>
     <div id="settings-toggles">
       <label class="setting-row"><span>📻 Radio guidance</span>     <input type="checkbox" id="s-voice"   checked></label>
-      <label class="setting-row"><span>🎯 Camera alerts</span>      <input type="checkbox" id="s-camera"  checked></label>
-      <label class="setting-row"><span>🚨 Wanted alerts</span>      <input type="checkbox" id="s-police"  checked></label>
+      <label class="setting-row"><span>📷 Camera alerts</span>      <input type="checkbox" id="s-camera"  checked></label>
+      <label class="setting-row"><span>👮 Wanted alerts</span>      <input type="checkbox" id="s-police"  checked></label>
       <label class="setting-row"><span>📳 Haptic feedback</span>    <input type="checkbox" id="s-haptic"  checked></label>
       <label class="setting-row"><span>🚫 Avoid tolls by default</span><input type="checkbox" id="s-tolls" checked></label>
       <label class="setting-row"><span>📍 Choose custom start point</span><input type="checkbox" id="s-choosestart"></label>
@@ -433,11 +433,11 @@
     </div>
     <div id="rpt-categories">
       <button class="rpt-cat" data-cat="police">
-        <div class="rpt-icon" style="background:#0ea5e9">🚨</div>
+        <div class="rpt-icon" style="background:#0ea5e9">👮</div>
         <span>5-0</span>
       </button>
       <button class="rpt-cat" data-cat="speed_trap">
-        <div class="rpt-icon" style="background:#1e1a2e">🎯</div>
+        <div class="rpt-icon" style="background:#1e1a2e">📷</div>
         <span>Speed trap</span>
       </button>
       <button class="rpt-cat" data-cat="accident">
@@ -854,7 +854,7 @@
       const ageS = age < 60 ? `${age}m ago` : `${Math.round(age / 60)}h ago`;
       new maplibregl.Popup({ offset: 16 })
         .setLngLat(e.features[0].geometry.coordinates)
-        .setHTML(`<strong>🚨 5-0</strong>${p.desc ? `<p style="margin:4px 0">${p.desc}</p>` : ''}<p style="color:#888;font-size:.75rem">${ageS}</p>`)
+        .setHTML(`<strong>👮 5-0</strong>${p.desc ? `<p style="margin:4px 0">${p.desc}</p>` : ''}<p style="color:#888;font-size:.75rem">${ageS}</p>`)
         .addTo(map);
     });
 
