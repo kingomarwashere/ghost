@@ -354,8 +354,18 @@ function makeEmojiIcon(emoji, bg='#1e3a5f', size=42){
   return { el:()=>{ const d=document.createElement('div'); d.innerHTML=html; return d.firstChild; } };
 }
 
+// GTA-style police marker: circle with alternating blue/red ring flash
+function makePoliceFlashIcon(){
+  return { el:()=>{
+    const d=document.createElement('div');
+    d.className='gta-cop-marker';
+    d.innerHTML=`<div class="gta-cop-inner">${PIG_COP_SVG(24,24)}</div>`;
+    return d;
+  }};
+}
+
 const ICONS = {
-  police:        makeEmojiIcon(PIG_COP_SVG(28,28), '#0ea5e9'),
+  police:        makePoliceFlashIcon(),
   speed_trap:    makeEmojiIcon('📷', '#2a1500'),
   accident:      makeEmojiIcon('💥', '#2a0f0f'),
   hazard:        makeEmojiIcon('💀', '#241c0a'),
@@ -849,7 +859,7 @@ function placeSub(r) { return r.sub || r.display_name?.split(',').slice(1,3).joi
 let visibleLayers={police:true,speed:true,red_light:true}, fetchTmr=null;
 
 async function loadReports(){
-  if(map.getZoom()<14){clearMarkers(reportMarkers);return;}
+  if(map.getZoom()<12){clearMarkers(reportMarkers);return;}
   const b=map.getBounds();
   const p=new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});
   try{
@@ -872,7 +882,7 @@ async function loadReports(){
 window.vote=async(id,action)=>{try{await fetch(`/api/reports/${id}/${action}`,{method:'POST'});loadReports();}catch{}};
 
 async function loadCameras(){
-  if(map.getZoom()<11){clearMarkers(cameraMarkers);return;}
+  if(map.getZoom()<9){clearMarkers(cameraMarkers);return;}
   const b=map.getBounds();
   const p=new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});
   try{
@@ -1394,13 +1404,14 @@ function _stepMarker(ts){
     const arrow=userMarker.getElement()?.querySelector('.user-arrow');
     if(arrow) arrow.style.transform=`rotate(${_mCurHdg-map.getBearing()}deg)`;
   }
-  // Drive the map camera at 60fps from the same loop — silky bearing-up following
+  // Drive the map camera at 60fps — car sits in lower third via top padding
+  const _NAV_PAD={top:Math.round(window.innerHeight*0.30),bottom:0,left:0,right:0};
   if(navState==='navigating' && !userPanning){
     if(perspective3D){
       const navZ=targetNavZoom(_mLastSpeedMs);
-      map.jumpTo({center:[lng,lat],bearing:_mCurHdg,pitch:65,zoom:navZ});
+      map.jumpTo({center:[lng,lat],bearing:_mCurHdg,pitch:65,zoom:navZ,padding:_NAV_PAD});
     } else {
-      map.jumpTo({center:[lng,lat],bearing:headingUpMode?_mCurHdg:map.getBearing(),pitch:0,zoom:targetNavZoom(_mLastSpeedMs)});
+      map.jumpTo({center:[lng,lat],bearing:headingUpMode?_mCurHdg:map.getBearing(),pitch:0,zoom:targetNavZoom(_mLastSpeedMs),padding:_NAV_PAD});
     }
   }
   _mRaf=t<1?requestAnimationFrame(_stepMarker):null;
@@ -1450,8 +1461,21 @@ function setActiveField(f){
 }
 
 /* ── Suggestions (recents + favs + near-me chips) ─── */
-function showSuggestions(){
+function showSuggestions(filterQ=''){
   const favs=getFavs(), recents=getRecent();
+  const ql=filterQ.toLowerCase();
+  const filter=p=>!ql||p.name?.toLowerCase().includes(ql);
+  if(filterQ){
+    const hits=[...favs,...recents].filter(filter).reduce((a,p)=>a.find(x=>x.name===p.name)?a:[...a,p],[]);
+    if(hits.length){
+      searchResultsEl.innerHTML=
+        `<div class="results-section-label">🕐 Recent &amp; saved</div>`+
+        hits.slice(0,5).map(p=>resultRow(p,isFav(p.name),true,placeEmoji(p),null,filterQ)).join('');
+      bindResultClicks(); return;
+    }
+    searchResultsEl.innerHTML=`<div class="no-results" style="font-size:.85rem;color:#666">Keep typing…</div>`;
+    return;
+  }
   const gps=userMarker?userMarker.getLngLat():null;
   let html='';
   html+=`<div id="nearme-chips">
@@ -1509,8 +1533,8 @@ function wireInput(input, field){
     (field==='from'?fromClear:toClear).classList.toggle('hidden',!q);
     clearTimeout(srchDebounce);
     if(!q){showSuggestions();return;}
-    if(q.length===1){ doSearch(q); return; } // instant on first char (local only)
-    srchDebounce=setTimeout(()=>doSearch(q),180);
+    if(q.length<3){ showSuggestions(q); return; } // show locals only until 3 chars
+    srchDebounce=setTimeout(()=>doSearch(q),300);
   });
 }
 wireInput(fromInput,'from');
@@ -2747,10 +2771,11 @@ $$('recenter-btn').addEventListener('click',()=>{
   clearTimeout(pausePanTimer);
   if(prevPos && navState==='navigating'){
     const {lat,lng}=prevPos;
+    const _rp={top:Math.round(window.innerHeight*0.30),bottom:0,left:0,right:0};
     if(perspective3D){
-      map.easeTo({center:[lng,lat],bearing:_mCurHdg,pitch:65,zoom:targetNavZoom(_mLastSpeedMs),duration:400});
+      map.easeTo({center:[lng,lat],bearing:_mCurHdg,pitch:65,zoom:targetNavZoom(_mLastSpeedMs),duration:400,padding:_rp});
     } else {
-      map.easeTo({center:[lng,lat],bearing:headingUpMode?_mCurHdg:0,pitch:0,zoom:targetNavZoom(_mLastSpeedMs),duration:400});
+      map.easeTo({center:[lng,lat],bearing:headingUpMode?_mCurHdg:0,pitch:0,zoom:targetNavZoom(_mLastSpeedMs),duration:400,padding:_rp});
     }
   }
 });

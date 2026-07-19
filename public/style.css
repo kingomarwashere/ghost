@@ -331,6 +331,20 @@ mark {
 #alert-bar.police-alert #alert-dist { color: #fca5a5; }
 
 /* ── Camera marker ripple rings ──────────────────── */
+/* ── GTA-style police marker: alternating red/blue flash ─────────────── */
+@keyframes gta-cop-lights {
+  0%,49%  { box-shadow: 0 0 0 3px #2563eb, 0 0 20px 8px rgba(37,99,235,.75), 0 4px 14px rgba(0,0,0,.5); }
+  50%,99% { box-shadow: 0 0 0 3px #dc2626, 0 0 20px 8px rgba(220,38,38,.75), 0 4px 14px rgba(0,0,0,.5); }
+}
+.gta-cop-marker {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: #0a0a1a;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  animation: gta-cop-lights .65s step-end infinite;
+}
+.gta-cop-inner { display: flex; align-items: center; justify-content: center; }
+
 .cam-marker-wrap { position: relative; display: inline-block; }
 @keyframes cam-ripple {
   0%   { transform: scale(1);   opacity: .7; }
@@ -372,8 +386,8 @@ mark {
 #nav-speed-float {
   display: none;
   position: fixed;
-  bottom: calc(82px + env(safe-area-inset-bottom)); /* 12px above nav-footer */
-  left: 16px; z-index: 900;
+  bottom: calc(160px + env(safe-area-inset-bottom));
+  left: 16px; z-index: 1100;
   flex-direction: column; align-items: center; gap: 6px;
 }
 body.navigating #nav-speed-float { display: flex; }
