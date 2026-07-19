@@ -1340,7 +1340,12 @@ body.navigating #cw-fab { bottom: calc(158px + env(safe-area-inset-bottom)); }
   box-shadow: 0 -4px 32px rgba(0,0,0,.5);
   padding: 0 0 env(safe-area-inset-bottom,12px);
   max-height: 70vh; display: flex; flex-direction: column;
+  transition: max-height .28s cubic-bezier(0.32,0.72,0,1);
 }
+#cam-sheet .handle-row {
+  cursor: grab; touch-action: none;
+}
+#cam-sheet .handle-row:active { cursor: grabbing; }
 #cam-sheet-header {
   display: flex; align-items: flex-start; gap: 10px;
   padding: 10px 16px 8px; flex-shrink: 0;
@@ -1380,6 +1385,8 @@ body.navigating #cw-fab { bottom: calc(158px + env(safe-area-inset-bottom)); }
   display: flex; align-items: center; justify-content: space-between;
   padding: 16px 16px 12px; border-bottom: 1px solid rgba(255,255,255,.08);
   font-size: 1rem; font-weight: 700; color: #e2e8f0; flex-shrink: 0;
+  /* push below topbar (~58px) + safe area */
+  padding-top: calc(env(safe-area-inset-top, 0px) + 68px);
 }
 #cam-grid-close {
   background: rgba(255,255,255,.08); border: none; border-radius: 8px;

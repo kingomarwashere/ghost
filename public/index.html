@@ -718,6 +718,52 @@
     if (!camVisible) closeCamSheet();
   }
 
+  // ── Cam-sheet drag-to-expand ──────────────────────────────────────
+  (function() {
+    const sheet = document.getElementById('cam-sheet');
+    const handle = sheet.querySelector('.handle-row');
+    const MAX_H = Math.round(window.innerHeight * 0.92);
+    const MIN_H = Math.round(window.innerHeight * 0.38);
+    const DEFAULT_H = Math.round(window.innerHeight * 0.70);
+    let startY = 0, startH = 0, dragging = false, startT = 0;
+
+    handle.addEventListener('touchstart', e => {
+      startY = e.touches[0].clientY;
+      startT = Date.now();
+      startH = sheet.getBoundingClientRect().height;
+      dragging = true;
+      sheet.style.transition = 'none';
+      sheet.style.maxHeight = startH + 'px';
+    }, { passive: true });
+
+    handle.addEventListener('touchmove', e => {
+      if (!dragging) return;
+      e.preventDefault();
+      const dy = startY - e.touches[0].clientY;
+      const newH = Math.max(MIN_H, Math.min(MAX_H, startH + dy));
+      sheet.style.maxHeight = newH + 'px';
+    }, { passive: false });
+
+    handle.addEventListener('touchend', e => {
+      if (!dragging) return;
+      dragging = false;
+      const dy = startY - e.changedTouches[0].clientY;
+      const vel = dy / (Date.now() - startT);
+      sheet.style.transition = 'max-height .28s cubic-bezier(0.32,0.72,0,1)';
+      if (dy < -60 || vel < -0.4) {
+        // fast swipe down → dismiss
+        closeCamSheet();
+        sheet.style.maxHeight = DEFAULT_H + 'px';
+      } else if (dy > 60 || vel > 0.4) {
+        // fast swipe up → expand to near full
+        sheet.style.maxHeight = MAX_H + 'px';
+      } else {
+        // snap back to default
+        sheet.style.maxHeight = DEFAULT_H + 'px';
+      }
+    }, { passive: true });
+  })();
+
   // ── Init ──────────────────────────────────────────────────────────
   document.getElementById('trafficcam-btn').addEventListener('click', toggleCamLayer);
   document.getElementById('cam-sheet-close').addEventListener('click', closeCamSheet);
