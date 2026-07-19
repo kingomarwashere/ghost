@@ -45,6 +45,7 @@
     <button class="filter-btn active" data-layer="red_light" title="Red light">🔴</button>
     <button class="filter-btn" id="heatmap-btn" title="Report heatmap">🔥</button>
     <button class="filter-btn" id="trafficcam-btn" title="Traffic cameras">📹</button>
+    <button class="filter-btn" id="pigs-btn" title="All cops in NSW">🐷</button>
   </div>
 </div>
 
@@ -514,6 +515,9 @@
   </div>
 </div>
 
+<!-- Pigs banner -->
+<div id="pigs-banner" style="display:none"></div>
+
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="/app.js"></script>
 <script>
@@ -729,6 +733,145 @@
       addCamLayer();
       setCamLayerData();
     });
+  }, 200);
+})();
+</script>
+<script>
+// ── Pigs — all active cops in NSW ──────────────────────────────────────────
+(function () {
+  let pigsOn  = false;
+  let pigsBtn = document.getElementById('pigs-btn');
+  let banner  = document.getElementById('pigs-banner');
+
+  // Add MapLibre clustered source + layers once map style is ready
+  function initPigsLayer() {
+    if (map.getSource('pigs-src')) return;
+
+    map.addSource('pigs-src', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+      cluster: true,
+      clusterMaxZoom: 12,
+      clusterRadius: 40,
+    });
+
+    // Cluster bubble
+    map.addLayer({
+      id: 'pigs-cluster', type: 'circle', source: 'pigs-src',
+      filter: ['has', 'point_count'],
+      layout: { visibility: 'none' },
+      paint: {
+        'circle-color': '#dc2626',
+        'circle-radius': ['step', ['get', 'point_count'], 14, 5, 19, 20, 24],
+        'circle-stroke-width': 2, 'circle-stroke-color': 'rgba(255,255,255,.25)',
+      },
+    });
+
+    // Cluster count
+    map.addLayer({
+      id: 'pigs-cluster-count', type: 'symbol', source: 'pigs-src',
+      filter: ['has', 'point_count'],
+      layout: { visibility: 'none', 'text-field': '{point_count_abbreviated}', 'text-size': 12, 'text-allow-overlap': true },
+      paint: { 'text-color': '#fff' },
+    });
+
+    // Individual pig marker
+    map.addLayer({
+      id: 'pigs-point', type: 'circle', source: 'pigs-src',
+      filter: ['!', ['has', 'point_count']],
+      layout: { visibility: 'none' },
+      paint: {
+        'circle-color': '#dc2626', 'circle-radius': 10,
+        'circle-stroke-width': 2, 'circle-stroke-color': 'rgba(255,255,255,.3)',
+      },
+    });
+
+    // 🚔 label on individual
+    map.addLayer({
+      id: 'pigs-point-icon', type: 'symbol', source: 'pigs-src',
+      filter: ['!', ['has', 'point_count']],
+      layout: { visibility: 'none', 'text-field': '🚔', 'text-size': 14, 'text-allow-overlap': true, 'text-ignore-placement': true },
+    });
+
+    // Click cluster → zoom in
+    map.on('click', 'pigs-cluster', async (e) => {
+      const feat = map.queryRenderedFeatures(e.point, { layers: ['pigs-cluster'] })[0];
+      const zoom = await map.getSource('pigs-src').getClusterExpansionZoom(feat.properties.cluster_id);
+      map.easeTo({ center: feat.geometry.coordinates, zoom: zoom + 1 });
+    });
+
+    // Click individual → popup
+    map.on('click', 'pigs-point', (e) => {
+      const p    = e.features[0].properties;
+      const age  = Math.round((Date.now() - p.age) / 60000);
+      const ageS = age < 60 ? `${age}m ago` : `${Math.round(age / 60)}h ago`;
+      new maplibregl.Popup({ offset: 16 })
+        .setLngLat(e.features[0].geometry.coordinates)
+        .setHTML(`<strong>🚔 Police</strong>${p.desc ? `<p style="margin:4px 0">${p.desc}</p>` : ''}<p style="color:#888;font-size:.75rem">${ageS}</p>`)
+        .addTo(map);
+    });
+
+    ['pigs-cluster','pigs-point'].forEach(id => {
+      map.on('mouseenter', id, () => map.getCanvas().style.cursor = 'pointer');
+      map.on('mouseleave', id, () => map.getCanvas().style.cursor = '');
+    });
+  }
+
+  function setVisibility(v) {
+    ['pigs-cluster','pigs-cluster-count','pigs-point','pigs-point-icon'].forEach(id => {
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v ? 'visible' : 'none');
+    });
+  }
+
+  async function toggle() {
+    pigsOn = !pigsOn;
+    pigsBtn.classList.toggle('active', pigsOn);
+
+    if (!pigsOn) {
+      setVisibility(false);
+      banner.style.display = 'none';
+      return;
+    }
+
+    pigsBtn.textContent = '⌛';
+    try {
+      const data = await fetch('/api/reports/pigs').then(r => r.json());
+
+      if (!map.getSource('pigs-src')) initPigsLayer();
+
+      map.getSource('pigs-src').setData({
+        type: 'FeatureCollection',
+        features: data.map(r => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [r.lng, r.lat] },
+          properties: { id: r.id, desc: r.description ?? '', age: r.created_at },
+        })),
+      });
+
+      setVisibility(true);
+
+      // Zoom to NSW bounds
+      map.fitBounds([[140.99, -37.51], [153.64, -28.15]], { padding: 50, maxZoom: 9, duration: 1200 });
+
+      const count = data.length;
+      banner.innerHTML = `🐷 <strong>${count} cop${count === 1 ? '' : 's'}</strong> spotted across NSW`;
+      banner.style.display = 'block';
+    } catch (e) {
+      console.error('Pigs fetch failed', e);
+      pigsOn = false;
+      pigsBtn.classList.remove('active');
+    }
+    pigsBtn.textContent = '🐷';
+  }
+
+  pigsBtn.addEventListener('click', toggle);
+
+  // Init layer as soon as map style is ready
+  const poll = setInterval(() => {
+    if (typeof map !== 'undefined' && map.isStyleLoaded()) {
+      clearInterval(poll);
+      initPigsLayer();
+    }
   }, 200);
 })();
 </script>

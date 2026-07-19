@@ -81,6 +81,23 @@ reports.post('/', async (c) => {
   return c.json({ id, expires_at: now + REPORT_TTL_MS }, 201);
 });
 
+// GET /api/pigs — all active police reports across NSW
+reports.get('/pigs', async (c) => {
+  const now = Date.now();
+  const rows = await c.env.DB.prepare(`
+    SELECT id, lat, lng, description, created_at, expires_at, confirms, denies
+    FROM reports
+    WHERE type = 'police'
+      AND expires_at > ?
+      AND (denies - confirms) < 3
+      AND lat BETWEEN -37.51 AND -28.15
+      AND lng BETWEEN 140.99 AND 153.64
+    ORDER BY created_at DESC
+    LIMIT 1000
+  `).bind(now).all<Report>();
+  return c.json(rows.results);
+});
+
 // POST /api/reports/:id/confirm
 reports.post('/:id/confirm', async (c) => {
   const { id } = c.req.param();
