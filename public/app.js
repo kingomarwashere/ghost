@@ -2239,6 +2239,7 @@ function renderGtaStars(stars){
     el.classList.toggle('active', i<=stars);
   });
   $$('gta-score-val').textContent=fmtScore(Math.floor(gta.score));
+  $$('gta-hud')?.setAttribute('data-stars', String(stars));
 }
 
 function flashStar(i){
@@ -2312,29 +2313,14 @@ function showEvaded(){
   setTimeout(()=>ov.classList.add('hidden'),2000);
 }
 
-// Main GTA update — called from onGPS during navigation
+// Main GTA update — star calc always runs; score/popups nav-only
 function updateGta(speedMs, limitKmh, lat, lng){
-  if(navState!=='navigating'||gta.busted) return;
+  if(gta.busted) return;
   const speedKmh=speedMs*3.6;
   const limit=limitKmh||60;
   const excessKmh=speedKmh-limit;
 
-  // Points accumulation
-  const basePerSec=8;
-  const speedBonus=excessKmh>0?excessKmh*0.5:0;
-  const mult=[1,1.5,2,3.5,5,10][gta.stars]??1;
-  const gained=(basePerSec+speedBonus)*mult;
-  gta.score+=gained;
-  renderGtaStars(gta.stars);
-
-  // Score popups while speeding
-  if(excessKmh>10&&Math.random()<0.08){
-    const x=16+Math.random()*60;
-    const y=180+Math.random()*80;
-    showGtaPopup(`+${Math.round(gained*8)}`,excessKmh>30?'#f97316':'#fbbf24',x,y);
-  }
-
-  // Calculate target wanted stars
+  // ── Wanted star calculation (always active) ───────────────────────────────
   let target=0;
   if(excessKmh>=10) target=1;
   if(excessKmh>=20) target=2;
@@ -2342,7 +2328,7 @@ function updateGta(speedMs, limitKmh, lat, lng){
   if(excessKmh>=45) target=4;
   if(excessKmh>=60) target=5;
 
-  // Police nearby bumps stars
+  // Police or speed trap nearby bumps wanted level
   const closestCop=nearReports.filter(r=>r.type==='police'||r.type==='speed_trap')
     .map(r=>haversine(lat,lng,r.lat,r.lng)).sort((a,b)=>a-b)[0]??Infinity;
   if(closestCop<120&&excessKmh>5) target=Math.min(5,target+2);
@@ -2350,37 +2336,49 @@ function updateGta(speedMs, limitKmh, lat, lng){
 
   gta.starsTarget=target;
 
-  // Stars go up immediately, cool down via timer
+  // Stars rise immediately; fall on a cooldown timer
   if(target>gta.stars){
-    clearTimeout(gta.cooldownTimer);
-    gta.cooldownTimer=null;
+    clearTimeout(gta.cooldownTimer); gta.cooldownTimer=null;
     setGtaStars(target,gta.stars);
-  } else if(target===0 && gta.stars>0 && !gta.cooldownTimer){
+  } else if(target===0&&gta.stars>0&&!gta.cooldownTimer){
     gta.cooldownTimer=setTimeout(()=>{
       gta.cooldownTimer=null;
       if(gta.starsTarget===0) setGtaStars(Math.max(0,gta.stars-1),gta.stars);
     },7000);
   }
 
-  // BUSTED! condition: 5 stars + police very close
-  if(gta.stars>=4 && closestCop<80 && excessKmh>15) showBusted();
+  // ── Nav-only: score accumulation, popups, BUSTED ─────────────────────────
+  if(navState!=='navigating') return;
+
+  const basePerSec=8;
+  const speedBonus=excessKmh>0?excessKmh*0.5:0;
+  const mult=[1,1.5,2,3.5,5,10][gta.stars]??1;
+  const gained=(basePerSec+speedBonus)*mult;
+  gta.score+=gained;
+  renderGtaStars(gta.stars);
+
+  if(excessKmh>10&&Math.random()<0.08){
+    const x=16+Math.random()*60, y=180+Math.random()*80;
+    showGtaPopup(`+${Math.round(gained*8)}`,excessKmh>30?'#f97316':'#fbbf24',x,y);
+  }
+
+  if(gta.stars>=4&&closestCop<80&&excessKmh>15) showBusted();
 }
 
 /* ── Wire GTA HUD into startNav / endNav ─── */
 function gtaStartNav(){
   gta.score=0; gta.stars=0; gta.starsTarget=0; gta.highStars=0; gta.busted=false;
   clearTimeout(gta.cooldownTimer); gta.cooldownTimer=null;
-  const hud=$$('gta-hud');
-  if(hud){ hud.classList.remove('hidden'); hud.style.top=(navInst.offsetHeight+10)+'px'; }
   renderGtaStars(0);
   hideWantedBanner();
 }
 function gtaEndNav(){
-  const hud=$$('gta-hud'); if(hud) hud.classList.add('hidden');
   hideWantedBanner();
   $$('gta-busted-overlay')?.classList.add('hidden');
   $$('gta-evaded-overlay')?.classList.add('hidden');
   clearTimeout(gta.cooldownTimer); gta.cooldownTimer=null;
+  // Stars drift to 0 naturally via cooldown; reset score immediately
+  gta.score=0; renderGtaStars(gta.stars);
 }
 
 function makeUserMarker(lat,lng,gpsHdg=0){
@@ -2465,6 +2463,9 @@ function onGPS(pos){
     else speedLimitSign.classList.add('hidden');
   }
 
+  // Always update wanted stars from speed (nav-only score handled inside updateGta)
+  { const _lim=getSpeedLimit(lat,lng); updateGta(speedMs,_lim,lat,lng); }
+
   prevPos={lat,lng,ts:pos.timestamp,hdg};
   if(navState!=='navigating'||!routePoints.length)return;
 
@@ -2486,8 +2487,6 @@ function onGPS(pos){
   updateNavPanel(distToTurn);
   checkVoice(currentMidx,distToTurn);
   checkProximityAlerts(lat,lng,hdg);
-  const _gtaLim=getSpeedLimit(lat,lng);
-  updateGta(speedMs,_gtaLim,lat,lng);
   trackNavDistance();
   if(perspective3D&&currentMidx!==lastRefreshedMidx){lastRefreshedMidx=currentMidx;refreshStreetLabels();}
   updateSpeedProfileCursor();
