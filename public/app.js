@@ -14,7 +14,7 @@ function $$(id){return document.getElementById(id);}
    SETTINGS — persisted to localStorage
 ═══════════════════════════════════════════════ */
 const PREF_KEY = 'radar_prefs';
-const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'voyager', lighting:'auto', styleOverride:false, avoidTolls:true };
+const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'voyager', lighting:'auto', styleOverride:false, avoidTolls:true, accelTimer:false, accelRange:'0-100' };
 const prefs = { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}') };
 const savePrefs = () => localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
 
@@ -1111,6 +1111,27 @@ Object.entries(toggleMap).forEach(([id,key])=>{
   });
 });
 
+// Acceleration timer toggle + range picker
+(()=>{
+  const t=$$('s-acceltimer');
+  if(t){
+    t.checked=!!prefs.accelTimer;
+    t.addEventListener('change',()=>{ prefs.accelTimer=t.checked; savePrefs();
+      const row=$$('accel-range-row'); if(row) row.style.display=t.checked?'':'none';
+      if(!t.checked) $$('accel-timer')?.classList.add('hidden');
+    });
+    const row=$$('accel-range-row'); if(row) row.style.display=t.checked?'':'none';
+  }
+  document.querySelectorAll('.accel-range-btn').forEach(btn=>{
+    btn.classList.toggle('active',btn.dataset.range===prefs.accelRange);
+    btn.addEventListener('click',()=>{
+      prefs.accelRange=btn.dataset.range; savePrefs();
+      document.querySelectorAll('.accel-range-btn').forEach(b=>b.classList.toggle('active',b.dataset.range===prefs.accelRange));
+      accelReset();
+    });
+  });
+})();
+
 // Choose start toggle — not in prefs (defaults off); controls body class + from-row visibility
 (()=>{
   const el=$$('s-choosestart'); if(!el) return;
@@ -1368,7 +1389,7 @@ let activeAlert=null;
 let lastRefreshedMidx=-1; // {lat,lng,dismissDist} — persists bar until hazard is passed
 let schoolZones=[];
 let headingUpMode=false;
-let arrivedFlag=false;
+let arrivedFlag=false, _plannedArriveMs=0;
 
 /* ── Open / close planner ──────────────────────── */
 plannerBack.addEventListener('click', closePlanner);
@@ -2094,6 +2115,7 @@ function startNav(){
   navState='navigating';
   currentMidx=0; lastVoice=-1; offCount=0; alertedIds.clear();
   remainingSec=routeData.summary.time;
+  _plannedArriveMs=Date.now()+routeData.summary.time*1000; // for arrival roast (original ETA)
   arrivedFlag=false; headingUpMode=true;
 
   $$('compass-widget').classList.remove('hidden');
@@ -2141,6 +2163,7 @@ function endNav(){
   [navInst,navFooter,alertBar,arrivalOverlay,$$('nav-search-sheet'),$$('nav-routes-sheet')].forEach(el=>el?.classList.add('hidden'));
   updateRouteWarn(null);
   gtaEndNav();
+  accelReset();
   topbar.classList.remove('hidden');
   document.body.classList.remove('navigating');
   $$('recenter-btn').classList.add('hidden');
@@ -2580,6 +2603,51 @@ function makeUserMarker(lat,lng,gpsHdg=0){
 }
 
 /* ── GPS handler ────────────────────────────────── */
+/* ═══════════════════════════════════════════════
+   ACCELERATION TIMER — 0-60 / 0-100 / 40-150 etc.
+   Measures time to accelerate through a speed window. Runs while navigating.
+═══════════════════════════════════════════════ */
+const ACCEL_RANGES = {'0-60':[0,60],'0-100':[0,100],'0-160':[0,160],'40-150':[40,150],'60-160':[60,160],'100-200':[100,200]};
+let _ax = {timing:false, t0:0, prev:0, live:0};
+function accelBest(range){ return parseFloat(localStorage.getItem('accelBest_'+range)||'')||null; }
+function accelReset(){ _ax.timing=false; _ax.prev=0; $$('accel-timer')?.classList.add('hidden'); }
+function accelTick(speedMs){
+  const el=$$('accel-timer'); if(!prefs.accelTimer||!el) return;
+  const [lo,hi]=ACCEL_RANGES[prefs.accelRange]||[0,100];
+  const kmh=speedMs*3.6;
+  const startLine=Math.max(lo,1);
+  const now=performance.now();
+  if(!_ax.timing){
+    if(_ax.prev<startLine && kmh>=startLine){ _ax.timing=true; _ax.t0=now; _ax.live=0; }
+  } else {
+    _ax.live=(now-_ax.t0)/1000;
+    if(kmh>=hi){
+      const t=(now-_ax.t0)/1000; _ax.timing=false;
+      const best=accelBest(prefs.accelRange);
+      const isBest=!best||t<best;
+      if(isBest) localStorage.setItem('accelBest_'+prefs.accelRange,t.toFixed(2));
+      renderAccel('done',t,isBest);
+      if(prefs.haptic&&navigator.vibrate) navigator.vibrate(isBest?[80,40,80,40,160]:[120]);
+      _ax.prev=kmh;
+      clearTimeout(_ax._hide); _ax._hide=setTimeout(()=>{ if(!_ax.timing) $$('accel-timer')?.classList.add('hidden'); },6000);
+      return;
+    }
+    if(kmh<startLine-3){ _ax.timing=false; el.classList.add('hidden'); }
+  }
+  _ax.prev=kmh;
+  if(_ax.timing) renderAccel('live',_ax.live,false);
+}
+function renderAccel(state,t,isBest){
+  const el=$$('accel-timer'); if(!el) return;
+  const best=accelBest(prefs.accelRange);
+  el.classList.remove('hidden');
+  el.className='accel-timer '+(state==='done'?(isBest?'accel-best':'accel-done'):'accel-live');
+  const tag=(state==='done'&&isBest)?'🏆 NEW BEST':(best?`BEST ${best.toFixed(2)}s`:'');
+  el.innerHTML=`<span class="accel-range">${prefs.accelRange} km/h</span>`+
+    `<span class="accel-time">${t.toFixed(2)}<small>s</small></span>`+
+    (tag?`<span class="accel-tag">${tag}</span>`:'');
+}
+
 function onGPS(pos){
   const {latitude:lat,longitude:lng,speed:rawSpd,heading}=pos.coords;
   localStorage.setItem('radar_lastpos', JSON.stringify({lat,lng}));
@@ -2607,6 +2675,7 @@ function onGPS(pos){
   }
 
   _mLastSpeedMs=speedMs; // expose speed to rAF camera loop
+  accelTick(speedMs);
 
   // Snap car to the nearest point on the route polyline when within 40 m.
   // Eliminates GPS drift that places the car icon off the road.
@@ -3306,15 +3375,39 @@ async function renderNavRoutes(){
 }
 
 /* ── Arrival ──────────────────────────────────── */
+// Graded roast: late → "drive like a bitch", improving each minute up to ~20 min early
+function arrivalRoast(m){ // m = minutes early (negative = late)
+  if(m<=-8)  return ['🐌','You drive like a bitch.'];
+  if(m<=-4)  return ['💀','Slower than a funeral procession.'];
+  if(m<=-1.5)return ['🥱','Certified Sunday driver.'];
+  if(m< 1)   return ['🫡','Bang on time. Respectable.'];
+  if(m< 3)   return ['🐤','Early bird. Not bad.'];
+  if(m< 5)   return ['🏁','Quick hands on the wheel.'];
+  if(m< 8)   return ['😈','Certified speed demon.'];
+  if(m< 12)  return ['🚔','Absolute menace on the roads.'];
+  if(m< 16)  return ['👑','You ARE the traffic.'];
+  return ['🏆','LUDICROUS SPEED. GODLIKE.'];
+}
 function triggerArrival(){
   if(arrivedFlag)return; arrivedFlag=true;
   speak('You have arrived at your destination.');
   dingChime(); setTimeout(dingChime,600); setTimeout(dingChime,1200);
   if(prefs.haptic&&navigator.vibrate)navigator.vibrate([300,100,300,100,300]);
   arrivalDest.textContent=toPlace?.name??'your destination';
+  // Roast based on how early/late vs the original ETA
+  const diffMin=_plannedArriveMs?(_plannedArriveMs-Date.now())/60000:0;
+  const [emoji,line]=arrivalRoast(diffMin);
+  const roastEl=$$('arrival-roast');
+  if(roastEl){
+    const absM=Math.abs(Math.round(diffMin));
+    const when=diffMin>=1?`${absM} min early`:diffMin<=-1?`${absM} min late`:'right on time';
+    roastEl.innerHTML=`<div class="roast-line">${line}</div><div class="roast-sub">${when}</div>`;
+  }
+  const emojiEl=$$('arrival-emoji'); if(emojiEl) emojiEl.textContent=emoji;
   arrivalOverlay.classList.remove('hidden');
   [navInst,navFooter,alertBar].forEach(el=>el.classList.add('hidden'));
   releaseWakeLock();
+  accelReset();
 }
 
 /* ═══════════════════════════════════════════════
@@ -3469,23 +3562,134 @@ function showScoreSubmit(){
   const modal=$$('score-modal'); if(!modal) return;
   $$('score-modal-score').textContent=fmtScore(Math.floor(gta.score))+' pts';
   $$('score-modal-stars').textContent='★'.repeat(gta.highStars)+'☆'.repeat(5-gta.highStars);
+  const banked=$$('score-modal-banked'), submitBtn=$$('score-modal-submit');
+  if(currentUser){
+    // Auto-bank onto the account total
+    if(banked) banked.innerHTML=`Banking to <b>${escHtml(currentUser.username)}</b>…`;
+    if(submitBtn){ submitBtn.textContent='Done'; submitBtn.dataset.mode='done'; }
+    bankScore();
+  } else {
+    if(banked) banked.innerHTML=`<span style="opacity:.7">Sign in to bank this score to the leaderboard.</span>`;
+    if(submitBtn){ submitBtn.textContent='Sign in & save'; submitBtn.dataset.mode='signin'; }
+  }
   modal.classList.remove('hidden');
 }
 
+async function bankScore(){
+  if(!currentUser) return;
+  try{
+    const r=await authFetch('/api/auth/score',{method:'POST',
+      body:JSON.stringify({score:Math.floor(gta.score),stars:gta.highStars,distance_km:_navDistance/1000})});
+    const d=await r.json();
+    if(d?.user){
+      currentUser=d.user; renderAccountUI();
+      const banked=$$('score-modal-banked');
+      if(banked) banked.innerHTML=`＋${fmtScore(d.added)} pts · Total <b>${fmtScore(currentUser.score)}</b> 🏆`;
+    }
+  }catch{ const b=$$('score-modal-banked'); if(b) b.textContent='Could not save (offline?)'; }
+}
+
 $$('score-modal-skip').addEventListener('click',()=>{
-  $$('score-modal').classList.add('hidden'); endNav();
+  $$('score-modal').classList.add('hidden'); _navDistance=0; _prevNavPos=null; endNav();
 });
 $$('score-modal-submit').addEventListener('click',async()=>{
-  const nick=($$('score-modal-nick').value.trim())||'Driver';
-  try{
-    await fetch('/api/leaderboard',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({nickname:nick,score:Math.floor(gta.score),stars_reached:gta.highStars,distance_km:_navDistance/1000})});
-    showToast('Score submitted! 🏆',2500);
-  }catch{ showToast('Could not submit score',2000); }
+  const mode=$$('score-modal-submit').dataset.mode;
+  if(mode==='signin'){
+    // Keep the score pending; open the account modal, bank after login
+    _pendingBank=true;
+    openAccountModal();
+    return;
+  }
   $$('score-modal').classList.add('hidden');
   _navDistance=0; _prevNavPos=null;
   endNav();
 });
+
+/* ═══════════════════════════════════════════════
+   ACCOUNTS
+═══════════════════════════════════════════════ */
+let currentUser=null, _pendingBank=false;
+const TOKEN_KEY='ghost_token';
+const authToken=()=>localStorage.getItem(TOKEN_KEY)||'';
+function authFetch(url,opts={}){
+  const h={'Content-Type':'application/json',...(opts.headers||{})};
+  const t=authToken(); if(t) h['Authorization']='Bearer '+t;
+  return fetch(url,{...opts,headers:h});
+}
+async function loadMe(){
+  if(!authToken()) return;
+  try{
+    const r=await authFetch('/api/auth/me');
+    if(r.ok){ currentUser=await r.json(); renderAccountUI(); }
+    else if(r.status===401){ localStorage.removeItem(TOKEN_KEY); currentUser=null; renderAccountUI(); }
+  }catch{}
+}
+function renderAccountUI(){
+  const box=$$('account-box'); if(!box) return;
+  if(currentUser){
+    box.innerHTML=`<div class="acct-signed">
+        <div class="acct-info"><span class="acct-name">🎮 ${escHtml(currentUser.username)}</span>
+          <span class="acct-score">🏆 ${fmtScore(currentUser.score||0)} pts · ${currentUser.trips||0} trips</span></div>
+        <button id="acct-logout" class="acct-btn-sm">Log out</button>
+      </div>`;
+    $$('acct-logout').addEventListener('click',logout);
+  } else {
+    box.innerHTML=`<button id="acct-open" class="acct-btn-primary">👤 Sign in / Create account</button>`;
+    $$('acct-open').addEventListener('click',openAccountModal);
+  }
+}
+function openAccountModal(){ $$('account-modal')?.classList.remove('hidden'); setAuthMode('login'); }
+function closeAccountModal(){ $$('account-modal')?.classList.add('hidden'); }
+function setAuthMode(mode){
+  const m=$$('account-modal'); if(!m) return;
+  m.dataset.mode=mode;
+  $$('am-title').textContent=mode==='login'?'Welcome back':'Create your account';
+  $$('am-email-row').style.display=mode==='register'?'':'none';
+  $$('am-submit').textContent=mode==='login'?'Log in':'Create account';
+  $$('am-switch').innerHTML=mode==='login'
+    ? `No account? <button id="am-to-register" class="am-link">Create one</button>`
+    : `Have an account? <button id="am-to-login" class="am-link">Log in</button>`;
+  $$('am-to-register')?.addEventListener('click',()=>setAuthMode('register'));
+  $$('am-to-login')?.addEventListener('click',()=>setAuthMode('login'));
+  $$('am-error').textContent='';
+}
+async function submitAuth(){
+  const m=$$('account-modal'), mode=m.dataset.mode;
+  const username=$$('am-username').value.trim();
+  const password=$$('am-password').value;
+  const email=$$('am-email').value.trim();
+  const err=$$('am-error'); err.textContent='';
+  const btn=$$('am-submit'); btn.disabled=true; btn.textContent='…';
+  try{
+    const url=mode==='login'?'/api/auth/login':'/api/auth/register';
+    const body=mode==='login'?{login:username,password}:{username,email,password};
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(!r.ok){ err.textContent=d.error||'Something went wrong'; return; }
+    localStorage.setItem(TOKEN_KEY,d.token);
+    currentUser=d.user; renderAccountUI(); closeAccountModal();
+    showToast(`Welcome, ${currentUser.username}! 🎮`,2500);
+    if(_pendingBank){ _pendingBank=false;
+      const sm=$$('score-modal');
+      if(sm&&!sm.classList.contains('hidden')){
+        $$('score-modal-submit').textContent='Done'; $$('score-modal-submit').dataset.mode='done';
+        bankScore();
+      }
+    }
+  }catch{ err.textContent='Network error'; }
+  finally{ btn.disabled=false; setAuthMode(m.dataset.mode); }
+}
+async function logout(){
+  try{ await authFetch('/api/auth/logout',{method:'DELETE'}); }catch{}
+  localStorage.removeItem(TOKEN_KEY); currentUser=null; renderAccountUI();
+  showToast('Logged out',1800);
+}
+$$('am-submit')?.addEventListener('click',submitAuth);
+$$('am-close')?.addEventListener('click',closeAccountModal);
+$$('account-modal')?.addEventListener('click',e=>{ if(e.target===$$('account-modal')) closeAccountModal(); });
+$$('am-password')?.addEventListener('keydown',e=>{ if(e.key==='Enter') submitAuth(); });
+renderAccountUI();
+loadMe();
 
 // Leaderboard modal
 $$('open-leaderboard-btn').addEventListener('click',async()=>{

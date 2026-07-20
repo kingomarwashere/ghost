@@ -154,10 +154,10 @@
     <div id="score-modal-title">🏆 Drive Complete!</div>
     <div id="score-modal-score"></div>
     <div id="score-modal-stars"></div>
-    <input id="score-modal-nick" type="text" placeholder="Your name (max 20 chars)" maxlength="20" autocomplete="off">
+    <div id="score-modal-banked"></div>
     <div id="score-modal-btns">
       <button id="score-modal-skip">Skip</button>
-      <button id="score-modal-submit">Submit to leaderboard</button>
+      <button id="score-modal-submit">Done</button>
     </div>
   </div>
 </div>
@@ -170,6 +170,24 @@
       <button id="lb-close">✕</button>
     </div>
     <div id="lb-list"><div class="lb-loading">Loading…</div></div>
+  </div>
+</div>
+
+<!-- ── Account modal (login / register) ─────────────────── -->
+<div id="account-modal" class="hidden" data-mode="login">
+  <div id="am-card">
+    <div id="am-header">
+      <span id="am-title">Welcome back</span>
+      <button id="am-close">✕</button>
+    </div>
+    <input id="am-username" type="text" placeholder="Gamertag or email" autocomplete="username" spellcheck="false">
+    <div id="am-email-row" style="display:none">
+      <input id="am-email" type="email" placeholder="Email" autocomplete="email" spellcheck="false">
+    </div>
+    <input id="am-password" type="password" placeholder="Password" autocomplete="current-password">
+    <div id="am-error"></div>
+    <button id="am-submit">Log in</button>
+    <div id="am-switch"></div>
   </div>
 </div>
 
@@ -202,12 +220,16 @@
   <button id="end-nav-btn">End</button>
 </div>
 
+<!-- ── Acceleration timer HUD (nav only, when enabled) ── -->
+<div id="accel-timer" class="hidden"></div>
+
 <!-- ── Arrival overlay ──────────────────────────── -->
 <div id="arrival-overlay" class="hidden">
   <div id="arrival-card">
     <div id="arrival-emoji">⭐</div>
     <div id="arrival-title">You've arrived!</div>
     <div id="arrival-dest">–</div>
+    <div id="arrival-roast"></div>
     <button id="arrival-done">Done</button>
   </div>
 </div>
@@ -221,7 +243,10 @@
       <button id="style-close">✕</button>
     </div>
 
-    <div class="settings-section-label">Map style</div>
+    <div class="settings-section-label">Account</div>
+    <div id="account-box"></div>
+
+    <div class="settings-section-label" style="margin-top:18px">Map style</div>
     <div id="style-grid">
       <button class="style-btn active" data-style="dark">
         <div class="style-thumb" style="background:#1a1a2e"></div>
@@ -264,6 +289,18 @@
       <label class="setting-row"><span>📳 Haptic feedback</span>    <input type="checkbox" id="s-haptic"  checked></label>
       <label class="setting-row"><span>🚫 Avoid tolls by default</span><input type="checkbox" id="s-tolls" checked></label>
       <label class="setting-row"><span>📍 Choose custom start point</span><input type="checkbox" id="s-choosestart"></label>
+      <label class="setting-row"><span>⏱️ Acceleration timer</span><input type="checkbox" id="s-acceltimer"></label>
+    </div>
+    <div id="accel-range-row" style="display:none">
+      <div class="settings-section-label" style="margin-top:12px">Accel range (km/h)</div>
+      <div id="accel-range-grid">
+        <button class="accel-range-btn" data-range="0-60">0–60</button>
+        <button class="accel-range-btn" data-range="0-100">0–100</button>
+        <button class="accel-range-btn" data-range="0-160">0–160</button>
+        <button class="accel-range-btn" data-range="40-150">40–150</button>
+        <button class="accel-range-btn" data-range="60-160">60–160</button>
+        <button class="accel-range-btn" data-range="100-200">100–200</button>
+      </div>
     </div>
 
     <button id="open-leaderboard-btn" style="width:100%;margin-top:16px;padding:14px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.4);border-radius:12px;color:#fbbf24;font-weight:800;font-size:.95rem;cursor:pointer;font-family:inherit">🏆 Most Wanted Leaderboard</button>

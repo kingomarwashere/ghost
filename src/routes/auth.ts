@@ -115,6 +115,33 @@ auth.get('/me', async (c) => {
   return c.json(user);
 });
 
+// POST /api/auth/score — bank a completed trip's score onto the account total
+auth.post('/score', async (c) => {
+  const token = c.req.header('Authorization')?.replace('Bearer ', '');
+  if (!token) return c.json({ error: 'unauthorized' }, 401);
+  const sess = await c.env.DB.prepare(
+    'SELECT user_id FROM sessions WHERE token = ? AND expires_at > ?'
+  ).bind(token, Date.now()).first<{ user_id: string }>();
+  if (!sess) return c.json({ error: 'invalid or expired session' }, 401);
+
+  const b = await c.req.json<{ score?: number; stars?: number; distance_km?: number }>()
+    .catch(() => ({} as { score?: number; stars?: number; distance_km?: number }));
+  const add   = Math.max(0, Math.floor(Number(b.score) || 0));
+  const stars = Math.max(0, Math.min(5, Math.floor(Number(b.stars) || 0)));
+  const dist  = Math.max(0, Number(b.distance_km) || 0);
+
+  await c.env.DB.prepare(
+    `UPDATE users SET score = score + ?, trips = COALESCE(trips,0) + 1,
+       distance_km = COALESCE(distance_km,0) + ?, high_stars = MAX(COALESCE(high_stars,0), ?),
+       last_seen = ? WHERE id = ?`
+  ).bind(add, parseFloat(dist.toFixed(2)), stars, Date.now(), sess.user_id).run();
+
+  const user = await c.env.DB.prepare(
+    'SELECT username, score, trips, distance_km, high_stars FROM users WHERE id = ?'
+  ).bind(sess.user_id).first();
+  return c.json({ ok: true, added: add, user });
+});
+
 // DELETE /api/auth/logout
 auth.delete('/logout', async (c) => {
   const token = c.req.header('Authorization')?.replace('Bearer ', '');

@@ -3,3 +3,7 @@ node_modules/
 dist/
 *.local
 .env
+
+# Stale agent worktrees / local git backups
+.claude/worktrees/
+.git.broken.*
