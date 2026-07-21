@@ -27,12 +27,13 @@ const CANON = 2.6;
 // normalize (auto scale/centre off-scale models), sizeMul (relative size),
 // lift (hover altitude, metres), yaw (orientation offset, degrees).
 const MODEL_CFG = {
-  // Real 3D characters (Sketchfab) — scaled by height, not footprint
-  'char-mario.glb':   { normalize: true, normMode: 'height', sizeMul: 0.82, yaw: 0 },
-  'char-luigi.glb':   { normalize: true, normMode: 'height', sizeMul: 0.82, yaw: 0 },
-  'char-peach.glb':   { normalize: true, normMode: 'height', sizeMul: 0.85, yaw: 0 },
-  'char-bowser.glb':  { normalize: true, normMode: 'height', sizeMul: 1.0,  yaw: 0 },
-  'char-pikachu.glb': { normalize: true, normMode: 'height', sizeMul: 0.8,  yaw: 0 },
+  // Mario = character already sitting in a kart (single model, footprint-scaled)
+  'char-mario.glb':   { normalize: true, sizeMul: 1.15, yaw: 90 },
+  // Others = standing character composed INTO a kart (kart hides the legs)
+  'char-luigi.glb':   { kart: 'kart-base.glb', kartMul: 1.1, charH: 2.1, charY: 0.0,  charZ: -0.15, yaw: 0 },
+  'char-peach.glb':   { kart: 'kart-base.glb', kartMul: 1.1, charH: 2.1, charY: 0.05, charZ: -0.15, yaw: 0 },
+  'char-bowser.glb':  { kart: 'kart-base.glb', kartMul: 1.2, charH: 2.2, charY: 0.05, charZ: -0.1,  charYaw: 180, yaw: 0 },
+  'char-pikachu.glb': { kart: 'kart-base.glb', kartMul: 1.1, charH: 1.8, charY: 0.1,  charZ: -0.1,  yaw: 0 },
   // Planes — normalize (varied source scales); they hover
   'plane-prop.glb':  { normalize: true, sizeMul: 1.9, lift: 32, yaw: 0 },
   'plane-liner.glb': { normalize: true, sizeMul: 2.3, lift: 40, yaw: 0 },
@@ -159,60 +160,73 @@ function addFaceSprite(group, kind) {
   group.add(mesh);
 }
 
+// Reflective materials on every mesh.
+function applyMats(obj) {
+  obj.traverse((o) => {
+    if (!o.isMesh || !o.material) return;
+    o.castShadow = false; o.receiveShadow = false;
+    const m = o.material;
+    if ('metalness' in m) m.metalness = Math.max(m.metalness ?? 0, 0.3);
+    if ('roughness' in m) m.roughness = Math.min(m.roughness ?? 1, 0.5);
+    m.envMapIntensity = 1.2;
+  });
+}
+// Scale an object so its footprint (or height) == target, centre x/z, sit on ground.
+function fitObj(obj, target, mode) {
+  obj.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(obj);
+  const size = box.getSize(new THREE.Vector3());
+  const ctr = box.getCenter(new THREE.Vector3());
+  const ref = (mode === 'height' ? size.y : Math.max(size.x, size.z)) || 1;
+  obj.position.set(-ctr.x, -box.min.y, -ctr.z);
+  const g = new THREE.Group();
+  g.add(obj);
+  g.scale.setScalar(target / ref);
+  return g;
+}
+const loadRaw = (file) => new Promise((res, rej) => loader.load(MODEL_DIR + file, (g) => res(g.scene), undefined, rej));
+
 function loadModel(file) {
   if (!modelCache.has(file)) {
-    modelCache.set(file, new Promise((resolve, reject) => {
-      loader.load(MODEL_DIR + file, (gltf) => {
-        const cfg = cfgOf(file);
-        let out = gltf.scene;
+    const cfg = cfgOf(file);
+    let promise;
 
-        // Per-model orientation FIRST (pitch = rotate-X e.g. lay a model down,
-        // yaw = rotate-Y). Applied before normalize so bounds/ground-sit are right.
-        if (cfg.pitch || cfg.yaw) {
-          const g = new THREE.Group();
-          g.add(out);
-          if (cfg.pitch) g.rotation.x = cfg.pitch * Math.PI / 180;
-          if (cfg.yaw)   g.rotation.y = cfg.yaw * Math.PI / 180;
-          out = g;
-        }
-        // Auto-normalize off-scale models (planes come in from ~2 to ~1600 units):
-        // scale the longest horizontal dimension to a canonical footprint, centre
-        // it on x/z and sit it on the ground.
-        if (cfg.normalize) {
-          out.updateMatrixWorld(true);
-          const box = new THREE.Box3().setFromObject(out);
-          const size = box.getSize(new THREE.Vector3());
-          const ctr = box.getCenter(new THREE.Vector3());
-          // Characters are tall & narrow — scale by height; vehicles by footprint.
-          const ref = (cfg.normMode === 'height' ? size.y : Math.max(size.x, size.z)) || 1;
-          const s = (CANON * (cfg.sizeMul || 1)) / ref;
-          out.position.set(-ctr.x, -box.min.y, -ctr.z);
-          const g = new THREE.Group();
-          g.add(out);
-          g.scale.setScalar(s);
-          out = g;
-        }
-
-        out.traverse((o) => {
-          if (!o.isMesh || !o.material) return;
-          o.castShadow = false; o.receiveShadow = false;
-          // Hide the built-in Kenney driver (blank head) — the face sprite replaces it
-          if (cfg.face && /character/i.test(o.name || '')) { o.visible = false; return; }
-          const m = o.material;
-          // Glossier, reflective paint (env map supplies the reflections)
-          if ('metalness' in m) m.metalness = Math.max(m.metalness ?? 0, 0.35);
-          if ('roughness' in m) m.roughness = Math.min(m.roughness ?? 1, 0.45);
-          m.envMapIntensity = 1.25;
-          // Tint the body (not wheels) for character karts
-          if (cfg.tint && !/wheel/i.test(o.name || '')) {
-            o.material = m.clone();
-            o.material.color = new THREE.Color(cfg.tint);
+    if (cfg.kart) {
+      // Compose: seat a standing character into a kart (kart hides the legs).
+      promise = Promise.all([loadRaw(cfg.kart), loadRaw(file)]).then(([kart, char]) => {
+        // Hide the kart's built-in blank driver — our character replaces it
+        kart.traverse((o) => { if (o.isMesh && /character|driver/i.test(o.name || '')) o.visible = false; });
+        applyMats(kart); applyMats(char);
+        const kartG = fitObj(kart, CANON * (cfg.kartMul || 1), 'foot');
+        const charG = fitObj(char, (cfg.charH || 1.6), 'height');
+        if (cfg.charYaw) charG.rotation.y += cfg.charYaw * Math.PI / 180;
+        charG.position.set(cfg.charX || 0, cfg.charY || 0, cfg.charZ || 0);
+        let out = new THREE.Group();
+        out.add(kartG); out.add(charG);
+        if (cfg.yaw) { const w = new THREE.Group(); w.add(out); w.rotation.y = cfg.yaw * Math.PI / 180; out = w; }
+        return out;
+      });
+    } else {
+      promise = new Promise((resolve, reject) => {
+        loader.load(MODEL_DIR + file, (gltf) => {
+          let out = gltf.scene;
+          if (cfg.pitch || cfg.yaw) {
+            const g = new THREE.Group();
+            g.add(out);
+            if (cfg.pitch) g.rotation.x = cfg.pitch * Math.PI / 180;
+            if (cfg.yaw)   g.rotation.y = cfg.yaw * Math.PI / 180;
+            out = g;
           }
-        });
-        if (cfg.face) addFaceSprite(out, cfg.face);
-        resolve(out);
-      }, undefined, reject);
-    }));
+          if (cfg.normalize) {
+            const ref = cfg.normMode || 'foot';
+            out = fitObj(out, CANON * (cfg.sizeMul || 1), ref === 'height' ? 'height' : 'foot');
+          }
+          applyMats(out);
+          resolve(out);
+        }, undefined, reject);
+      });
+    }
+    modelCache.set(file, promise);
   }
   // Return a fresh clone each time so map + showroom don't share a node
   return modelCache.get(file).then((root) => root.clone(true));

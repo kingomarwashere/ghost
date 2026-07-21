@@ -35,7 +35,7 @@ they forbid commercial use.)
 
 | In-app | File               | Model / Author                                        |
 |--------|--------------------|-------------------------------------------------------|
-| Mario  | char-mario.glb     | Paper Mario Standing Pose — yakkoandwakko             |
+| Mario  | char-mario.glb     | Mario Kart (in-kart model) — TheShibeLord             |
 | Luigi  | char-luigi.glb     | Mario Party 9 Luigi — lucasvicente2009                |
 | Peach  | char-peach.glb     | Super Mario Sunshine Princess Peach — jkimmel694      |
 | Bowser | char-bowser.glb    | Super Mario Sunshine Bowser — Onilixium               |
@@ -44,3 +44,6 @@ they forbid commercial use.)
 NOTE: these depict Nintendo/Pokémon characters (Nintendo IP). The Sketchfab
 uploads are CC-BY, but the underlying characters are trademarked — only ship
 these with proper rights/clearance.
+
+Kart base for composed characters: Kenney Car Kit kart (CC0). Luigi/Peach/
+Bowser/Pikachu are the standing character models seated into that kart.
