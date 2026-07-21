@@ -205,11 +205,11 @@ map.on('style.load', () => {
 });
 
 // Custom layer IDs — never touched by hideNavClutter
-const CUSTOM_LAYERS = new Set(['route-main','route-traveled','route-alts','route-warn','heatmap-layer','3d-buildings','gta-poi']);
+const CUSTOM_LAYERS = new Set(['route-main','route-traveled','route-alts','route-traffic','route-warn','heatmap-layer','3d-buildings','gta-poi']);
 
 function setupMapLayers(){
   // Route line sources
-  ['route-main','route-traveled','route-alts'].forEach(id=>{
+  ['route-main','route-traveled','route-alts','route-traffic'].forEach(id=>{
     if(!map.getSource(id)) map.addSource(id,{type:'geojson',data:emptyFC()});
   });
   // Route layers — explicit visibility:'visible' so nothing can silently hide them
@@ -225,6 +225,13 @@ function setupMapLayers(){
     map.addLayer({id:'route-main',type:'line',source:'route-main',
       layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
       paint:{'line-color':'#ffd700','line-width':10,'line-opacity':1}});
+  // Traffic overlay — congested stretches drawn on top of the gold route.
+  // Narrower than route-main so the gold shows as an outline; colour by severity.
+  if(!map.getLayer('route-traffic'))
+    map.addLayer({id:'route-traffic',type:'line',source:'route-traffic',
+      layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
+      paint:{'line-color':['match',['get','sev'],'heavy','#dc2626','slow','#f97316','#dc2626'],
+             'line-width':7,'line-opacity':0.96}});
   // Warning flash overlay — same source as route-main, drawn on top
   if(!map.getLayer('route-warn'))
     map.addLayer({id:'route-warn',type:'line',source:'route-main',
@@ -868,6 +875,9 @@ async function loadReports(){
   const p=new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});
   try{
     const data=await fetch(`/api/reports?${p}`).then(r=>r.json());
+    lastReports=Array.isArray(data)?data:[];
+    // Refresh traffic colouring on the active/previewed route with fresh reports
+    if(routePoints.length) updateTrafficOverlay(navState==='navigating'?routePoints.slice(Math.max(0,_lastRouteIdx)):routePoints);
     clearMarkers(reportMarkers);
     for(const r of data){
       // speed_trap uses speed layer filter; police/all others use police filter
@@ -1743,6 +1753,7 @@ async function calcRoute(fromLat,fromLng,toLat,toLng){
   map.getSource('route-main')?.setData(emptyFC());
   map.getSource('route-traveled')?.setData(emptyFC());
   map.getSource('route-alts')?.setData(emptyFC());
+  map.getSource('route-traffic')?.setData(emptyFC());
   if(destMarker){destMarker.remove();destMarker=null;}
   {const el=document.createElement('div');el.innerHTML='<span class="dest-pin">📍</span>';
    destMarker=new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([toLng,toLat]).addTo(map);}
@@ -1984,6 +1995,7 @@ function clearRoute(){
   map.getSource('route-main')?.setData(emptyFC());
   map.getSource('route-traveled')?.setData(emptyFC());
   map.getSource('route-alts')?.setData(emptyFC());
+  map.getSource('route-traffic')?.setData(emptyFC());
   if(destMarker){destMarker.remove();destMarker=null;}
   previewBar.classList.add('hidden');
   $$('route-chips').classList.add('hidden');
@@ -2186,6 +2198,7 @@ function endNav(){
   clearRoute();
   if(userMarker){userMarker.remove();userMarker=null;}
   window.Car3D?.hide();
+  { const g=$$('congestion-glow'); if(g){ g.classList.remove('on','slow','heavy'); _glowSev=-1; } }
   prevPos=null;
   currentSpeedEl.innerHTML='– <small>km/h</small>';
   speedLimitSign.classList.add('hidden');
@@ -2758,6 +2771,10 @@ function onGPS(pos){
   prevPos={lat,lng,ts:pos.timestamp,hdg};
   if(navState!=='navigating'||!routePoints.length)return;
 
+  // Detect traffic from own sustained low speed → feeds the red route overlay
+  detectCongestion(lat,lng,speedMs*3.6,getSpeedLimit(lat,lng));
+  updateCongestionGlow(lat,lng); // red/amber edge glow when inside a jam
+
   const {idx,dist}=nearestOnRoute(routePoints,lat,lng);
   updateRouteStyling(idx);
 
@@ -2793,6 +2810,110 @@ function onGPS(pos){
 
 let _lastRouteIdx=0; // track last GPS route index so style swaps don't reset the trimmed line
 
+/* ═══════════════════════════════════════════════
+   TRAFFIC — colour congested stretches of the route red/orange.
+   Sources: crowdsourced traffic-type reports + the driver's own
+   sustained low speed (no external traffic API needed).
+═══════════════════════════════════════════════ */
+// Report types that mean congestion, mapped to severity.
+const TRAFFIC_SEV = {accident:'heavy', closure:'heavy', blocked_lane:'heavy', traffic:'slow', roadwork:'slow'};
+let lastReports=[];              // most recent reports fetched for the viewport
+let liveCongestion=[];           // {lat,lng,sev,ts} from own-speed detection
+const CONGESTION_TTL=10*60*1000; // live congestion expires after 10 min
+
+function addLiveCongestion(lat,lng,sev){
+  const now=Date.now();
+  for(const c of liveCongestion){
+    if(haversine(lat,lng,c.lat,c.lng)<40){ c.ts=now; if(sev==='heavy') c.sev='heavy'; return; }
+  }
+  liveCongestion.push({lat,lng,sev,ts:now});
+}
+
+function congestionSources(){
+  const now=Date.now();
+  liveCongestion=liveCongestion.filter(c=>now-c.ts<CONGESTION_TTL);
+  const rep=lastReports.filter(r=>TRAFFIC_SEV[r.type]).map(r=>({lat:r.lat,lng:r.lng,sev:TRAFFIC_SEV[r.type]}));
+  return rep.concat(liveCongestion);
+}
+
+// Own-speed congestion detection: sustained crawl well below the limit = a jam.
+// Requires 15 s of slow-but-moving speed so red lights don't trigger false jams.
+let _slowSince=0;
+function detectCongestion(lat,lng,kmh,lim){
+  if(!lim){ _slowSince=0; return; }
+  if(kmh < lim*0.55){
+    const now=performance.now();
+    if(!_slowSince) _slowSince=now;
+    if(now-_slowSince>15000 && kmh>3){
+      addLiveCongestion(lat,lng, kmh<Math.max(10,lim*0.3)?'heavy':'slow');
+    }
+  } else if(kmh > lim*0.7){ _slowSince=0; }
+}
+
+// Build a FeatureCollection of the congested sub-segments of `points` ([lat,lng][]).
+function computeTrafficFC(points){
+  const feats=[];
+  if(!points || points.length<2) return {type:'FeatureCollection',features:feats};
+  const srcs=congestionSources();
+  if(!srcs.length) return {type:'FeatureCollection',features:feats};
+  const THRESH=80, DILATE=120; // metres: match radius + spread so it reads as a stretch
+  const sev=new Array(points.length).fill(0);
+  for(let i=0;i<points.length;i++){
+    const la=points[i][0], lo=points[i][1];
+    for(const s of srcs){
+      if(haversine(la,lo,s.lat,s.lng)<THRESH){ sev[i]=Math.max(sev[i], s.sev==='heavy'?2:1); }
+    }
+  }
+  // Dilate congestion along the route so a point report colours a visible stretch.
+  const dil=sev.slice();
+  for(let i=0;i<points.length;i++){
+    if(!sev[i]) continue;
+    let d=0;
+    for(let j=i+1;j<points.length;j++){ d+=haversine(points[j-1][0],points[j-1][1],points[j][0],points[j][1]); if(d>DILATE)break; dil[j]=Math.max(dil[j],sev[i]); }
+    d=0;
+    for(let j=i-1;j>=0;j--){ d+=haversine(points[j+1][0],points[j+1][1],points[j][0],points[j][1]); if(d>DILATE)break; dil[j]=Math.max(dil[j],sev[i]); }
+  }
+  // Group consecutive equal-severity vertices into line features.
+  let start=0;
+  while(start<points.length){
+    if(!dil[start]){ start++; continue; }
+    let end=start;
+    while(end+1<points.length && dil[end+1]===dil[start]) end++;
+    // Extend by one vertex on each side so adjacent runs join visually.
+    const a=Math.max(0,start-1), b=Math.min(points.length-1,end+1);
+    if(b>a) feats.push({type:'Feature',properties:{sev:dil[start]===2?'heavy':'slow'},
+      geometry:{type:'LineString',coordinates:toGL(points.slice(a,b+1))}});
+    start=end+1;
+  }
+  return {type:'FeatureCollection',features:feats};
+}
+
+function updateTrafficOverlay(points){
+  try{ map.getSource('route-traffic')?.setData(computeTrafficFC(points)); }catch(_){}
+}
+
+// Severity of congestion the driver is currently inside (0 none, 1 slow, 2 heavy).
+function currentCongestionSev(lat,lng){
+  let sev=0;
+  for(const s of congestionSources()){
+    if(haversine(lat,lng,s.lat,s.lng)<110) sev=Math.max(sev, s.sev==='heavy'?2:1);
+  }
+  return sev;
+}
+
+// "Hue lights": fade a red/amber screen-edge glow in/out as you enter/leave a jam.
+let _glowSev=-1;
+function updateCongestionGlow(lat,lng){
+  const el=$$('congestion-glow'); if(!el) return;
+  const sev = (navState==='navigating') ? currentCongestionSev(lat,lng) : 0;
+  if(sev===_glowSev) return;
+  _glowSev=sev;
+  el.classList.toggle('slow', sev===1);
+  el.classList.toggle('heavy', sev===2);
+  el.classList.toggle('on', sev>0);
+  if(sev>0 && prefs.haptic && navigator.vibrate) navigator.vibrate(sev===2?[60,40,60]:[45]);
+}
+
 function updateRouteGeoJSON(){
   if(!routePoints.length) return;
   if(!map.getSource('route-main') || !map.getLayer('route-main')){
@@ -2806,14 +2927,16 @@ function updateRouteGeoJSON(){
   ]};
   try{ map.getSource('route-main')?.setData(fc); }catch(_){}
   try{ map.setLayoutProperty('route-main','visibility','visible'); }catch(_){}
+  updateTrafficOverlay(routePoints);
 }
 
 function updateRouteStyling(idx){
   if(!routePoints.length) return;
   _lastRouteIdx=idx;
-  const rem = toGL(routePoints.slice(Math.max(0,idx)));
-  map.getSource('route-main')?.setData({type:'Feature',geometry:{type:'LineString',coordinates:rem}});
+  const rem = routePoints.slice(Math.max(0,idx));
+  map.getSource('route-main')?.setData({type:'Feature',geometry:{type:'LineString',coordinates:toGL(rem)}});
   map.getSource('route-traveled')?.setData({type:'Feature',geometry:{type:'LineString',coordinates:[]}});
+  updateTrafficOverlay(rem);
 }
 
 function updateNavPanel(distToTurn){

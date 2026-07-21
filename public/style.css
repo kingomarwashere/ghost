@@ -1256,6 +1256,17 @@ body.navigating #gta-hud {
 .car-pick-btn:active { transform: scale(.95); }
 .car-pick-preview { font-size: 2rem; line-height: 1; }
 
+/* ── Congestion "hue lights" — screen-edge glow inside a jam ─────── */
+#congestion-glow {
+  position: absolute; inset: 0; pointer-events: none; z-index: 1500;
+  opacity: 0; transition: opacity .6s ease;
+  box-shadow: inset 0 0 100px 22px rgba(220,38,38,0);
+}
+#congestion-glow.on { opacity: 1; animation: congestionPulse 1.8s ease-in-out infinite; }
+#congestion-glow.slow  { box-shadow: inset 0 0 84px 16px rgba(249,115,22,.55); }
+#congestion-glow.heavy { box-shadow: inset 0 0 120px 28px rgba(220,38,38,.72); }
+@keyframes congestionPulse { 0%,100% { opacity:.5 } 50% { opacity:1 } }
+
 /* ── 3D showroom (garage) ───────────────────────── */
 #car-showroom {
   position: relative; margin: 6px 0 12px;
