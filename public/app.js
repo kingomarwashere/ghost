@@ -137,26 +137,106 @@ const PAL_NAMES = {
   'Golan Heights':     'Al-Jawlan',   'West Bank':      'West Bank',
 };
 
-let _palApplied = false; // prevent re-entrant loop from setLayoutProperty → styledata
+// ─────────────────────────────────────────────────────────────────────────
+//  Self-hosted Middle East basemap — Israel removed at the DATA layer.
+//  We serve our OWN vector tiles for this region (built from OSM with the Israel
+//  country entity deleted → Palestine, and Israeli place names rewritten to the
+//  Palestinian names in PAL_NAMES above; Hebrew labels stripped). Inside the
+//  region we suppress CartoDB's own place labels & admin boundaries so nothing
+//  bleeds through, and clone CartoDB's place-label layers onto our source so the
+//  region stays visually identical per theme — just with Israel-free data.
+//  Everything outside the region still renders straight from CartoDB.
+const MIDEAST_REGION = { type:'Polygon', coordinates:[[
+  [34.6756,33.4544],[35.1042,33.0979],[35.2114,33.1025],[35.3159,33.1127],
+  [35.3574,33.0611],[35.4295,33.0717],[35.446,33.0937],[35.519,33.1246],
+  [35.5373,33.1965],[35.5305,33.2189],[35.5416,33.2555],[35.5653,33.2935],
+  [35.6126,33.2792],[35.6743,33.3063],[35.7079,33.3427],[35.7536,33.3509],
+  [35.8151,33.3392],[35.9153,32.9406],[35.8083,32.772],[35.7784,32.7245],
+  [35.5949,32.6283],[35.5729,32.3654],[35.5946,32.2186],[35.5545,32.029],
+  [35.5722,31.7541],[35.4877,31.4195],[35.4209,31.2512],[35.4794,31.1783],
+  [35.4277,30.9517],[35.3321,30.7711],[35.2071,30.5331],[35.172,30.112],
+  [35.0751,29.8371],[35.0234,29.6457],[34.9544,29.4641],[34.9163,29.4396],
+  [34.8747,29.5355],[34.6967,30.1071],[34.5242,30.4091],[34.3978,30.8667],
+  [34.2362,31.2922],[34.2121,31.3208],[33.9999,31.4521],[34.6756,33.4544]
+]] };
+const MIDEAST_PMTILES = 'pmtiles://' + location.origin + '/tiles/me.pmtiles';
 
-function fixPalestineLabels(){
-  if(!map.isStyleLoaded()||_palApplied) return;
-  _palApplied = true;
+// Register the pmtiles:// protocol once so MapLibre can read byte ranges from R2.
+if(window.pmtiles && !window._pmtilesReg){
+  try{ maplibregl.addProtocol('pmtiles', new pmtiles.Protocol().tile); window._pmtilesReg = true; }catch(_){}
+}
 
-  const entries = Object.entries(PAL_NAMES).flatMap(([k,v])=>[k,v]);
-  // Check all name fields CartoDB uses across different zoom levels
-  const nameCoalesce = ['coalesce',
-    ['get','name:en'], ['get','name:latin'], ['get','name'], ''
-  ];
-  // Replace matched names; all other places keep their best-available name
-  const expr = ['match', nameCoalesce, ...entries, nameCoalesce];
+// CartoDB layers use MapLibre's LEGACY filter syntax (["==","class","town"]).
+// Combining them with the `within` expression fails validation ('within'/'!' are
+// not legacy operators), so convert legacy → expression first.
+function toExpr(f){
+  if(!Array.isArray(f)) return f;
+  const op = f[0];
+  if(op==='all' || op==='any') return [op, ...f.slice(1).map(toExpr)];
+  if(op==='none')              return ['!', ['any', ...f.slice(1).map(toExpr)]];
+  const CMP = {'==':1,'!=':1,'>':1,'>=':1,'<':1,'<=':1};
+  const getter = k => k==='$type' ? ['geometry-type'] : k==='$id' ? ['id'] : ['get', k];
+  if(CMP[op]) return Array.isArray(f[1]) ? f : [op, getter(f[1]), f[2]];
+  if(op==='in')  return Array.isArray(f[1]) ? f : ['in', getter(f[1]), ['literal', f.slice(2)]];
+  if(op==='!in') return ['!', ['in', getter(f[1]), ['literal', f.slice(2)]]];
+  if(op==='has')  return ['has', f[1]];
+  if(op==='!has') return ['!', ['has', f[1]]];
+  return f;                                            // already an expression
+}
 
-  let count = 0;
-  map.getStyle().layers.forEach(layer => {
-    if(layer.type !== 'symbol') return;
-    try{ map.setLayoutProperty(layer.id, 'text-field', expr); count++; }catch(_){}
+let _meApplied = false; // latches true once the region setup has actually stuck
+function setupMideastTiles(){
+  // Runs on the map 'idle' event (see wiring below). We deliberately DON'T run this
+  // straight from 'style.load': during that event the style isn't fully ready and
+  // addSource/addLayer silently no-op (they neither throw nor persist). By 'idle'
+  // the style has settled and additions stick. _meApplied is reset on every
+  // style.load so each theme swap re-applies.
+  if(_meApplied) return;
+
+  try{
+    if(!map.getSource('me')) map.addSource('me', { type:'vector', url: MIDEAST_PMTILES });
+  }catch(_){}
+
+  const inRegion    = ['within', MIDEAST_REGION];
+  const notInRegion = ['!', ['within', MIDEAST_REGION]];
+
+  map.getStyle().layers.forEach(l => {
+    if(l.id.startsWith('me_')) return;                 // never touch our own clones
+    const sl = l['source-layer'];
+    const isPlaceLabel = l.type==='symbol' && sl==='place';
+    const isSoftLabel  = l.type==='symbol' && (sl==='poi' || sl==='water_name');
+    const isBoundary   = l.type==='line'   && sl==='boundary';
+    if(!(isPlaceLabel || isSoftLabel || isBoundary)) return;
+
+    const base = l.filter ? toExpr(l.filter) : null;
+
+    // Clone CartoDB's place layers onto our Israel-free source (same style, our data).
+    // Our tiles cover a wider area than the region, so clip the clones to the region
+    // too — outside it, CartoDB still provides the labels.
+    if(isPlaceLabel){
+      const cloneId = 'me_' + l.id;
+      if(!map.getLayer(cloneId)){
+        const def = JSON.parse(JSON.stringify(l));
+        def.id = cloneId; def.source = 'me';           // keeps source-layer 'place'
+        def.filter = base ? ['all', base, inRegion] : inRegion;
+        // Force the romanized name so Hebrew script never renders: renamed cities
+        // carry the Palestinian name in name:latin/name_en (Yafa, Al-Quds …); any
+        // town we didn't rename shows its transliteration, never עברית.
+        def.layout = def.layout || {};
+        def.layout['text-field'] = ['coalesce',['get','name:latin'],['get','name_en'],['get','name']];
+        try{ map.addLayer(def); }catch(_){}
+      }
+    }
+    // Suppress CartoDB's own labels/boundaries inside the region. Guard against
+    // double-wrapping if this runs again before latching.
+    if(!JSON.stringify(l.filter||'').includes('within')){
+      const filtered = base ? ['all', base, notInRegion] : notInRegion;
+      try{ map.setFilter(l.id, filtered); }catch(_){}
+    }
   });
-  console.debug(`[Palestine] fixed ${count} label layers`);
+
+  // Only latch once the work actually persisted — otherwise let the next 'idle' retry.
+  if(map.getSource('me') && map.getStyle().layers.some(l => l.id.startsWith('me_'))) _meApplied = true;
 }
 
 // Raster fallback styles (satellite/terrain) as inline MapLibre style objects
@@ -185,9 +265,10 @@ window.dispatchEvent(new Event('ghostmap-ready'));
 
 // On every style.load (initial + setStyle calls): fix labels, add custom layers
 let _mapReady = false;
+// Re-apply the Middle East tiles whenever the map next goes idle (style fully ready).
+map.on('idle', setupMideastTiles);
 map.on('style.load', () => {
-  _palApplied = false;
-  fixPalestineLabels();
+  _meApplied = false;           // new style wiped our layers → let 'idle' re-apply
   setupMapLayers();
   if(prefs.mapStyle==='gta'){ applyGtaColors(); addGtaPoiLayer(); }
   // Re-draw route after any style swap — covers preview and active nav
@@ -293,7 +374,7 @@ function hideNavClutter(){
 function setTile(style, isAuto=false){
   const s = VECTOR_STYLES[style] || RASTER_STYLES[style];
   if(!s) return;
-  map.setStyle(s); // triggers style.load → fixPalestineLabels + setupMapLayers
+  map.setStyle(s); // triggers style.load → setupMideastTiles + setupMapLayers
   prefs.mapStyle=style; savePrefs();
   if(!isAuto){ prefs.styleOverride=true; savePrefs(); }
   document.querySelectorAll('.style-btn').forEach(b=>b.classList.toggle('active',b.dataset.style===style));
@@ -2451,8 +2532,17 @@ function makePeachIcon(gpsHdg=0){
 function _d3Marker(){ return {html:'<div class="user-arrow car3d-anchor" style="width:4px;height:4px;pointer-events:none"></div>', d3:true}; }
 
 const CARS=[
-  // ── Realistic (higher-detail model) ──────────────────────────────────────
+  // ── Realistic fleet (higher-detail models — Poly Pizza) ──────────────────
   {id:'ferrari',         name:'Ferrari',       emoji:'🏎️', model:'ferrari.glb',          fn:_d3Marker, d3:true},
+  {id:'charger',         name:'Dodge Charger', emoji:'🏎️', model:'real-charger.glb',     fn:_d3Marker, d3:true},
+  {id:'rx7',             name:'Mazda RX-7',    emoji:'🏎️', model:'real-rx7.glb',         fn:_d3Marker, d3:true},
+  {id:'rangerover',      name:'Range Rover',   emoji:'🚙', model:'real-rangerover.glb',  fn:_d3Marker, d3:true},
+  {id:'musclecar',       name:'Muscle Car',    emoji:'🚗', model:'real-musclecar.glb',   fn:_d3Marker, d3:true},
+  {id:'coupe2',          name:'Coupe',         emoji:'🚗', model:'real-coupe.glb',        fn:_d3Marker, d3:true},
+  {id:'convertible2',    name:'Convertible',   emoji:'🚗', model:'real-convertible.glb',  fn:_d3Marker, d3:true},
+  {id:'hatch2',          name:'Hatchback',     emoji:'🚗', model:'real-hatch2.glb',       fn:_d3Marker, d3:true},
+  {id:'crossover',       name:'Crossover',     emoji:'🚙', model:'real-crossover.glb',    fn:_d3Marker, d3:true},
+  {id:'interceptor',     name:'Interceptor',   emoji:'🚓', model:'real-interceptor.glb',  fn:_d3Marker, d3:true},
   // ── 3D models (Kenney Car Kit) ───────────────────────────────────────────
   {id:'sedan-sports',    name:'Sports Sedan',  emoji:'🏎️', model:'sedan-sports.glb',    fn:_d3Marker, d3:true},
   {id:'race',            name:'Race Car',      emoji:'🏁', model:'race.glb',             fn:_d3Marker, d3:true},

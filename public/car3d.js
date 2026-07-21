@@ -40,6 +40,16 @@ const MODEL_CFG = {
   // Novelty + realistic
   'food/eggplant.glb':    { normalize: true, sizeMul: 1.0, yaw: 0 },
   'ferrari.glb':     { normalize: true, sizeMul: 1.3, yaw: 0 },
+  // Realistic fleet (Poly Pizza, CC-BY/CC0) — normalized; yaw tuned per model
+  'real-charger.glb':     { normalize: true, sizeMul: 1.1,  yaw: 0 },
+  'real-rangerover.glb':  { normalize: true, sizeMul: 1.15, yaw: 0 },
+  'real-rx7.glb':         { normalize: true, sizeMul: 1.1,  yaw: 0 },
+  'real-convertible.glb': { normalize: true, sizeMul: 1.05, yaw: 0 },
+  'real-interceptor.glb': { normalize: true, sizeMul: 1.1,  yaw: 0 },
+  'real-musclecar.glb':   { normalize: true, sizeMul: 1.1,  yaw: 0 },
+  'real-hatch2.glb':      { normalize: true, sizeMul: 1.0,  yaw: 0 },
+  'real-crossover.glb':   { normalize: true, sizeMul: 1.15, yaw: 0 },
+  'real-coupe.glb':       { normalize: true, sizeMul: 1.05, yaw: 0 },
 };
 const cfgOf = (f) => MODEL_CFG[f] || {};
 
