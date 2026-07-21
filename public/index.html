@@ -307,6 +307,7 @@
     <button id="open-cw-gallery-btn" style="width:100%;margin-top:10px;padding:14px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.4);border-radius:12px;color:#60a5fa;font-weight:800;font-size:.95rem;cursor:pointer;font-family:inherit">🎬 Cop Watch Feed</button>
 
     <div class="settings-section-label" style="margin-top:18px">🏎️ Your ride</div>
+    <div id="car-showroom"><canvas id="car-showroom-canvas"></canvas><span id="car-showroom-name"></span></div>
     <div id="car-grid"></div>
 
     <div class="settings-section-label" style="margin-top:18px">Units</div>
@@ -557,7 +558,14 @@
 <div id="pigs-banner" style="display:none"></div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
 <script src="/app.js"></script>
+<script type="module" src="/car3d.js"></script>
 <script>
 // ── Traffic Camera Layer ─────────────────────────────────────────────
 (function(){

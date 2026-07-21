@@ -177,6 +177,10 @@ const map = new maplibregl.Map({
   attributionControl:false, maxPitch:85,
 });
 map.addControl(new maplibregl.NavigationControl({showCompass:false}), 'bottom-left');
+// Expose map to the 3D car module (car3d.js, loaded as a deferred ES module)
+window.ghostMap = map;
+window.maplibregl = maplibregl;
+window.dispatchEvent(new Event('ghostmap-ready'));
 
 // On every style.load (initial + setStyle calls): fix labels, add custom layers
 let _mapReady = false;
@@ -1439,6 +1443,7 @@ function _stepMarker(ts){
   if(userMarker){
     userMarker.setLngLat([lng,lat]);
     _syncMarkerTransform();
+    window.Car3D?.setPos(lng,lat,_mCurHdg);
   }
   // Drive the map camera at 60fps — car sits in lower third via top padding
   const _NAV_PAD={top:Math.round(window.innerHeight*0.30),bottom:0,left:0,right:0};
@@ -2180,6 +2185,7 @@ function endNav(){
   if(_mRaf){cancelAnimationFrame(_mRaf);_mRaf=null;}
   clearRoute();
   if(userMarker){userMarker.remove();userMarker=null;}
+  window.Car3D?.hide();
   prevPos=null;
   currentSpeedEl.innerHTML='– <small>km/h</small>';
   speedLimitSign.classList.add('hidden');
@@ -2370,63 +2376,84 @@ function makePeachIcon(gpsHdg=0){
 }
 
 /* ═══════════════════════════════════════════════
-   GTA CAR SYSTEM — Unlucky Studio realistic sprites
-   PNGs pre-flipped so front faces UP — rotation is
-   just gpsHdg - mapBearing, matching the SVG cars.
+   CAR SYSTEM — real 3D models (Kenney Car Kit, CC0)
+   The car is rendered by car3d.js as a WebGL layer
+   inside the map's 3D world, at the GPS point + heading.
+   The DOM marker is just a transparent anchor.
 ═══════════════════════════════════════════════ */
-function _pngCar(src, gpsHdg){
-  const rot=gpsHdg-map.getBearing();
-  return {html:`<div class="user-arrow" style="transform:rotate(${rot}deg)"><img class="car-sprite" src="${src}" draggable="false"></div>`};
-}
-const _pc=(src)=>(h)=>_pngCar(src,h);
-const _pi=(src)=>`<img src="${src}" class="car-pick-img">`;
+// Transparent anchor marker — the actual car is drawn by the 3D WebGL layer.
+function _d3Marker(){ return {html:'<div class="user-arrow car3d-anchor" style="width:4px;height:4px;pointer-events:none"></div>', d3:true}; }
 
 const CARS=[
-  // ── Top-down car sprites (PNG) ───────────────────────────────────────────
-  {id:'ferrari488',    name:'Ferrari 488',       icon:_pi('/cars/ferrari488.png'),    fn:_pc('/cars/ferrari488.png')},
-  {id:'lambohuracan',  name:'Huracán',            icon:_pi('/cars/lambohuracan.png'),  fn:_pc('/cars/lambohuracan.png')},
-  {id:'mclaren720',    name:'McLaren 720S',       icon:_pi('/cars/mclaren720.png'),    fn:_pc('/cars/mclaren720.png')},
-  {id:'bugattichiron', name:'Bugatti Chiron',     icon:_pi('/cars/bugattichiron.png'), fn:_pc('/cars/bugattichiron.png')},
-  {id:'bmwm4',         name:'BMW M4',             icon:_pi('/cars/bmwm4.png'),         fn:_pc('/cars/bmwm4.png')},
-  {id:'porsche911',    name:'Porsche 911',        icon:_pi('/cars/porsche911.png'),    fn:_pc('/cars/porsche911.png')},
-  {id:'amggt',         name:'AMG GT Black',       icon:_pi('/cars/amggt.png'),         fn:_pc('/cars/amggt.png')},
-  {id:'astondb11',     name:'Aston Martin DB11',  icon:_pi('/cars/astondb11.png'),     fn:_pc('/cars/astondb11.png')},
-  {id:'bentleygtc',    name:'Bentley GTC',        icon:_pi('/cars/bentleygtc.png'),    fn:_pc('/cars/bentleygtc.png')},
-  {id:'rollsroyce',    name:'Rolls-Royce',        icon:_pi('/cars/rollsroyce.png'),    fn:_pc('/cars/rollsroyce.png')},
-  {id:'gtrr35',        name:'Nissan GT-R',        icon:_pi('/cars/gtrr35.png'),        fn:_pc('/cars/gtrr35.png')},
-  {id:'challenger',    name:'Challenger',         icon:_pi('/cars/challenger.png'),    fn:_pc('/cars/challenger.png')},
-  {id:'mustanggt',     name:'Mustang GT500',      icon:_pi('/cars/mustanggt.png'),     fn:_pc('/cars/mustanggt.png')},
-  {id:'fordraptor',    name:'Ford Raptor',        icon:_pi('/cars/fordraptor.png'),    fn:_pc('/cars/fordraptor.png')},
-  {id:'rangerover',    name:'Range Rover',        icon:_pi('/cars/rangerover.png'),    fn:_pc('/cars/rangerover.png')},
-  {id:'lambourus',     name:'Lambo Urus',         icon:_pi('/cars/lambourus.png'),     fn:_pc('/cars/lambourus.png')},
-  {id:'cybertruck',    name:'Cybertruck',         icon:_pi('/cars/cybertruck.png'),    fn:_pc('/cars/cybertruck.png')},
-  {id:'wrangler',      name:'Wrangler',           icon:_pi('/cars/wrangler.png'),      fn:_pc('/cars/wrangler.png')},
-  // ── Easter eggs ───────────────────────────────────────────────────────────
-  {id:'luigi',     name:'Luigi',     icon:'🟢', fn:makeLuigiIcon},
-  {id:'mario',     name:'Mario',     icon:'🔴', fn:makeMarioIcon},
-  {id:'pikachu',   name:'Pikachu',   icon:'⚡', fn:makePikachuIcon},
-  {id:'bowser',    name:'Bowser',    icon:'🐢', fn:makeBowserIcon},
-  {id:'peach',     name:'Peach',     icon:'👸', fn:makePeachIcon},
+  // ── 3D models (Kenney Car Kit) ───────────────────────────────────────────
+  {id:'sedan-sports',    name:'Sports Sedan',  emoji:'🏎️', model:'sedan-sports.glb',    fn:_d3Marker, d3:true},
+  {id:'race',            name:'Race Car',      emoji:'🏁', model:'race.glb',             fn:_d3Marker, d3:true},
+  {id:'race-future',     name:'Hypercar',      emoji:'🚀', model:'race-future.glb',      fn:_d3Marker, d3:true},
+  {id:'hatchback-sports',name:'Hot Hatch',     emoji:'🚗', model:'hatchback-sports.glb', fn:_d3Marker, d3:true},
+  {id:'sedan',           name:'Sedan',         emoji:'🚙', model:'sedan.glb',            fn:_d3Marker, d3:true},
+  {id:'suv',             name:'SUV',           emoji:'🚐', model:'suv.glb',              fn:_d3Marker, d3:true},
+  {id:'suv-luxury',      name:'Luxury SUV',    emoji:'🛻', model:'suv-luxury.glb',       fn:_d3Marker, d3:true},
+  {id:'taxi',            name:'Taxi',          emoji:'🚕', model:'taxi.glb',             fn:_d3Marker, d3:true},
+  {id:'police',          name:'Police',        emoji:'🚓', model:'police.glb',           fn:_d3Marker, d3:true},
+  {id:'van',             name:'Van',           emoji:'🚌', model:'van.glb',              fn:_d3Marker, d3:true},
+  {id:'delivery',        name:'Delivery',      emoji:'📦', model:'delivery.glb',         fn:_d3Marker, d3:true},
+  {id:'truck',           name:'Truck',         emoji:'🚚', model:'truck.glb',            fn:_d3Marker, d3:true},
+  {id:'ambulance',       name:'Ambulance',     emoji:'🚑', model:'ambulance.glb',        fn:_d3Marker, d3:true},
+  {id:'firetruck',       name:'Fire Truck',    emoji:'🚒', model:'firetruck.glb',        fn:_d3Marker, d3:true},
+  {id:'garbage-truck',   name:'Garbage Truck', emoji:'🗑️', model:'garbage-truck.glb',   fn:_d3Marker, d3:true},
+  {id:'tractor',         name:'Tractor',       emoji:'🚜', model:'tractor.glb',          fn:_d3Marker, d3:true},
+  // ── Easter eggs (emoji sprites) ──────────────────────────────────────────
+  {id:'luigi',     name:'Luigi',     emoji:'🟢', fn:makeLuigiIcon},
+  {id:'mario',     name:'Mario',     emoji:'🔴', fn:makeMarioIcon},
+  {id:'pikachu',   name:'Pikachu',   emoji:'⚡', fn:makePikachuIcon},
+  {id:'bowser',    name:'Bowser',    emoji:'🐢', fn:makeBowserIcon},
+  {id:'peach',     name:'Peach',     emoji:'👸', fn:makePeachIcon},
 ];
+// Migrate legacy selections (old PNG ids) → default 3D car
 let selectedCar=localStorage.getItem('selectedCar')??(CARS[0].id);
-function getCarFn(){ return CARS.find(c=>c.id===selectedCar)?.fn ?? makeLuigiIcon; }
+if(!CARS.some(c=>c.id===selectedCar)) selectedCar=CARS[0].id;
+function currentCar(){ return CARS.find(c=>c.id===selectedCar); }
+function getCarFn(){ return currentCar()?.fn ?? _d3Marker; }
 
 function makeUserIcon(gpsHdg=0){ return getCarFn()(gpsHdg); }
 
-/* ── Car picker ──────────────────────────────── */
+// Push the current selection to the on-map 3D car layer.
+function applyCarSelection(){
+  const car=currentCar();
+  if(car&&car.d3){ window.Car3D?.setModel(car.model); window.Car3D?.show(); }
+  else window.Car3D?.hide();
+}
+
+/* ── Garage: 3D showroom + car chips ─────────────── */
+let _showroom=null;
 (()=>{
   const grid=$$('car-grid'); if(!grid) return;
+  const canvas=$$('car-showroom-canvas');
+  const nameEl=$$('car-showroom-name');
+  function showName(){ const c=currentCar(); if(nameEl) nameEl.textContent=c?c.name:''; }
+  function mount(){
+    if(_showroom||!window.Car3D||!canvas) return;
+    _showroom=window.Car3D.mountShowroom(canvas);
+    const c=currentCar(); if(c&&c.model) _showroom.setModel(c.model);
+  }
+  // The module is deferred; retry until it's ready.
+  let tries=0; const iv=setInterval(()=>{ mount(); if(_showroom||++tries>50) clearInterval(iv); },100);
+  mount(); showName();
+
   CARS.forEach(car=>{
     const btn=document.createElement('button');
     btn.className='car-pick-btn'+(car.id===selectedCar?' active':'');
     btn.dataset.carid=car.id;
-    btn.innerHTML=`<div class="car-pick-preview">${car.icon}</div><span>${car.name}</span>`;
+    btn.innerHTML=`<div class="car-pick-preview">${car.emoji||'🚗'}</div><span>${car.name}</span>`;
     btn.addEventListener('click',()=>{
       selectedCar=car.id;
       localStorage.setItem('selectedCar',car.id);
       document.querySelectorAll('.car-pick-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
-      // Recreate marker with new car
+      showName();
+      if(car.model) _showroom?.setModel(car.model);
+      applyCarSelection();
+      // Recreate marker with new car (emoji cars need fresh DOM; 3D just swaps model)
       if(userMarker&&prevPos){
         const ll=userMarker.getLngLat();
         userMarker.remove(); userMarker=null;
@@ -2599,6 +2626,8 @@ function makeUserMarker(lat,lng,gpsHdg=0){
   const el=document.createElement('div');
   el.innerHTML=makeUserIcon(gpsHdg).html;
   el.style.zIndex='9999';
+  window.Car3D?.setPos(lng,lat,gpsHdg);
+  applyCarSelection();
   return new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([lng,lat]);
 }
 
