@@ -172,7 +172,8 @@ const MIDEAST_REGION = { type:'Polygon', coordinates:[[
   [34.8747,29.5355],[34.6967,30.1071],[34.5242,30.4091],[34.3978,30.8667],
   [34.2362,31.2922],[34.2121,31.3208],[33.9999,31.4521],[34.6756,33.4544]
 ]] };
-const MIDEAST_PMTILES = 'pmtiles://' + location.origin + '/tiles/me.pmtiles';
+// ?v bumps whenever me.pmtiles is rebuilt, to bust the 24h browser cache.
+const MIDEAST_PMTILES = 'pmtiles://' + location.origin + '/tiles/me.pmtiles?v=2';
 
 // Register the pmtiles:// protocol once so MapLibre can read byte ranges from R2.
 if(window.pmtiles && !window._pmtilesReg){
@@ -2618,7 +2619,8 @@ let _showroom=null;
     const btn=document.createElement('button');
     btn.className='car-pick-btn'+(car.id===selectedCar?' active':'');
     btn.dataset.carid=car.id;
-    btn.innerHTML=`<div class="car-pick-preview">${car.emoji||'🚗'}</div><span>${car.name}</span>`;
+    // Rendered thumbnail of the actual model (falls back to emoji if missing)
+    btn.innerHTML=`<div class="car-pick-preview"><img class="car-pick-img" src="/carthumbs/${car.id}.png" alt="" loading="lazy" onerror="this.remove();this.parentNode.textContent='${car.emoji||'🚗'}'"></div><span>${car.name}</span>`;
     btn.addEventListener('click',()=>{
       selectedCar=car.id;
       localStorage.setItem('selectedCar',car.id);

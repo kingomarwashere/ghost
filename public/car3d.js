@@ -38,7 +38,7 @@ const MODEL_CFG = {
   'plane-liner.glb': { normalize: true, sizeMul: 2.3, lift: 40, yaw: 0 },
   'plane-paper.glb': { normalize: true, sizeMul: 1.3, lift: 22, yaw: 180 },
   // Novelty + realistic
-  'food/eggplant.glb':    { normalize: true, sizeMul: 1.0, yaw: 0 },
+  'food/eggplant.glb':    { normalize: true, sizeMul: 1.35, pitch: -90, yaw: 0 }, // lie flat, tip forward
   'ferrari.glb':     { normalize: true, sizeMul: 1.3, yaw: 0 },
   // Realistic fleet (Sketchfab, CC-BY) — normalized; yaw tuned per model
   'sk-pony.glb':       { normalize: true, sizeMul: 1.1,  yaw: 0 },
@@ -150,12 +150,13 @@ function faceTexture(kind) {
   return tex;
 }
 function addFaceSprite(group, kind) {
-  const mat = new THREE.SpriteMaterial({ map: faceTexture(kind), transparent: true, depthTest: true, depthWrite: false });
-  const sp = new THREE.Sprite(mat);
-  sp.scale.set(0.86, 1.08, 1);        // bust aspect (120x150)
-  sp.position.set(0, 0.42, -0.04);    // seated in the kart, head up top
-  sp.renderOrder = 999;
-  group.add(sp);
+  // A forward-facing plane (NOT a billboard) so the character turns WITH the kart
+  // and faces the driving direction. Double-sided so it's visible from behind too.
+  const mat = new THREE.MeshBasicMaterial({ map: faceTexture(kind), transparent: true, side: THREE.DoubleSide, depthWrite: false, toneMapped: false });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 1.08), mat);
+  mesh.position.set(0, 0.42, -0.02);  // seated at head height, facing +Z (kart forward)
+  mesh.renderOrder = 5;
+  group.add(mesh);
 }
 
 function loadModel(file) {
@@ -165,10 +166,20 @@ function loadModel(file) {
         const cfg = cfgOf(file);
         let out = gltf.scene;
 
+        // Per-model orientation FIRST (pitch = rotate-X e.g. lay a model down,
+        // yaw = rotate-Y). Applied before normalize so bounds/ground-sit are right.
+        if (cfg.pitch || cfg.yaw) {
+          const g = new THREE.Group();
+          g.add(out);
+          if (cfg.pitch) g.rotation.x = cfg.pitch * Math.PI / 180;
+          if (cfg.yaw)   g.rotation.y = cfg.yaw * Math.PI / 180;
+          out = g;
+        }
         // Auto-normalize off-scale models (planes come in from ~2 to ~1600 units):
         // scale the longest horizontal dimension to a canonical footprint, centre
         // it on x/z and sit it on the ground.
         if (cfg.normalize) {
+          out.updateMatrixWorld(true);
           const box = new THREE.Box3().setFromObject(out);
           const size = box.getSize(new THREE.Vector3());
           const ctr = box.getCenter(new THREE.Vector3());
@@ -178,13 +189,6 @@ function loadModel(file) {
           const g = new THREE.Group();
           g.add(out);
           g.scale.setScalar(s);
-          out = g;
-        }
-        // Per-model orientation offset
-        if (cfg.yaw) {
-          const g = new THREE.Group();
-          g.add(out);
-          g.rotation.y = cfg.yaw * Math.PI / 180;
           out = g;
         }
 
@@ -380,6 +384,9 @@ function mountShowroom(canvas) {
   return {
     setModel,
     resize,
+    setSpin(v) { spin = v; },
+    setYaw(v) { yaw = v; },
+    render() { renderer.render(scene, camera); },
     dispose() {
       if (raf) cancelAnimationFrame(raf);
       window.removeEventListener('mousemove', onMove);
