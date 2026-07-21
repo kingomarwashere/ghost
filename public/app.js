@@ -2578,11 +2578,11 @@ const CARS=[
   // ── Novelty ──────────────────────────────────────────────────────────────
   {id:'eggplant',        name:'Eggplant',      emoji:'🍆', model:'food/eggplant.glb',         fn:_d3Marker, d3:true},
   // ── Karts (tinted 3D karts + character faces — set in car3d.js) ───────────
-  {id:'mario',     name:'Mario',     emoji:'🔴', model:'kart-oodi.glb', fn:_d3Marker, d3:true},
-  {id:'luigi',     name:'Luigi',     emoji:'🟢', model:'kart-oobi.glb', fn:_d3Marker, d3:true},
-  {id:'peach',     name:'Peach',     emoji:'👸', model:'kart-oopi.glb', fn:_d3Marker, d3:true},
-  {id:'bowser',    name:'Bowser',    emoji:'🐢', model:'kart-oozi.glb', fn:_d3Marker, d3:true},
-  {id:'pikachu',   name:'Pikachu',   emoji:'⚡', model:'kart-ooli.glb', fn:_d3Marker, d3:true},
+  {id:'mario',     name:'Mario',     emoji:'🔴', model:'char-mario.glb', fn:_d3Marker, d3:true},
+  {id:'luigi',     name:'Luigi',     emoji:'🟢', model:'char-luigi.glb', fn:_d3Marker, d3:true},
+  {id:'peach',     name:'Peach',     emoji:'👸', model:'char-peach.glb', fn:_d3Marker, d3:true},
+  {id:'bowser',    name:'Bowser',    emoji:'🐢', model:'char-bowser.glb', fn:_d3Marker, d3:true},
+  {id:'pikachu',   name:'Pikachu',   emoji:'⚡', model:'char-pikachu.glb', fn:_d3Marker, d3:true},
 ];
 // Migrate legacy selections (old PNG ids) → default 3D car
 let selectedCar=localStorage.getItem('selectedCar')??(CARS[0].id);

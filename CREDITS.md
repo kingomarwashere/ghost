@@ -30,3 +30,17 @@ credit for commercial use. Before go-live, add a "3D models by …" credits
 screen listing these authors + a link to their Sketchfab profiles.
 (CC-BY-NC models like the Lamborghini Terzo were deliberately NOT used —
 they forbid commercial use.)
+
+### Characters (Sketchfab, CC-BY) — Nintendo/Pokémon fan models
+
+| In-app | File               | Model / Author                                        |
+|--------|--------------------|-------------------------------------------------------|
+| Mario  | char-mario.glb     | Paper Mario Standing Pose — yakkoandwakko             |
+| Luigi  | char-luigi.glb     | Mario Party 9 Luigi — lucasvicente2009                |
+| Peach  | char-peach.glb     | Super Mario Sunshine Princess Peach — jkimmel694      |
+| Bowser | char-bowser.glb    | Super Mario Sunshine Bowser — Onilixium               |
+| Pikachu| char-pikachu.glb   | Pikachu — CuteLeaf                                    |
+
+NOTE: these depict Nintendo/Pokémon characters (Nintendo IP). The Sketchfab
+uploads are CC-BY, but the underlying characters are trademarked — only ship
+these with proper rights/clearance.

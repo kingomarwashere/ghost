@@ -27,12 +27,12 @@ const CANON = 2.6;
 // normalize (auto scale/centre off-scale models), sizeMul (relative size),
 // lift (hover altitude, metres), yaw (orientation offset, degrees).
 const MODEL_CFG = {
-  // Character karts — tinted body + real character face
-  'kart-oodi.glb': { tint: '#ef4444', face: 'mario' },
-  'kart-oobi.glb': { tint: '#22c55e', face: 'luigi' },
-  'kart-oopi.glb': { tint: '#f9a8d4', face: 'peach' },
-  'kart-oozi.glb': { tint: '#22a04a', face: 'bowser' },
-  'kart-ooli.glb': { tint: '#facc15', face: 'pikachu' },
+  // Real 3D characters (Sketchfab) — scaled by height, not footprint
+  'char-mario.glb':   { normalize: true, normMode: 'height', sizeMul: 0.82, yaw: 0 },
+  'char-luigi.glb':   { normalize: true, normMode: 'height', sizeMul: 0.82, yaw: 0 },
+  'char-peach.glb':   { normalize: true, normMode: 'height', sizeMul: 0.85, yaw: 0 },
+  'char-bowser.glb':  { normalize: true, normMode: 'height', sizeMul: 1.0,  yaw: 0 },
+  'char-pikachu.glb': { normalize: true, normMode: 'height', sizeMul: 0.8,  yaw: 0 },
   // Planes — normalize (varied source scales); they hover
   'plane-prop.glb':  { normalize: true, sizeMul: 1.9, lift: 32, yaw: 0 },
   'plane-liner.glb': { normalize: true, sizeMul: 2.3, lift: 40, yaw: 0 },
@@ -183,8 +183,9 @@ function loadModel(file) {
           const box = new THREE.Box3().setFromObject(out);
           const size = box.getSize(new THREE.Vector3());
           const ctr = box.getCenter(new THREE.Vector3());
-          const horiz = Math.max(size.x, size.z) || 1;
-          const s = (CANON * (cfg.sizeMul || 1)) / horiz;
+          // Characters are tall & narrow — scale by height; vehicles by footprint.
+          const ref = (cfg.normMode === 'height' ? size.y : Math.max(size.x, size.z)) || 1;
+          const s = (CANON * (cfg.sizeMul || 1)) / ref;
           out.position.set(-ctr.x, -box.min.y, -ctr.z);
           const g = new THREE.Group();
           g.add(out);
@@ -310,7 +311,7 @@ function swapModel(file) {
 //  SHOWROOM — standalone spinning preview (garage)
 // ═══════════════════════════════════════════════════════════════════════════
 function mountShowroom(canvas) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const scene = new THREE.Scene();
   addLights(scene);
