@@ -1225,9 +1225,11 @@ Object.entries(toggleMap).forEach(([id,key])=>{
     t.checked=!!prefs.accelTimer;
     t.addEventListener('change',()=>{ prefs.accelTimer=t.checked; savePrefs();
       const row=$$('accel-range-row'); if(row) row.style.display=t.checked?'':'none';
-      if(!t.checked) $$('accel-timer')?.classList.add('hidden');
+      if(!t.checked){ accelReset(); }
+      ensureAccelWatch(); // start/stop the standalone GPS watch for the timer
     });
     const row=$$('accel-range-row'); if(row) row.style.display=t.checked?'':'none';
+    if(prefs.accelTimer) setTimeout(()=>ensureAccelWatch(), 1500); // resume watch on load if enabled
   }
   document.querySelectorAll('.accel-range-btn').forEach(btn=>{
     btn.classList.toggle('active',btn.dataset.range===prefs.accelRange);
@@ -2329,6 +2331,7 @@ function startNav(){
 
   if(watchId!=null) navigator.geolocation.clearWatch(watchId);
   watchId=navigator.geolocation.watchPosition(onGPS,gpsErr,{enableHighAccuracy:true,maximumAge:0,timeout:10000});
+  ensureAccelWatch(); // nav's onGPS now feeds the accel timer — stop the standalone watch
   updateNavPanel();
   dingChime();
 }
@@ -2336,6 +2339,7 @@ function startNav(){
 function endNav(){
   navState='idle';
   if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null;}
+  ensureAccelWatch(); // resume the standalone accel watch if the timer is on
   [navInst,navFooter,alertBar,arrivalOverlay,$$('nav-search-sheet'),$$('nav-routes-sheet')].forEach(el=>el?.classList.add('hidden'));
   updateRouteWarn(null);
   window.Game?.onDriveEnd(gta.score); // daily "drives"/"bestScore" + auto-stop recording
@@ -2832,34 +2836,74 @@ function makeUserMarker(lat,lng,gpsHdg=0){
    Measures time to accelerate through a speed window. Runs while navigating.
 ═══════════════════════════════════════════════ */
 const ACCEL_RANGES = {'0-60':[0,60],'0-100':[0,100],'0-160':[0,160],'40-150':[40,150],'60-160':[60,160],'100-200':[100,200]};
-let _ax = {timing:false, t0:0, prev:0, live:0};
+let _ax = {timing:false, t0:0, prevKmh:0, prevT:0, raf:null};
 function accelBest(range){ return parseFloat(localStorage.getItem('accelBest_'+range)||'')||null; }
-function accelReset(){ _ax.timing=false; _ax.prev=0; $$('accel-timer')?.classList.add('hidden'); }
+function accelReset(){ _ax.timing=false; _ax.prevKmh=0; _ax.prevT=0; _accelStopLive(); $$('accel-timer')?.classList.add('hidden'); }
+
+// Smooth live counter — GPS is only ~1 Hz, so tick the displayed time on rAF.
+function _accelStartLive(){
+  if(_ax.raf) return;
+  const step=()=>{ if(!_ax.timing){ _ax.raf=null; return; } renderAccel('live',(performance.now()-_ax.t0)/1000,false); _ax.raf=requestAnimationFrame(step); };
+  _ax.raf=requestAnimationFrame(step);
+}
+function _accelStopLive(){ if(_ax.raf){ cancelAnimationFrame(_ax.raf); _ax.raf=null; } }
+
 function accelTick(speedMs){
   const el=$$('accel-timer'); if(!prefs.accelTimer||!el) return;
   const [lo,hi]=ACCEL_RANGES[prefs.accelRange]||[0,100];
-  const kmh=speedMs*3.6;
+  const kmh=(speedMs||0)*3.6;
   const startLine=Math.max(lo,1);
   const now=performance.now();
+  const pk=_ax.prevKmh, pt=_ax.prevT||now;
+
   if(!_ax.timing){
-    if(_ax.prev<startLine && kmh>=startLine){ _ax.timing=true; _ax.t0=now; _ax.live=0; }
+    // Crossed the start line going up → interpolate the exact launch instant
+    if(pk<startLine && kmh>=startLine){
+      const f=(startLine-pk)/((kmh-pk)||1);
+      _ax.t0=pt+f*(now-pt);
+      _ax.timing=true;
+      _accelStartLive();
+    }
   } else {
-    _ax.live=(now-_ax.t0)/1000;
     if(kmh>=hi){
-      const t=(now-_ax.t0)/1000; _ax.timing=false;
+      // Crossed the finish line → interpolate the exact finish instant
+      const f=(hi-pk)/((kmh-pk)||1);
+      const t=(pt+f*(now-pt)-_ax.t0)/1000;
+      _ax.timing=false; _accelStopLive();
       const best=accelBest(prefs.accelRange);
       const isBest=!best||t<best;
       if(isBest) localStorage.setItem('accelBest_'+prefs.accelRange,t.toFixed(2));
       renderAccel('done',t,isBest);
       if(prefs.haptic&&navigator.vibrate) navigator.vibrate(isBest?[80,40,80,40,160]:[120]);
-      _ax.prev=kmh;
-      clearTimeout(_ax._hide); _ax._hide=setTimeout(()=>{ if(!_ax.timing) $$('accel-timer')?.classList.add('hidden'); },6000);
+      _ax.prevKmh=kmh; _ax.prevT=now;
+      clearTimeout(_ax._hide); _ax._hide=setTimeout(()=>{ if(!_ax.timing) $$('accel-timer')?.classList.add('hidden'); },7000);
       return;
     }
-    if(kmh<startLine-3){ _ax.timing=false; el.classList.add('hidden'); }
+    // Aborted — slowed well below the start line
+    if(kmh<startLine-3){ _ax.timing=false; _accelStopLive(); el.classList.add('hidden'); }
   }
-  _ax.prev=kmh;
-  if(_ax.timing) renderAccel('live',_ax.live,false);
+  _ax.prevKmh=kmh; _ax.prevT=now;
+}
+
+// Keep a GPS watch alive for the accel timer even when NOT navigating, so you
+// can just floor it and time a run without setting a route.
+let accelWatchId=null, _accelPrev=null;
+function _accelSpeed(pos){
+  const {latitude:lat,longitude:lng,speed}=pos.coords;
+  let sp=speed;
+  if(sp==null||isNaN(sp)){
+    if(_accelPrev){ const dt=(pos.timestamp-_accelPrev.ts)/1000; if(dt>0) sp=haversine(_accelPrev.lat,_accelPrev.lng,lat,lng)/dt; }
+  }
+  _accelPrev={lat,lng,ts:pos.timestamp};
+  accelTick(sp||0);
+}
+function ensureAccelWatch(){
+  const want = prefs.accelTimer && navState!=='navigating';
+  if(want && accelWatchId==null){
+    try{ accelWatchId=navigator.geolocation.watchPosition(_accelSpeed,()=>{},{enableHighAccuracy:true,maximumAge:0,timeout:12000}); }catch(_){}
+  } else if(!want && accelWatchId!=null){
+    navigator.geolocation.clearWatch(accelWatchId); accelWatchId=null; _accelPrev=null;
+  }
 }
 function renderAccel(state,t,isBest){
   const el=$$('accel-timer'); if(!el) return;
