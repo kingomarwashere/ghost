@@ -59,13 +59,16 @@ race.post('/:code/join', async (c) => {
   });
 });
 
-// POST /api/race/:code/start — host drops the flag
+// POST /api/race/:code/start — host drops the flag: sets a synced GO timestamp
+// (a few seconds in the future) so both clients count down 3-2-1-GO together.
 race.post('/:code/start', async (c) => {
   await ensureSchema(c.env.DB);
   const code = c.req.param('code').toUpperCase();
-  await c.env.DB.prepare(`UPDATE races SET status='racing', started_at=? WHERE code=? AND status='waiting'`)
-    .bind(Date.now(), code).run();
-  return c.json({ ok: true });
+  const startAt = Date.now() + 4200; // GO moment
+  await c.env.DB.prepare(`UPDATE races SET status='racing', started_at=? WHERE code=? AND (status='waiting' OR started_at IS NULL)`)
+    .bind(startAt, code).run();
+  const r = await c.env.DB.prepare(`SELECT started_at FROM races WHERE code=?`).bind(code).first<any>();
+  return c.json({ ok: true, started_at: r?.started_at ?? startAt });
 });
 
 // POST /api/race/:code/update — push my live position/progress

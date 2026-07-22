@@ -17,7 +17,8 @@ const MODEL_DIR = '/cars3d/';
 const TUNE = {
   scaleMeters: 4.5,   // apparent car length in metres on the map (smaller = tidier)
   baseDeg: 180,       // model faces +Z; align "forward" with north-up
-  sign: 1,            // heading rotation direction
+  sign: -1,           // heading rotation direction (−1 counters the mercator Y-flip)
+  refZoom: 18.4,      // car keeps a steady screen size around this zoom
 };
 
 // Normalized footprint (map units) for models that need auto-scaling.
@@ -290,7 +291,10 @@ function makeCustomLayer(map) {
       if (!player.visible || !player.pivot) { return; }
       const Merc = MERC();
       const merc = Merc.fromLngLat([player.lng, player.lat], player.lift || 0);
-      const s = merc.meterInMercatorCoordinateUnits() * TUNE.scaleMeters;
+      // Keep the car a steady on-screen size as the map zooms with speed
+      // (map screen-scale ∝ 2^zoom, so counter it around a reference zoom).
+      const zoomComp = Math.min(2.0, Math.max(0.45, Math.pow(2, TUNE.refZoom - player.map.getZoom())));
+      const s = merc.meterInMercatorCoordinateUnits() * TUNE.scaleMeters * zoomComp;
       const headingRad = (TUNE.sign * player.headingDeg + TUNE.baseDeg) * Math.PI / 180;
       const l = new THREE.Matrix4()
         .makeTranslation(merc.x, merc.y, merc.z)

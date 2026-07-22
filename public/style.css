@@ -1898,3 +1898,18 @@ body.previewing #rec-fab { display: none; }
   color: #fff; font-weight: 700; font-size: .85rem; opacity: 0; pointer-events: none; transition: all .3s;
 }
 #race-toast.show { opacity: 1; transform: translate(-50%,0); }
+
+/* Race countdown */
+#race-countdown {
+  position: fixed; inset: 0; z-index: 6000; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; background: rgba(0,0,0,.35);
+}
+#race-countdown.hidden { display: none; }
+.cd-num {
+  font-size: 9rem; font-weight: 900; color: #fff; line-height: 1;
+  text-shadow: 0 0 40px rgba(255,0,153,.9), 0 6px 20px rgba(0,0,0,.8);
+  font-family: inherit;
+}
+.cd-go { color: #4ade80; text-shadow: 0 0 50px rgba(74,222,128,.95), 0 6px 20px rgba(0,0,0,.8); }
+.cd-pop { animation: cdPop .5s ease-out; }
+@keyframes cdPop { 0% { transform: scale(2.2); opacity: 0 } 30% { transform: scale(1); opacity: 1 } 100% { transform: scale(.8); opacity: .5 } }

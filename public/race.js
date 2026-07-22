@@ -35,9 +35,11 @@
             <button id="race-share" class="race-btn">📤 Share</button>
           </div>
           <div id="race-players" class="race-players"></div>
-          <div class="race-hint">They join, you both hit <b>Go now</b> and floor it.</div>
+          <button id="race-start-btn" class="race-btn race-btn-pink" style="width:100%;margin-top:6px;display:none">🚦 START RACE</button>
+          <div id="race-hint" class="race-hint">Share the code — a START button appears once they join.</div>
         </div>
       </div>
+      <div id="race-countdown" class="hidden"></div>
       <div id="race-vs" class="hidden">
         <div class="race-vs-title">🏁 <span id="race-vs-name">Race</span></div>
         <div class="race-vs-row" data-who="me"><span class="race-vs-lbl" id="race-vs-me-lbl">You</span><div class="race-vs-bar"><span id="race-vs-me"></span></div><span class="race-vs-d" id="race-vs-me-d">–</span></div>
@@ -55,7 +57,38 @@
     $('race-invite-close').onclick = () => $('race-invite').classList.add('hidden');
     $('race-copy').onclick = copyLink;
     $('race-share').onclick = shareLink;
+    $('race-start-btn').onclick = startRace;
     $('race-result-close').onclick = () => $('race-result').classList.add('hidden');
+  }
+
+  async function startRace() {
+    if (!race) return;
+    $('race-start-btn').disabled = true;
+    const res = await api(`/${race.code}/start`, {});
+    if (res.started_at) beginCountdown(res.started_at);
+  }
+
+  // Synced 3-2-1-GO countdown, then auto-launch nav for both racers.
+  function beginCountdown(startAt) {
+    if (race.cdActive) return;
+    race.cdActive = true; race.startAt = startAt;
+    $('race-invite')?.classList.add('hidden');
+    const cd = $('race-countdown'); cd.classList.remove('hidden');
+    let lastShown = null;
+    const tick = () => {
+      const left = (race.startAt - Date.now()) / 1000;
+      if (left > 0.05) {
+        const n = Math.ceil(left);
+        cd.textContent = n; cd.className = 'cd-num';
+        if (n !== lastShown) { lastShown = n; void cd.offsetWidth; cd.classList.add('cd-pop'); if (window.prefs?.haptic && navigator.vibrate) navigator.vibrate(40); }
+        setTimeout(tick, 90);
+      } else {
+        cd.textContent = 'GO!'; cd.className = 'cd-num cd-go';
+        if (!race.launched) { race.launched = true; B()?.go?.(); if (window.prefs?.haptic && navigator.vibrate) navigator.vibrate([80, 40, 160]); }
+        setTimeout(() => cd.classList.add('hidden'), 1000);
+      }
+    };
+    tick();
   }
 
   const link = () => `${location.origin}/?race=${race?.code}`;
@@ -120,9 +153,12 @@
     _lastPoll = Date.now();
     let s; try { s = await api(`/${race.code}`); } catch { schedulePoll(); return; }
     if (!s || s.error) { schedulePoll(); return; }
+    race.host_id = s.host_id;
     const me = s.players.find(p => p.player_id === race.playerId);
     const opp = s.players.find(p => p.player_id !== race.playerId);
     if ($('race-invite') && !$('race-invite').classList.contains('hidden')) renderPlayers(s.players);
+    // Host pressed START → synced countdown for everyone
+    if (s.started_at && Date.now() < s.started_at + 1500 && !race.cdActive && !race.launched) beginCountdown(s.started_at);
     updateVs(me, opp);
     updateOppMarker(opp);
     if (s.winner_id && !race.resultShown) showResult(s.winner_id === race.playerId, opp);
@@ -132,15 +168,23 @@
   function schedulePoll() {
     clearTimeout(_pt);
     if (!race || race.resultShown) return;
-    // poll faster while racing, slower while waiting in the lobby
+    // poll faster while racing / in the lobby so START is caught for a full countdown
     const racing = B()?.navState() === 'navigating';
-    _pt = setTimeout(poll, racing ? 2200 : 3500);
+    _pt = setTimeout(poll, racing ? 2200 : 1400);
   }
 
   function renderPlayers(players) {
     const box = $('race-players'); if (!box) return;
-    if (!players.length) { box.innerHTML = '<div class="race-wait">Waiting for a challenger…</div>'; return; }
-    box.innerHTML = players.map(p => `<div class="race-player">${p.player_id === race.playerId ? '🫵' : '🏎️'} ${escapeHtml(p.name || 'Racer')}${p.player_id === race.host_id ? ' <span class="race-host">host</span>' : ''}</div>`).join('');
+    box.innerHTML = players.length
+      ? players.map(p => `<div class="race-player">${p.player_id === race.playerId ? '🫵' : '🏎️'} ${escapeHtml(p.name || 'Racer')}${p.player_id === race.host_id ? ' <span class="race-host">host</span>' : ''}</div>`).join('')
+      : '<div class="race-wait">Waiting for a challenger…</div>';
+    const startBtn = $('race-start-btn');
+    if (startBtn) {
+      const ready = race.isHost && players.length >= 2 && !race.cdActive;
+      startBtn.style.display = ready ? 'block' : 'none';
+      startBtn.disabled = false;
+      if (ready && $('race-hint')) $('race-hint').textContent = 'Everyone in? Hit START — 3·2·1·GO for both of you.';
+    }
   }
 
   // ── VS bar ────────────────────────────────────────────────────────────────

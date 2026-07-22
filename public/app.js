@@ -1895,6 +1895,10 @@ window.ghostRace = {
   car(){ return localStorage.getItem('selectedCar')||''; },
   // Set a destination and show the route preview (used when joining a race)
   routeTo(lat,lng,name){ toPlace={lat,lng,name:name||'Finish'}; if(typeof toInput!=='undefined'&&toInput){toInput.value=toPlace.name;toClear.classList.remove('hidden');} tryRoute(); },
+  // Ready to launch? (route calculated, not already driving)
+  canGo(){ return !!routeData && routePoints.length>0 && navState!=='navigating'; },
+  // Auto-launch navigation at "GO!" (both racers start together)
+  go(){ if(routeData && routePoints.length && navState!=='navigating') startNav(); },
 };
 
 /* ═══════════════════════════════════════════════
@@ -2366,10 +2370,10 @@ function gpsErr(e){console.warn('GPS',e.code,e.message);}
 /* ── Auto-zoom + look-ahead per zoom level ──────── */
 function targetNavZoom(speedMs){
   const kmh=speedMs*3.6;
-  if(perspective3D) return kmh>70?18:20;
-  if(kmh>75) return 16;
-  if(kmh>35) return 17;
-  return 18;
+  if(perspective3D) return kmh>70?18:18.8; // gentle zoom change (car size held steady in car3d.js)
+  if(kmh>75) return 16.5;
+  if(kmh>35) return 17.2;
+  return 17.8;
 }
 // Max look-ahead in metres per zoom level (keeps car visible in lower third of screen)
 const LOOK_CAP={15:900,16:500,17:220,18:90,19:50};
@@ -3088,8 +3092,12 @@ function updateTrafficOverlay(points){
 // Severity of congestion the driver is currently inside (0 none, 1 slow, 2 heavy).
 function currentCongestionSev(lat,lng){
   let sev=0;
+  // Tight radius so the glow only fires when you're genuinely on top of a jam
+  // (heavy gets a slightly wider reach than a minor slowdown).
   for(const s of congestionSources()){
-    if(haversine(lat,lng,s.lat,s.lng)<110) sev=Math.max(sev, s.sev==='heavy'?2:1);
+    const d=haversine(lat,lng,s.lat,s.lng);
+    if(s.sev==='heavy'){ if(d<75) sev=Math.max(sev,2); }
+    else if(d<45) sev=Math.max(sev,1);
   }
   return sev;
 }
