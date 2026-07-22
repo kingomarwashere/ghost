@@ -1,0 +1,88 @@
+/* Shared styling for Ghost SEO/content pages — matches the app's dark theme */
+:root{
+  --bg:#0a0a0a; --surface:#111; --surface2:#1a1a1a; --border:rgba(255,255,255,.09);
+  --text:#f8fafc; --muted:#94a3b8; --dim:#64748b; --accent:#ff0099; --accent-dark:#cc007a;
+  --green:#34d399; --amber:#fbbf24; --font:'Roboto Mono','SF Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; font-family:var(--font); background:var(--bg); color:var(--text);
+  line-height:1.7; -webkit-font-smoothing:antialiased; font-size:16px;
+}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* Header */
+.site-head{
+  position:sticky; top:0; z-index:10; display:flex; align-items:center; justify-content:space-between;
+  padding:14px 20px; background:rgba(6,6,6,.86); backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+}
+.site-head .logo{font-weight:900; letter-spacing:.18em; color:var(--accent); font-size:1.1rem}
+.site-head .cta{
+  padding:8px 16px; border-radius:999px; background:var(--accent); color:#fff;
+  font-weight:700; font-size:.8rem; letter-spacing:.03em;
+}
+.site-head .cta:hover{background:var(--accent-dark); text-decoration:none}
+
+/* Layout */
+main{max-width:760px; margin:0 auto; padding:32px 20px 80px}
+.crumb{font-size:.75rem; color:var(--dim); margin-bottom:20px; letter-spacing:.03em}
+.crumb a{color:var(--muted)}
+h1{font-size:2rem; line-height:1.2; margin:.2em 0 .4em; letter-spacing:-.01em}
+h1 .accent{color:var(--accent)}
+.lede{font-size:1.08rem; color:var(--muted); margin-bottom:2em}
+h2{font-size:1.35rem; margin:2.2em 0 .6em; padding-top:.4em; border-top:1px solid var(--border)}
+h3{font-size:1.05rem; margin:1.6em 0 .4em; color:var(--text)}
+p,li{color:#dbe2ea}
+ul,ol{padding-left:1.3em}
+li{margin:.35em 0}
+strong{color:#fff}
+
+/* Cards / table */
+.card{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin:1.2em 0}
+.card h3{margin-top:0}
+table{width:100%; border-collapse:collapse; margin:1.2em 0; font-size:.92rem}
+th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:top}
+th{color:var(--accent); font-size:.8rem; text-transform:uppercase; letter-spacing:.05em}
+.tag{display:inline-block; padding:2px 9px; border-radius:999px; font-size:.72rem; font-weight:700}
+.tag.fixed{background:rgba(255,0,153,.15); color:#ff7ac6}
+.tag.mobile{background:rgba(251,191,36,.15); color:var(--amber)}
+
+/* FAQ */
+.faq details{border:1px solid var(--border); border-radius:12px; padding:2px 16px; margin:.6em 0; background:var(--surface)}
+.faq summary{cursor:pointer; font-weight:700; padding:14px 0; list-style:none}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:'+'; float:right; color:var(--accent); font-weight:900}
+.faq details[open] summary::after{content:'–'}
+.faq details[open] summary{border-bottom:1px solid var(--border)}
+.faq details p{padding:12px 0}
+
+/* CTA block */
+.cta-block{
+  margin:2.6em 0 1em; padding:28px 24px; border-radius:18px; text-align:center;
+  background:linear-gradient(135deg,rgba(255,0,153,.14),rgba(255,0,153,.04));
+  border:1px solid rgba(255,0,153,.3);
+}
+.cta-block h2{border:none; margin:0 0 .3em; padding:0}
+.cta-block p{color:var(--muted); margin:0 0 1.2em}
+.cta-block a.big{
+  display:inline-block; padding:13px 30px; border-radius:999px; background:var(--accent);
+  color:#fff; font-weight:800; letter-spacing:.03em; font-size:1rem;
+}
+.cta-block a.big:hover{background:var(--accent-dark); text-decoration:none}
+
+/* Related + footer */
+.related{display:grid; grid-template-columns:1fr; gap:12px; margin:1.4em 0}
+@media(min-width:560px){.related{grid-template-columns:1fr 1fr}}
+.related a{
+  display:block; padding:16px 18px; border-radius:14px; background:var(--surface);
+  border:1px solid var(--border); color:var(--text)
+}
+.related a:hover{border-color:var(--accent); text-decoration:none}
+.related a .r-k{color:var(--accent); font-size:.72rem; text-transform:uppercase; letter-spacing:.05em}
+.related a .r-t{display:block; margin-top:4px; font-weight:600}
+footer{max-width:760px; margin:0 auto; padding:28px 20px 60px; border-top:1px solid var(--border); color:var(--dim); font-size:.82rem}
+footer a{color:var(--muted)}
+.note{font-size:.82rem; color:var(--dim); border-left:2px solid var(--border); padding-left:14px; margin:1.6em 0}

@@ -1,0 +1,10 @@
+import { chromium } from 'playwright-core';
+const BRAVE = '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser';
+const browser = await chromium.launch({ executablePath: BRAVE, headless: true });
+const ctx = await browser.newContext({ viewport:{width:1200,height:630}, deviceScaleFactor:1 });
+const page = await ctx.newPage();
+await page.goto('file:///Users/maverick/ghost/tools/og-template.html');
+await page.waitForTimeout(1400);
+await page.screenshot({ path:'/Users/maverick/ghost/public/og.png' });
+await browser.close();
+console.log('og.png written');

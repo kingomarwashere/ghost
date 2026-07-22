@@ -1915,3 +1915,12 @@ body.previewing #rec-fab { display: none; }
 .cd-go { color: #4ade80; text-shadow: 0 0 50px rgba(74,222,128,.95), 0 6px 20px rgba(0,0,0,.8); }
 .cd-pop { animation: cdPop .5s ease-out; }
 @keyframes cdPop { 0% { transform: scale(2.2); opacity: 0 } 30% { transform: scale(1); opacity: 1 } 100% { transform: scale(.8); opacity: .5 } }
+
+/* Guide links in settings — internal links to SEO content pages */
+#guide-links{ display:flex; flex-direction:column; gap:2px; }
+#guide-links a{
+  color:var(--text); text-decoration:none; font-size:.86rem;
+  padding:9px 10px; border-radius:9px; opacity:.85;
+  transition:background .15s, opacity .15s;
+}
+#guide-links a:hover{ background:rgba(255,255,255,0.06); opacity:1; }

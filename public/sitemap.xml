@@ -7,8 +7,32 @@
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
     <image:image>
-      <image:loc>https://ghost.theradicalparty.com/icon-512.png</image:loc>
+      <image:loc>https://ghost.theradicalparty.com/og.png</image:loc>
       <image:title>Ghost — live police &amp; speed-camera map + free GPS navigation</image:title>
     </image:image>
+  </url>
+  <url>
+    <loc>https://ghost.theradicalparty.com/guide</loc>
+    <lastmod>2026-07-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ghost.theradicalparty.com/speed-cameras-sydney</loc>
+    <lastmod>2026-07-22</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ghost.theradicalparty.com/nsw-red-light-cameras</loc>
+    <lastmod>2026-07-22</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ghost.theradicalparty.com/how-police-alerts-work</loc>
+    <lastmod>2026-07-22</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
 </urlset>

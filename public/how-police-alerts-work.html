@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0a0a0a">
+<title>How Ghost's Live Police Alerts Work | Crowdsourced Reports Explained</title>
+<meta name="description" content="How Ghost's crowdsourced police and hazard alerts work — reporting, confirming, how long a report lasts, how you're warned on approach, and how the community keeps the map accurate.">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://ghost.theradicalparty.com/how-police-alerts-work">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Ghost">
+<meta property="og:title" content="How Ghost's Live Police Alerts Work">
+<meta property="og:description" content="Crowdsourced police and hazard reports, confirmations, expiry, and approach alerts — explained.">
+<meta property="og:url" content="https://ghost.theradicalparty.com/how-police-alerts-work">
+<meta property="og:image" content="https://ghost.theradicalparty.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://ghost.theradicalparty.com/og.png">
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;600;700;900&display=swap">
+<link rel="stylesheet" href="/seo.css">
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@graph":[
+    {"@type":"BreadcrumbList","itemListElement":[
+      {"@type":"ListItem","position":1,"name":"Ghost","item":"https://ghost.theradicalparty.com/"},
+      {"@type":"ListItem","position":2,"name":"Driver's Guide","item":"https://ghost.theradicalparty.com/guide"},
+      {"@type":"ListItem","position":3,"name":"How Police Alerts Work"}
+    ]},
+    {"@type":"HowTo","name":"How to report and get police alerts in Ghost","step":[
+      {"@type":"HowToStep","name":"Spot it","text":"See a police car, hazard, or camera on the road."},
+      {"@type":"HowToStep","name":"Report it","text":"Tap the report button and pick the type — police, hazard, crash, camera or traffic."},
+      {"@type":"HowToStep","name":"Others confirm","text":"Drivers who pass the same spot confirm or deny, keeping the map accurate."},
+      {"@type":"HowToStep","name":"Get alerted","text":"Everyone approaching that point gets a chime and an on-screen bar."}
+    ]},
+    {"@type":"FAQPage","mainEntity":[
+      {"@type":"Question","name":"How long does a police report stay on the map?","acceptedAnswer":{"@type":"Answer","text":"Active reports expire after about two hours, and confirmations keep a still-present report alive while denials clear stale ones, so the live map reflects what's actually on the road right now."}},
+      {"@type":"Question","name":"Is reporting anonymous?","acceptedAnswer":{"@type":"Answer","text":"Yes. Ghost needs no account to report or receive alerts — you just open the map and allow location."}},
+      {"@type":"Question","name":"What can I report in Ghost?","acceptedAnswer":{"@type":"Answer","text":"Police, hazards, crashes, mobile cameras, road closures and traffic. Each type shows a distinct marker and triggers the matching approach alert."}}
+    ]}
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site-head">
+  <a href="/" class="logo">GHOST</a>
+  <a href="/" class="cta">Open the map →</a>
+</header>
+<main>
+  <nav class="crumb"><a href="/">Ghost</a> / <a href="/guide">Driver's Guide</a> / How Police Alerts Work</nav>
+
+  <h1>How Ghost's <span class="accent">Police Alerts</span> Work</h1>
+  <p class="lede">Fixed cameras never move, so a database handles those. Police patrols and mobile cameras <em>do</em> move — the only thing that can warn you about them is other drivers. Ghost turns every driver on the road into a live sensor. Here's how the crowdsourced layer works, end to end.</p>
+
+  <h2>The loop: spot → report → confirm → alert</h2>
+  <div class="card">
+    <ol>
+      <li><strong>Spot it.</strong> You pass a police car, a mobile camera, a crash or a hazard.</li>
+      <li><strong>Report it.</strong> One tap on the report button, pick the type. Your position is attached automatically — no typing while driving.</li>
+      <li><strong>Others confirm.</strong> The next drivers to reach that spot get the alert and can tap <em>still there</em> or <em>gone</em>.</li>
+      <li><strong>Everyone's warned.</strong> Anyone approaching within range gets a chime and an on-screen bar, in time to react.</li>
+    </ol>
+  </div>
+
+  <h2>What you can report</h2>
+  <table>
+    <tr><th>Type</th><th>Alert on approach</th></tr>
+    <tr><td>👮 Police</td><td>Red bar + chime ~300&nbsp;m out</td></tr>
+    <tr><td>📷 Mobile camera</td><td>Amber bar + chime ~350&nbsp;m out</td></tr>
+    <tr><td>💥 Crash / hazard</td><td>Red bar + chime on approach</td></tr>
+    <tr><td>🚧 Road closure</td><td>Marker + reroute prompt</td></tr>
+    <tr><td>🐢 Traffic</td><td>Feeds the live congestion overlay</td></tr>
+  </table>
+
+  <h2>Why confirmations matter</h2>
+  <p>A report is only useful if it's current. Ghost keeps the map honest two ways:</p>
+  <ul>
+    <li><strong>Expiry</strong> — an active report ages out after about <strong>two hours</strong> on its own, so nothing lingers forever.</li>
+    <li><strong>Confirm / deny</strong> — drivers passing the spot vote it up (<em>still there</em>) or down (<em>gone</em>). Real, present hazards get refreshed; things that have moved on get cleared quickly.</li>
+  </ul>
+  <p>The more drivers using Ghost on a road, the sharper the picture — the network effect that made Waze work, pointed squarely at Australian conditions.</p>
+
+  <h2>How you're warned while driving</h2>
+  <ul>
+    <li><strong>Voice + chime</strong> — an audible alert so you never have to stare at the screen.</li>
+    <li><strong>Coloured bar</strong> — red for police/hazards, amber for cameras, appearing as you close in.</li>
+    <li><strong>Direction-aware</strong> — camera alerts respect which way the camera faces and which way you're travelling, cutting false alarms.</li>
+    <li><strong>Hands-free by design</strong> — reporting is a single large tap; confirmations are one tap. Mount your phone and keep your eyes up.</li>
+  </ul>
+
+  <div class="cta-block">
+    <h2>Join the network</h2>
+    <p>Every report you make protects the drivers behind you — and theirs protect you. No sign-up, no cost.</p>
+    <a href="/" class="big">Open Ghost free →</a>
+  </div>
+
+  <h2>Is it legal?</h2>
+  <p>Ghost relays the same kind of information a passenger calling out "cop ahead" would give you, plus the locations of <em>publicly signposted</em> fixed cameras. You're responsible for driving to the road rules and for using your phone lawfully — mounted and hands-free. Ghost is a road-safety and awareness tool, not a licence to speed.</p>
+
+  <h2>Frequently asked questions</h2>
+  <div class="faq">
+    <details><summary>How long does a police report stay on the map?</summary><p>Active reports expire after about two hours. Confirmations keep a still-present report alive and denials clear stale ones, so the map reflects the road right now.</p></details>
+    <details><summary>Do I need an account?</summary><p>No. Reporting and receiving alerts need no sign-up — just open the map and allow location.</p></details>
+    <details><summary>What types of things can I report?</summary><p>Police, mobile cameras, crashes, hazards, road closures and traffic. Each has its own marker and approach alert.</p></details>
+    <details><summary>Does it work in the background?</summary><p>Ghost is a web app (PWA) you can install to your home screen. Keep it open while navigating for continuous alerts and voice guidance.</p></details>
+  </div>
+
+  <h2>Keep reading</h2>
+  <div class="related">
+    <a href="/speed-cameras-sydney"><span class="r-k">Guide</span><span class="r-t">Speed cameras in Sydney</span></a>
+    <a href="/nsw-red-light-cameras"><span class="r-k">Guide</span><span class="r-t">NSW red-light cameras explained</span></a>
+  </div>
+</main>
+<footer>
+  <strong style="color:var(--accent)">GHOST</strong> — free live police, camera &amp; navigation app for Australian drivers.<br>
+  <a href="/">Open the map</a> · <a href="/guide">Driver's guide</a>
+</footer>
+</body>
+</html>

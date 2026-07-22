@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;600;700;900&display=swap">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1200px;height:630px;overflow:hidden}
+  body{
+    font-family:'Roboto Mono',monospace; background:#0a0a0a; color:#f8fafc;
+    display:flex; flex-direction:column; justify-content:center; padding:76px 84px;
+    position:relative;
+  }
+  .glow{position:absolute; width:900px; height:900px; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,0,153,.28) 0%, rgba(255,0,153,0) 62%);
+    top:-260px; right:-240px; filter:blur(4px)}
+  .glow2{position:absolute; width:620px; height:620px; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,0,153,.16) 0%, rgba(255,0,153,0) 60%);
+    bottom:-280px; left:-160px}
+  .grid{position:absolute; inset:0; opacity:.06;
+    background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);
+    background-size:56px 56px}
+  .wrap{position:relative; z-index:2}
+  .kicker{font-size:22px; font-weight:700; letter-spacing:.34em; color:#ff0099; text-transform:uppercase}
+  .brand{font-size:150px; font-weight:900; letter-spacing:.06em; color:#ff0099; line-height:1; margin:14px 0 6px;
+    text-shadow:0 0 60px rgba(255,0,153,.5)}
+  .tag{font-size:40px; font-weight:700; line-height:1.28; letter-spacing:-.5px; margin-top:22px; max-width:940px}
+  .tag .hl{color:#ff0099}
+  .chips{display:flex; gap:14px; margin-top:40px}
+  .chip{font-size:23px; font-weight:600; padding:12px 22px; border-radius:999px;
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); color:#dbe2ea}
+  .url{position:absolute; bottom:56px; right:84px; z-index:2; font-size:24px; font-weight:600; color:#64748b}
+</style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="glow2"></div>
+  <div class="grid"></div>
+  <div class="wrap">
+    <div class="kicker">Free · No sign-up · Australia</div>
+    <div class="brand">GHOST</div>
+    <div class="tag">Live <span class="hl">police</span> &amp; <span class="hl">speed-camera</span> alerts<br>with free turn-by-turn navigation.</div>
+    <div class="chips">
+      <div class="chip">👮 Police reports</div>
+      <div class="chip">📷 Camera alerts</div>
+      <div class="chip">🧭 Voice nav</div>
+    </div>
+  </div>
+  <div class="url">ghost.theradicalparty.com</div>
+</body>
+</html>
