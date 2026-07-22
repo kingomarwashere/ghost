@@ -1,0 +1,19 @@
+# Ghost — https://ghost.theradicalparty.com
+# Live police & speed-camera map + free GPS navigation
+
+User-agent: *
+Allow: /$
+Allow: /style.css
+Allow: /app.js
+Allow: /icon.svg
+Allow: /icon-192.png
+Allow: /icon-512.png
+Allow: /manifest.json
+
+# Keep the API and admin surface out of the index
+Disallow: /api/
+Disallow: /admin.html
+Disallow: /admin
+Disallow: /tiles/
+
+Sitemap: https://ghost.theradicalparty.com/sitemap.xml

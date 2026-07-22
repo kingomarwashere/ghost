@@ -8,11 +8,60 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="GHOST">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="description" content="Live police sightings, speed cameras and turn-by-turn navigation.">
+
+  <!-- ── SEO ─────────────────────────────────────── -->
+  <title>Ghost — Live Police & Speed Camera Map + Free GPS Navigation (Australia)</title>
+  <meta name="description" content="Ghost is a free Waze-style navigation app for Australia: live crowdsourced police sightings, fixed speed & red-light camera alerts, real-time turn-by-turn GPS, traffic and school-zone warnings. No sign-up.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="author" content="The Radical Party">
+  <meta name="application-name" content="Ghost">
+  <link rel="canonical" href="https://ghost.theradicalparty.com/">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Ghost">
+  <meta property="og:title" content="Ghost — Live Police & Speed Camera Map + Free GPS Navigation">
+  <meta property="og:description" content="Free Waze-style nav for Australia: live police sightings, speed & red-light camera alerts, turn-by-turn GPS, traffic and school-zone warnings. No sign-up.">
+  <meta property="og:url" content="https://ghost.theradicalparty.com/">
+  <meta property="og:image" content="https://ghost.theradicalparty.com/icon-512.png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+  <meta property="og:locale" content="en_AU">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Ghost — Live Police & Speed Camera Map + Free GPS Navigation">
+  <meta name="twitter:description" content="Free Waze-style nav for Australia: live police sightings, speed & red-light camera alerts, turn-by-turn GPS. No sign-up.">
+  <meta name="twitter:image" content="https://ghost.theradicalparty.com/icon-512.png">
+
+  <!-- Structured data: helps Google understand this is a free web app -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Ghost",
+    "url": "https://ghost.theradicalparty.com/",
+    "description": "Free Waze-style navigation for Australia with live crowdsourced police sightings, fixed speed & red-light camera alerts, real-time turn-by-turn GPS, traffic detection and school-zone warnings.",
+    "applicationCategory": "TravelApplication",
+    "operatingSystem": "Web, iOS, Android",
+    "browserRequirements": "Requires JavaScript and location access",
+    "inLanguage": "en-AU",
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "AUD" },
+    "featureList": [
+      "Live crowdsourced police sightings",
+      "Speed camera and red-light camera alerts",
+      "Turn-by-turn voice navigation",
+      "Real-time traffic detection",
+      "School-zone time-based warnings"
+    ],
+    "publisher": { "@type": "Organization", "name": "The Radical Party" }
+  }
+  </script>
+
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon-512.png">
-  <title>Ghost</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700;900&display=swap">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
