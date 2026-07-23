@@ -427,8 +427,8 @@ body.navigating #nav-speed-float { display: flex; }
   box-shadow: 0 -6px 32px rgba(0,0,0,.6);
 }
 #nav-eta-block { flex: 1; text-align: center; }
-#nav-eta { font-size: 1.4rem; font-weight: 900; letter-spacing: -0.02em; }
-#nav-remaining { font-size: .72rem; color: var(--muted); margin-top: 2px; font-weight: 500; }
+#nav-eta { font-size: 2rem; font-weight: 900; letter-spacing: -0.02em; line-height: 1.05; }
+#nav-remaining { font-size: 1.05rem; color: #cbd5e1; margin-top: 3px; font-weight: 700; letter-spacing: -0.01em; }
 .nav-footer-icon-btn {
   background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
   border-radius: 12px; color: #fff; cursor: pointer;
