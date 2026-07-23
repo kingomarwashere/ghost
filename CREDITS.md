@@ -31,6 +31,32 @@ screen listing these authors + a link to their Sketchfab profiles.
 (CC-BY-NC models like the Lamborghini Terzo were deliberately NOT used —
 they forbid commercial use.)
 
+#### Realistic fleet — batch 2 (Sketchfab, CC-BY)
+
+| In-app name | File               | Model                          | Author      |
+|-------------|--------------------|--------------------------------|-------------|
+| Skyline R34 | sk-skyline.glb     | Nissan Skyline R34 GT-R        | Lexyc16     |
+| RX-7        | sk-rx7.glb         | Mazda RX7 Stylised             | sheldonj99  |
+| 911 Turbo   | sk-porsche930.glb  | Porsche 911 (930) Turbo 1975   | Lexyc16     |
+| '65 Mustang | sk-mustang.glb     | 1965 Ford Mustang Convertible  | kristian123 |
+| Mini Cooper | sk-mini.glb        | Mini Cooper S                  | cenobyte    |
+| VW Kombi    | sk-vwbus.glb       | VW Bus 1971                    | Batuhan13   |
+| Wrangler    | sk-jeep.glb        | Jeep Wrangler (free)           | Dfuxxc      |
+
+All CC-BY — same attribution requirement as batch 1.
+
+### Novelty — batch 2 (Khronos glTF Sample Assets)
+
+| In-app name | File             | Source model    | License note                               |
+|-------------|------------------|-----------------|--------------------------------------------|
+| Toy Car     | toycar.glb       | ToyCar          | Khronos, CC0                               |
+| Rubber Duck | duck.glb         | Duck            | classic glTF sample, royalty-free (© Sony) |
+| Milk Truck  | milktruck.glb    | CesiumMilkTruck | Cesium, CC-BY 4.0                          |
+| Avocado     | food/avocado.glb | Avocado         | Khronos glTF sample, CC-BY                 |
+
+From https://github.com/KhronosGroup/glTF-Sample-Assets — verify each model's
+individual license before commercial go-live (mix of CC0 / CC-BY / royalty-free).
+
 ### Characters (Sketchfab, CC-BY) — Nintendo/Pokémon fan models
 
 | In-app | File               | Model / Author                                        |

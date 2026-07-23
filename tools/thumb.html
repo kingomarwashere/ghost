@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:transparent}</style>
+<script type="importmap">{"imports":{
+  "three":"https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"
+}}</script></head><body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+
+const p = new URLSearchParams(location.search);
+const [file, y] = p.get('model').split('@'); const yaw = parseFloat(y)||0;
+const W=480,H=360;
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,alpha:true});
+renderer.setSize(W,H); renderer.setClearColor(0x000000,0);
+const pmrem=new THREE.PMREMGenerator(renderer);
+const scene=new THREE.Scene(); scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture;
+scene.add(new THREE.HemisphereLight(0xffffff,0x2a2a3a,1.1));
+const dl=new THREE.DirectionalLight(0xffffff,1.5); dl.position.set(-3,6,4); scene.add(dl);
+const cam=new THREE.PerspectiveCamera(30,W/H,0.1,100); cam.position.set(-3.2,2.0,3.6); cam.lookAt(0,0.25,0);
+const loader=new GLTFLoader();
+const draco=new DRACOLoader(); draco.setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/');
+loader.setDRACOLoader(draco); loader.setMeshoptDecoder(MeshoptDecoder);
+function fit(obj){obj.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(obj);const s=b.getSize(new THREE.Vector3()),c=b.getCenter(new THREE.Vector3());const r=Math.max(s.x,s.z)||1;obj.position.set(-c.x,-b.min.y,-c.z);const g=new THREE.Group();g.add(obj);g.scale.setScalar(2.4/r);return g;}
+const gltf=await loader.loadAsync('/cars3d/'+file);
+let obj=gltf.scene; if(yaw){const g=new THREE.Group();g.add(obj);g.rotation.y=yaw*Math.PI/180;obj=g;}
+scene.add(fit(obj));
+renderer.render(scene,cam);
+window.__url=renderer.domElement.toDataURL('image/png');
+</script></body></html>

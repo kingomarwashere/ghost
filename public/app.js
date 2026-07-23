@@ -2622,6 +2622,13 @@ const CARS=[
   {id:'c10pickup',  name:'C10 Pickup',     emoji:'🛻', model:'sk-c10pickup.glb',   fn:_d3Marker, d3:true},
   {id:'cadillac',   name:'Classic Sedan',  emoji:'🚗', model:'sk-cadillac.glb',    fn:_d3Marker, d3:true},
   {id:'karlmann',   name:'Luxury SUV',     emoji:'🚙', model:'sk-karlmann.glb',    fn:_d3Marker, d3:true},
+  {id:'skyline',    name:'Skyline R34',    emoji:'🏎️', model:'sk-skyline.glb',     fn:_d3Marker, d3:true},
+  {id:'rx7',        name:'RX-7',           emoji:'🏎️', model:'sk-rx7.glb',         fn:_d3Marker, d3:true},
+  {id:'porsche930', name:'911 Turbo',      emoji:'🏎️', model:'sk-porsche930.glb',  fn:_d3Marker, d3:true},
+  {id:'mustang65',  name:"'65 Mustang",    emoji:'🚗', model:'sk-mustang.glb',     fn:_d3Marker, d3:true},
+  {id:'mini',       name:'Mini Cooper',    emoji:'🚗', model:'sk-mini.glb',        fn:_d3Marker, d3:true},
+  {id:'vwbus',      name:'VW Kombi',       emoji:'🚐', model:'sk-vwbus.glb',       fn:_d3Marker, d3:true},
+  {id:'jeep',       name:'Wrangler',       emoji:'🚙', model:'sk-jeep.glb',        fn:_d3Marker, d3:true},
   // ── 3D models (Kenney Car Kit) ───────────────────────────────────────────
   {id:'sedan-sports',    name:'Sports Sedan',  emoji:'🏎️', model:'sedan-sports.glb',    fn:_d3Marker, d3:true},
   {id:'race',            name:'Race Car',      emoji:'🏁', model:'race.glb',             fn:_d3Marker, d3:true},
@@ -2645,6 +2652,10 @@ const CARS=[
   {id:'plane-paper',     name:'Paper Plane',   emoji:'📄', model:'plane-paper.glb',      fn:_d3Marker, d3:true},
   // ── Novelty ──────────────────────────────────────────────────────────────
   {id:'eggplant',        name:'Eggplant',      emoji:'🍆', model:'food/eggplant.glb',         fn:_d3Marker, d3:true},
+  {id:'avocado',         name:'Avocado',       emoji:'🥑', model:'food/avocado.glb',          fn:_d3Marker, d3:true},
+  {id:'duck',            name:'Rubber Duck',   emoji:'🦆', model:'duck.glb',                   fn:_d3Marker, d3:true},
+  {id:'toycar',          name:'Toy Car',       emoji:'🧸', model:'toycar.glb',                 fn:_d3Marker, d3:true},
+  {id:'milktruck',       name:'Milk Truck',    emoji:'🥛', model:'milktruck.glb',              fn:_d3Marker, d3:true},
   // ── Karts (tinted 3D karts + character faces — set in car3d.js) ───────────
   {id:'mario',     name:'Mario',     emoji:'🔴', model:'char-mario.glb', fn:_d3Marker, d3:true},
   {id:'luigi',     name:'Luigi',     emoji:'🟢', model:'char-luigi.glb', fn:_d3Marker, d3:true},
