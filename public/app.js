@@ -1527,13 +1527,30 @@ const _arc=(a,b)=>((b-a)%360+540)%360-180;
 // Only searches a small forward window around _lastRouteIdx so it's O(1) in practice.
 function _syncRouteLine(lat, lng) {
   if (!routePoints.length || navState !== 'navigating') return;
-  const lo = _lastRouteIdx;
-  const hi = Math.min(routePoints.length - 1, lo + 30);
+  // Find the nearest route vertex to the ANIMATED car. The window must always
+  // bracket the car: because the car icon leads (feed-forward) and glides ahead
+  // between 1 Hz GPS fixes, a fixed window anchored to the last GPS index can
+  // fall behind at speed — then the search clamps to a vertex BEHIND the car and
+  // the line is drawn trailing behind it. So we advance the cursor every frame
+  // (below) and search a generous window forward.
+  const len = routePoints.length;
+  const lo = Math.max(0, Math.min(_lastRouteIdx - 2, len - 1));
+  const hi = Math.min(len - 1, lo + 80);
   let minD = Infinity, best = lo;
   for (let i = lo; i <= hi; i++) {
     const d = haversine(routePoints[i][0], routePoints[i][1], lat, lng);
     if (d < minD) { minD = d; best = i; }
   }
+  // Self-heal: if the nearest in-window vertex is implausibly far, the cursor is
+  // stale (e.g. just after a reroute) — do one full scan to re-acquire the car.
+  if (minD > 150) {
+    minD = Infinity;
+    for (let i = 0; i < len; i++) {
+      const d = haversine(routePoints[i][0], routePoints[i][1], lat, lng);
+      if (d < minD) { minD = d; best = i; }
+    }
+  }
+  _lastRouteIdx = best; // cursor follows the car at 60 fps so the window can't lag
   try {
     map.getSource('route-main')?.setData({
       type: 'Feature',
