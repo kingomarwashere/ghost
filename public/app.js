@@ -1523,6 +1523,25 @@ let _mLastFrame=0;
 const _POS_TAU=0.32; // position-filter time constant (s); also the feed-forward lead
 const _arc=(a,b)=>((b-a)%360+540)%360-180;
 
+// Trim the route line to start at the animated car position (60fps).
+// Only searches a small forward window around _lastRouteIdx so it's O(1) in practice.
+function _syncRouteLine(lat, lng) {
+  if (!routePoints.length || navState !== 'navigating') return;
+  const lo = _lastRouteIdx;
+  const hi = Math.min(routePoints.length - 1, lo + 12);
+  let minD = Infinity, best = lo;
+  for (let i = lo; i <= hi; i++) {
+    const d = haversine(routePoints[i][0], routePoints[i][1], lat, lng);
+    if (d < minD) { minD = d; best = i; }
+  }
+  try {
+    map.getSource('route-main')?.setData({
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: toGL([[lat, lng], ...routePoints.slice(best + 1)]) }
+    });
+  } catch (_) {}
+}
+
 // Called on every GPS fix. Updates the target; snaps only on an
 // implausible teleport (real GPS glitch), otherwise stays smooth.
 function _setMotionTarget(lat,lng,hdg,spd){
@@ -1603,6 +1622,7 @@ function _motionFrame(ts){
   userMarker.setLngLat([_mv.lng,_mv.lat]);
   _syncMarkerTransform();
   window.Car3D?.setPos(_mv.lng,_mv.lat,_mv.hdg);
+  _syncRouteLine(_mv.lat, _mv.lng);
 
   // Drive the map camera at 60fps — car sits in lower third via top padding
   const _NAV_PAD={top:Math.round(window.innerHeight*0.30),bottom:0,left:0,right:0};
