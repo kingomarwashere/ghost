@@ -15,7 +15,7 @@ const MODEL_DIR = '/cars3d/';
 
 // Tunable orientation/scale (adjust live via window.Car3D._tune if needed)
 const TUNE = {
-  scaleMeters: 14.0,  // apparent car length in metres on the map (smaller = tidier)
+  scaleMeters: 9.8,   // apparent car length in metres on the map (70% of the old 14.0)
   baseDeg: 180,       // model faces +Z; align "forward" with north-up
   sign: -1,           // heading rotation direction (−1 counters the mercator Y-flip)
   refZoom: 18.4,      // car keeps a steady screen size around this zoom
