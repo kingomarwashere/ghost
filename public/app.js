@@ -2321,7 +2321,10 @@ document.addEventListener('visibilitychange',()=>{
    NAVIGATION
 ═══════════════════════════════════════════════ */
 startNavBtn.addEventListener('click',startNav);
-endNavBtn.addEventListener('click',()=>{ endNav(); showScoreSubmit(); });
+// Show the score FIRST (banks points + shows the modal, whose Done handler
+// then ends nav). Calling endNav() first would reset gta.score to 0 via
+// gtaEndNav(), so pressing End awarded no points. Mirror the arrival flow.
+endNavBtn.addEventListener('click',()=>{ showScoreSubmit(); });
 arrivalDone.addEventListener('click',()=>{arrivalOverlay.classList.add('hidden');showScoreSubmit();});
 
 function startNav(){
