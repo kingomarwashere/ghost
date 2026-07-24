@@ -979,6 +979,24 @@ body.navigating #toast { bottom: calc(120px + env(safe-area-inset-bottom)); }
 body.navigating #idle-bar { display: none; }
 body.searching #idle-bar { display: none; }
 body.previewing #idle-bar { display: none; }
+
+/* ── Shared wayfinding footer (theradicalparty.com/footer.js, pill mode) ──
+   It injects a fixed bottom-right badge at max z-index. On this full-screen
+   app that badge covered the End button during nav and the bottom sheet on
+   idle. Hide it whenever the screen is busy; on idle, lift it above the bar.
+   The transform makes #radical-footer-root the containing block for the
+   pill's own position:fixed, so `bottom` here actually moves it. */
+#radical-footer-root {
+  position: fixed !important;
+  left: 0 !important; right: 0 !important;   /* full-width containing block so the pill doesn't wrap */
+  bottom: calc(150px + env(safe-area-inset-bottom)) !important;
+  height: 0 !important;                       /* zero-height strip blocks no map touches */
+  transform: translateZ(0) !important;        /* become the containing block for the pill's fixed pos */
+  z-index: 940 !important;
+}
+body.navigating #radical-footer-root,
+body.searching  #radical-footer-root,
+body.previewing #radical-footer-root { display: none !important; }
 .handle-row { display:flex; justify-content:center; padding: 0 0 8px; }
 #idle-row { display: flex; gap: 10px; align-items: center; }
 #idle-search-btn {
