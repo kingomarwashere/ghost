@@ -1950,7 +1950,9 @@ window.ghostRace = {
 /* ═══════════════════════════════════════════════
    ROUTING
 ═══════════════════════════════════════════════ */
+let _routeReq=0; // generation counter — ignore responses that a cancel/new search superseded
 async function calcRoute(fromLat,fromLng,toLat,toLng){
+  const myReq=++_routeReq;
   previewBar.classList.add('hidden');
   map.getSource('route-main')?.setData(emptyFC());
   map.getSource('route-traveled')?.setData(emptyFC());
@@ -1975,10 +1977,27 @@ async function calcRoute(fromLat,fromLng,toLat,toLng){
   };
   if(Object.keys(costingOpts).length) body.costing_options=costingOpts;
 
+  // ── Instant feedback ── the /api/route fetch takes ~1-2s; without this the
+  // tap felt dead. React immediately: buzz, frame the whole trip on the map,
+  // and pop the preview sheet in a "Finding routes…" loading state that fills
+  // in when the route arrives. An optimistic straight line hints the shape.
+  if(prefs.haptic && navigator.vibrate) navigator.vibrate(15);
+  navState='preview'; document.body.classList.add('previewing'); topbar.classList.add('hidden');
+  try{
+    map.getSource('route-alts')?.setData({type:'Feature',geometry:{type:'LineString',coordinates:[[fromLng,fromLat],[toLng,toLat]]}});
+    map.fitBounds([[Math.min(fromLng,toLng),Math.min(fromLat,toLat)],[Math.max(fromLng,toLng),Math.max(fromLat,toLat)]],
+      {padding:{top:120,bottom:220,left:60,right:60}, maxZoom:15, duration:550});
+  }catch(_){}
+  showRouteLoading(true);
+  previewBar.classList.remove('hidden');
+  setSheetState('peek');
+
   try{
     const resp=await fetch('/api/route',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!resp.ok){alert('Could not find a route.');return;}
+    if(myReq!==_routeReq) return; // superseded by a newer request / cancelled
+    if(!resp.ok){ routeFail('Couldn’t find a route there.'); return; }
     const data=await resp.json();
+    if(myReq!==_routeReq) return;
 
     allRoutes=[];
     allRoutes.push(data.trip);
@@ -1986,14 +2005,33 @@ async function calcRoute(fromLat,fromLng,toLat,toLng){
       data.alternates.forEach(a=>allRoutes.push(a.trip));
     }
     selectedRouteIdx=0;
+    showRouteLoading(false);
     applySelectedRoute();
     fetchSchoolZones();
     fetchRouteSpeedLimits();
-    navState='preview';
-    document.body.classList.add('previewing');
-    // Hide topbar so the map and route are unobstructed
-    topbar.classList.add('hidden');
-  }catch(e){alert('Routing error: '+e.message);}
+  }catch(e){ routeFail('Routing error — check your connection.'); }
+}
+
+// Preview sheet loading state — shown instantly while the route is fetched.
+function showRouteLoading(on){
+  if(!previewBar) return;
+  previewBar.classList.toggle('route-loading', on);
+  if(on){
+    if(previewTime) previewTime.innerHTML='<span class="route-spinner"></span>Finding routes…';
+    if(previewDist) previewDist.textContent='';
+    const via=$$('preview-via'); if(via) via.textContent='';
+    const note=$$('preview-avoidance-note'); if(note) note.classList.add('hidden');
+  }
+}
+// Route fetch failed — clear the optimistic UI and drop back to search.
+function routeFail(msg){
+  showRouteLoading(false);
+  previewBar.classList.add('hidden');
+  document.body.classList.remove('previewing');
+  map.getSource('route-alts')?.setData(emptyFC());
+  if(destMarker){destMarker.remove();destMarker=null;}
+  navState='idle';
+  showToast(msg);
 }
 
 function applySelectedRoute(){
@@ -2194,6 +2232,8 @@ function renderDirections(){
 
 cancelRoute.addEventListener('click',clearRoute);
 function clearRoute(){
+  _routeReq++; // invalidate any in-flight route fetch so it can't re-open the preview
+  previewBar.classList.remove('route-loading');
   map.getSource('route-main')?.setData(emptyFC());
   map.getSource('route-traveled')?.setData(emptyFC());
   map.getSource('route-alts')?.setData(emptyFC());

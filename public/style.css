@@ -1964,3 +1964,22 @@ body.previewing #rec-fab { display: none; }
   box-shadow: 0 0 10px #ffb060; animation: gps-lost-pulse 1s ease-in-out infinite;
 }
 @keyframes gps-lost-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.7)} }
+
+/* ── Route preview loading state ── shown instantly while /api/route fetches ── */
+.route-spinner {
+  display: inline-block; width: 15px; height: 15px; margin-right: 9px;
+  vertical-align: -2px;
+  border: 2.5px solid rgba(255,255,255,.22);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: route-spin .7s linear infinite;
+}
+@keyframes route-spin { to { transform: rotate(360deg); } }
+#preview-bar.route-loading #preview-time {
+  font-size: 1.05rem; font-weight: 700; color: var(--muted);
+  display: inline-flex; align-items: center;
+}
+/* Can't Go / Race / Share until the route resolves — keep Cancel live */
+#preview-bar.route-loading #preview-actions button:not(#cancel-route-btn) {
+  opacity: .4; pointer-events: none;
+}
