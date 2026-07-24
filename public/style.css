@@ -1942,3 +1942,25 @@ body.previewing #rec-fab { display: none; }
   transition:background .15s, opacity .15s;
 }
 #guide-links a:hover{ background:rgba(255,255,255,0.06); opacity:1; }
+
+/* ── GPS-lost banner ── shown during nav when GPS fixes stop arriving ── */
+#gps-lost {
+  position: fixed; z-index: 1001;
+  top: calc(env(safe-area-inset-top, 0px) + 220px); /* below the nav-instruction card */
+  left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 16px;
+  background: rgba(180, 60, 20, 0.94);
+  border: 1px solid rgba(255,180,120,.4);
+  border-radius: 999px;
+  font-size: .82rem; font-weight: 700; letter-spacing: .02em; color: #fff;
+  box-shadow: 0 6px 24px rgba(0,0,0,.5);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  white-space: nowrap;
+}
+#gps-lost.hidden { display: none; }
+.gps-lost-dot {
+  width: 9px; height: 9px; border-radius: 50%; background: #ffd27f;
+  box-shadow: 0 0 10px #ffb060; animation: gps-lost-pulse 1s ease-in-out infinite;
+}
+@keyframes gps-lost-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.7)} }

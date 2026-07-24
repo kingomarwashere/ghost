@@ -2378,6 +2378,7 @@ function startNav(){
 
   if(watchId!=null) navigator.geolocation.clearWatch(watchId);
   watchId=navigator.geolocation.watchPosition(onGPS,gpsErr,{enableHighAccuracy:true,maximumAge:0,timeout:10000});
+  startGpsWatchdog(); // surface "Searching for GPS…" + keep the map alive on dropout
   ensureAccelWatch(); // nav's onGPS now feeds the accel timer — stop the standalone watch
   updateNavPanel();
   dingChime();
@@ -2386,6 +2387,7 @@ function startNav(){
 function endNav(){
   navState='idle';
   if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null;}
+  stopGpsWatchdog(); setGpsLost(false);
   ensureAccelWatch(); // resume the standalone accel watch if the timer is on
   [navInst,navFooter,alertBar,arrivalOverlay,$$('nav-search-sheet'),$$('nav-routes-sheet')].forEach(el=>el?.classList.add('hidden'));
   updateRouteWarn(null);
@@ -2416,7 +2418,50 @@ function endNav(){
   speedLimitSign.classList.add('hidden');
 }
 
-function gpsErr(e){console.warn('GPS',e.code,e.message);}
+/* ── GPS-loss handling ──────────────────────────────────────────────────
+   When fixes stop arriving (tunnel, dead zone, phone GPS glitch) the motion
+   loop dead-reckons to a stop and then PAUSES — so nothing drives the map
+   canvas, which can be left black with the car floating (reported bug). We
+   (1) show a "Searching for GPS…" banner, (2) keep forcing repaints so the
+   basemap/route don't stay black if a repaint stalled. */
+let _lastFixMs=0, _gpsWatchdog=null, _gpsLost=false;
+function setGpsLost(lost){
+  if(lost===_gpsLost) return;
+  _gpsLost=lost;
+  $$('gps-lost')?.classList.toggle('hidden', !lost);
+  if(lost && prefs.voice){ try{ speak('GPS signal lost. Searching.'); }catch(_){} }
+}
+function startGpsWatchdog(){
+  stopGpsWatchdog();
+  _lastFixMs=performance.now();
+  _gpsWatchdog=setInterval(()=>{
+    if(navState!=='navigating') return;
+    if(performance.now()-_lastFixMs>6000){
+      setGpsLost(true);
+      try{ map.triggerRepaint(); }catch(_){} // don't let the GL canvas stay black
+    }
+  }, 2000);
+}
+function stopGpsWatchdog(){ if(_gpsWatchdog){ clearInterval(_gpsWatchdog); _gpsWatchdog=null; } }
+function gpsErr(e){
+  console.warn('GPS',e.code,e.message);
+  if(navState==='navigating' && e.code===e.TIMEOUT) setGpsLost(true);
+}
+
+// Recover from a WebGL context loss (mobile memory pressure) instead of a
+// permanently black map. Re-add our custom sources/layers and repaint.
+(function(){
+  try{
+    const cv=map.getCanvas();
+    cv.addEventListener('webglcontextlost', (e)=>{ e.preventDefault(); console.warn('WebGL context lost'); }, false);
+    cv.addEventListener('webglcontextrestored', ()=>{
+      console.warn('WebGL context restored — rebuilding layers');
+      try{ setupMapLayers(); }catch(_){}
+      try{ if(navState==='navigating' && routePoints.length) updateRouteStyling(_lastRouteIdx); }catch(_){}
+      try{ map.triggerRepaint(); }catch(_){}
+    }, false);
+  }catch(_){}
+})();
 
 /* ── Auto-zoom + look-ahead per zoom level ──────── */
 function targetNavZoom(speedMs){
@@ -3002,6 +3047,8 @@ function renderAccel(state,t,isBest){
 }
 
 function onGPS(pos){
+  _lastFixMs=performance.now();
+  if(_gpsLost) setGpsLost(false); // a fix arrived → clear the "searching" state
   const {latitude:lat,longitude:lng,speed:rawSpd,heading}=pos.coords;
   localStorage.setItem('radar_lastpos', JSON.stringify({lat,lng}));
 
