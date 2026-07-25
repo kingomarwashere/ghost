@@ -989,7 +989,8 @@ body.previewing #idle-bar { display: none; }
 #radical-footer-root {
   position: fixed !important;
   left: 0 !important; right: 0 !important;   /* full-width containing block so the pill doesn't wrap */
-  bottom: calc(150px + env(safe-area-inset-bottom)) !important;
+  top: calc(env(safe-area-inset-top, 0px) + 195px) !important;  /* top-right, below the toolbar */
+  bottom: auto !important;
   height: 0 !important;                       /* zero-height strip blocks no map touches */
   transform: translateZ(0) !important;        /* become the containing block for the pill's fixed pos */
   z-index: 940 !important;
