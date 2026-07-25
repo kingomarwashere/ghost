@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+  body{margin:0;background:#0b0f16;font-family:'Roboto Mono',monospace;color:#cbd5e1;padding:24px}
+  #grid{display:flex;flex-wrap:wrap;gap:22px}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:8px;width:96px}
+  .cell span{font-size:11px;color:#94a3b8;text-align:center}
+  /* simulate the dark map behind markers */
+  #grid{background:#141a24;padding:26px;border-radius:14px}
+</style></head>
+<body>
+<h3 style="color:#fff;font-weight:700">Ghost marker icons — draft</h3>
+<div id="grid"></div>
+<script>
+function badge(glyph, accent, size=44){
+  const d=document.createElement('div');
+  d.style.cssText=`width:${size}px;height:${size}px;border-radius:14px;
+    background:radial-gradient(120% 120% at 30% 20%, #232634 0%, #0d0f16 100%);
+    border:1.6px solid ${accent};
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 5px 16px rgba(0,0,0,.55), 0 0 14px ${accent}66, inset 0 1px 0 rgba(255,255,255,.14);`;
+  d.innerHTML=`<svg viewBox="0 0 24 24" width="27" height="27" fill="none">${glyph}</svg>`;
+  return d;
+}
+const A={speed:'#22d3ee',red_light:'#ef4444',speed_trap:'#f59e0b',accident:'#ef4444',hazard:'#fbbf24',
+  roadwork:'#f97316',traffic:'#f59e0b',closure:'#ef4444',weather:'#38bdf8',blocked_lane:'#fb923c',
+  average_speed:'#a78bfa',bus_lane:'#f59e0b'};
+const G={
+  // speed camera — camera body + lens + flash bolt
+  speed:`<rect x="2.5" y="8.5" width="12" height="8.5" rx="1.8" fill="#fff"/>
+    <circle cx="8.5" cy="12.7" r="2.7" fill="#0b0b12"/><circle cx="8.5" cy="12.7" r="1.1" fill="${A.speed}"/>
+    <rect x="14.6" y="10" width="4" height="5.5" rx="1" fill="#fff"/>
+    <path d="M18 3.4 l-3 4.4 h2.3 l-2.7 4" stroke="#fbbf24" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>`,
+  // red-light camera — traffic light
+  red_light:`<rect x="7.5" y="2.8" width="9" height="18.4" rx="3.4" fill="#fff"/>
+    <circle cx="12" cy="7.4" r="2.2" fill="${A.red_light}"/><circle cx="12" cy="12" r="2.2" fill="#3b3b46"/><circle cx="12" cy="16.6" r="2.2" fill="#3b3b46"/>
+    <path d="M4.6 7.4h2.6M4.6 16.6h2.6M16.8 7.4h2.6M16.8 16.6h2.6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>`,
+  // speed trap — camera with radar waves
+  speed_trap:`<rect x="3" y="9" width="10.5" height="8" rx="1.7" fill="#fff"/>
+    <circle cx="8" cy="13" r="2.4" fill="#0b0b12"/><circle cx="8" cy="13" r="1" fill="${A.speed_trap}"/>
+    <path d="M16 8 a6 6 0 0 1 0 8 M18.4 6 a9 9 0 0 1 0 12" stroke="${A.speed_trap}" stroke-width="1.7" stroke-linecap="round"/>`,
+  // accident — impact star burst
+  accident:`<path d="M12 2 l1.9 5.2 5.4-1.6 -3.1 4.7 4.6 3.3 -5.7 .6 .9 5.6 -4.5-3.6 -4.5 3.6 .9-5.6 -5.7-.6 4.6-3.3 -3.1-4.7 5.4 1.6z" fill="${A.accident}" stroke="#fff" stroke-width=".6" stroke-linejoin="round"/>
+    <path d="M11 8.5h2l-.4 4.2h-1.2z" fill="#fff"/><circle cx="12" cy="15" r="1" fill="#fff"/>`,
+  // hazard — warning triangle
+  hazard:`<path d="M12 3.6 L21 19 H3 Z" fill="${A.hazard}" stroke="#0b0b12" stroke-width="1.1" stroke-linejoin="round"/>
+    <rect x="10.9" y="8.6" width="2.2" height="5.4" rx="1.1" fill="#0b0b12"/><circle cx="12" cy="16.4" r="1.25" fill="#0b0b12"/>`,
+  // roadwork — hard hat
+  roadwork:`<path d="M4.5 16.5 a7.5 7.5 0 0 1 15 0 z" fill="${A.roadwork}"/>
+    <rect x="2.3" y="16.3" width="19.4" height="2.8" rx="1.4" fill="#fff"/>
+    <rect x="10.9" y="6.2" width="2.2" height="4.6" rx="1.1" fill="#fff"/>`,
+  // traffic — stopped rows
+  traffic:`<rect x="6" y="3.6" width="12" height="4.9" rx="2.2" fill="${A.traffic}"/>
+    <rect x="6" y="9.6" width="12" height="4.9" rx="2.2" fill="#fff"/>
+    <rect x="6" y="15.6" width="12" height="4.9" rx="2.2" fill="${A.traffic}"/>`,
+  // closure — striped barrier
+  closure:`<rect x="2.5" y="8.5" width="19" height="6.5" rx="1.2" fill="#fff"/>
+    <path d="M4 15 L8 8.5 M9 15 L13 8.5 M14 15 L18 8.5" stroke="${A.closure}" stroke-width="2.4"/>
+    <rect x="4.2" y="14.5" width="2.1" height="5.5" rx=".6" fill="#fff"/><rect x="17.7" y="14.5" width="2.1" height="5.5" rx=".6" fill="#fff"/>`,
+  // weather — rain cloud
+  weather:`<path d="M7.5 14.5 a3.7 3.7 0 0 1 .4-7.4 5 5 0 0 1 9.4 1.4 A3.1 3.1 0 0 1 16.5 14.5 z" fill="#fff"/>
+    <path d="M8.5 16.5l-1 3M12 16.5l-1 3M15.5 16.5l-1 3" stroke="${A.weather}" stroke-width="1.7" stroke-linecap="round"/>`,
+  // blocked lane — traffic cone
+  blocked_lane:`<path d="M12 3.5 L17.5 19 H6.5 Z" fill="${A.blocked_lane}"/>
+    <path d="M9.3 12h5.4M8.2 15.5h7.6" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/>
+    <rect x="4.5" y="19" width="15" height="2.4" rx="1.2" fill="#fff"/>`,
+  // average speed — point-to-point cameras
+  average_speed:`<circle cx="5.5" cy="12" r="2.8" fill="#fff"/><circle cx="18.5" cy="12" r="2.8" fill="#fff"/>
+    <path d="M8.5 12 h7" stroke="${A.average_speed}" stroke-width="1.8" stroke-dasharray="2 2" stroke-linecap="round"/>
+    <circle cx="5.5" cy="12" r="1.1" fill="${A.average_speed}"/><circle cx="18.5" cy="12" r="1.1" fill="${A.average_speed}"/>`,
+  // bus lane — bus front
+  bus_lane:`<rect x="4.5" y="3.5" width="15" height="14" rx="2.6" fill="#fff"/>
+    <rect x="6.5" y="6" width="11" height="4.5" rx="1.2" fill="#0b0b12"/>
+    <circle cx="8" cy="13.5" r="1.4" fill="${A.bus_lane}"/><circle cx="16" cy="13.5" r="1.4" fill="${A.bus_lane}"/>
+    <rect x="6.5" y="17" width="2.6" height="3" rx=".8" fill="#fff"/><rect x="14.9" y="17" width="2.6" height="3" rx=".8" fill="#fff"/>`,
+};
+const grid=document.getElementById('grid');
+for(const k of Object.keys(G)){
+  const c=document.createElement('div'); c.className='cell';
+  c.appendChild(badge(G[k], A[k]));
+  const s=document.createElement('span'); s.textContent=k; c.appendChild(s);
+  grid.appendChild(c);
+}
+window.__done=true;
+</script>
+</body></html>
