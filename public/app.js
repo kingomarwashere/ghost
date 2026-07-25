@@ -1058,9 +1058,77 @@ function startNavRefresh(){
   _navRefresh=setInterval(()=>{
     if(navState!=='navigating') return;
     loadReports(); loadCameras(); loadNearReports(); loadNearCameras();
+    updateRouteCamsBtn();
+    if(!$$('route-cams-sheet')?.classList.contains('hidden')) renderRouteCams(); // refresh live thumbs
   }, 12000);
 }
 function stopNavRefresh(){ if(_navRefresh){ clearInterval(_navRefresh); _navRefresh=null; } }
+
+/* ── Live traffic cameras on your route (nav only) ──────────────────────────
+   Filters the traffic-cam feed to cameras within ~400m of the active route
+   (and the alternative routes), ordered by how far ahead they are, so you can
+   glance at conditions on the road you're driving. */
+let _routeCams=[];
+function computeRouteCams(){
+  const list = (window.GhostCams && window.GhostCams.all && window.GhostCams.all()) || [];
+  if(!list.length || !routePoints.length){ _routeCams=[]; return; }
+  const RADIUS=400;
+  const altPolys=[];
+  try{ (allRoutes||[]).forEach(t=>{ if(t&&t!==routeData) altPolys.push(decodePolyline6(t.legs[0].shape)); }); }catch(_){}
+  const out=[];
+  const STEP=3; // sample every 3rd vertex — 400m radius tolerates the gap, ~3x faster
+  for(const cam of list){
+    let best=Infinity, bestIdx=0;
+    for(let i=0;i<routePoints.length;i+=STEP){ const d=haversine(cam.lat,cam.lng,routePoints[i][0],routePoints[i][1]); if(d<best){best=d;bestIdx=i;} }
+    let onAlt=false;
+    if(best>RADIUS){
+      let na=false;
+      for(const poly of altPolys){ for(let i=0;i<poly.length;i+=STEP){ if(haversine(cam.lat,cam.lng,poly[i][0],poly[i][1])<=RADIUS){na=true;break;} } if(na)break; }
+      if(!na) continue; onAlt=true;
+    }
+    out.push({cam,idx:bestIdx,dist:best,onAlt});
+  }
+  out.sort((a,b)=> (a.onAlt-b.onAlt) || (a.idx-b.idx));
+  _routeCams=out;
+}
+function _aheadCams(){ const cur=_lastRouteIdx||0; return _routeCams.filter(rc=> rc.onAlt || rc.idx>=cur-8); }
+function _rcDist(rc){
+  if(rc.onAlt) return 'alt';
+  const cur=_lastRouteIdx||0; if(rc.idx<cur) return 'passed';
+  let m=0; for(let i=cur;i<rc.idx&&i<routePoints.length-1;i++) m+=haversine(routePoints[i][0],routePoints[i][1],routePoints[i+1][0],routePoints[i+1][1]);
+  return fmtDist(m);
+}
+function updateRouteCamsBtn(){
+  const btn=$$('route-cams-btn'), cnt=$$('route-cams-count'); if(!btn) return;
+  const show = navState==='navigating' && _routeCams.length>0;
+  btn.classList.toggle('hidden', !show);
+  if(show){ const n=_aheadCams().length; if(cnt){ cnt.textContent=String(n); cnt.classList.toggle('hidden', n===0); } }
+  else { $$('route-cams-sheet')?.classList.add('hidden'); }
+}
+function renderRouteCams(){
+  const listEl=$$('route-cams-list'); if(!listEl) return;
+  const cams=_aheadCams();
+  if(!cams.length){ listEl.innerHTML='<div id="route-cams-empty">No cameras on your route.</div>'; return; }
+  listEl.innerHTML=cams.map(rc=>`
+    <div class="rc-card${rc.onAlt?' rc-alt':''}" data-id="${escHtml(String(rc.cam.id))}">
+      <div class="rc-thumb-wrap"><span class="rc-loading">📷</span><img alt=""><div class="rc-dist">${_rcDist(rc)}</div></div>
+      <div class="rc-name">${escHtml(rc.cam.title||'Camera')}${rc.onAlt?' <span class="rc-alt-tag">ALT</span>':''}</div>
+    </div>`).join('');
+  cams.forEach((rc,i)=>{
+    const card=listEl.children[i]; if(!card) return;
+    const img=card.querySelector('img'), fresh=new Image();
+    fresh.onload=()=>{ img.src=fresh.src; card.querySelector('.rc-loading')?.remove(); };
+    fresh.onerror=()=>{ const l=card.querySelector('.rc-loading'); if(l) l.textContent='⚠️'; };
+    fresh.src=window.GhostCams.img(rc.cam.file);
+    card.addEventListener('click',()=> window.GhostCams&&window.GhostCams.open(rc.cam.id));
+  });
+}
+$$('route-cams-btn')?.addEventListener('click',()=>{
+  const sheet=$$('route-cams-sheet'); if(!sheet) return;
+  const open=!sheet.classList.contains('hidden');
+  if(open){ sheet.classList.add('hidden'); } else { renderRouteCams(); sheet.classList.remove('hidden'); }
+});
+$$('route-cams-close')?.addEventListener('click',()=> $$('route-cams-sheet')?.classList.add('hidden'));
 
 async function loadCameras(){
   if(map.getZoom()<9){clearMarkers(cameraMarkers);return;}
@@ -2508,6 +2576,8 @@ function startNav(){
   watchId=navigator.geolocation.watchPosition(onGPS,gpsErr,{enableHighAccuracy:true,maximumAge:0,timeout:10000});
   startGpsWatchdog(); // surface "Searching for GPS…" + keep the map alive on dropout
   startNavRefresh();  // keep reports/cameras live even when stopped at a light
+  // Build the "cameras on your route" list (loads cam metadata if needed)
+  try{ (window.GhostCams?.ensure?.()||Promise.resolve()).then(()=>{ computeRouteCams(); updateRouteCamsBtn(); }); }catch(_){}
   ensureAccelWatch(); // nav's onGPS now feeds the accel timer — stop the standalone watch
   updateNavPanel();
   dingChime();
@@ -2518,6 +2588,7 @@ function endNav(){
   if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null;}
   stopGpsWatchdog(); setGpsLost(false);
   stopNavRefresh();
+  _routeCams=[]; $$('route-cams-btn')?.classList.add('hidden'); $$('route-cams-sheet')?.classList.add('hidden');
   ensureAccelWatch(); // resume the standalone accel watch if the timer is on
   [navInst,navFooter,alertBar,arrivalOverlay,$$('nav-search-sheet'),$$('nav-routes-sheet')].forEach(el=>el?.classList.add('hidden'));
   updateRouteWarn(null);

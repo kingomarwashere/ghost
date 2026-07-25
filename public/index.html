@@ -264,6 +264,19 @@
   <div id="current-speed">–<small>km/h</small></div>
 </div>
 
+<!-- ── Route cams: live traffic cameras on your route (nav only) ── -->
+<button id="route-cams-btn" class="hidden" title="Cameras on your route">
+  <svg viewBox="0 0 24 24" width="23" height="23" fill="none"><g transform="rotate(-9 10 9)"><rect x="2.5" y="6" width="13" height="6" rx="1.8" fill="#fff"/><circle cx="6" cy="9" r="1.5" fill="#141422"/></g><rect x="16.5" y="3.5" width="2.4" height="10" rx="1.1" fill="#94a3b8"/><path d="M18.5 17.5a6 6 0 0 1-6-6" stroke="#22d3ee" stroke-width="1.7" stroke-linecap="round"/></svg>
+  <span id="route-cams-count" class="hidden">0</span>
+</button>
+<div id="route-cams-sheet" class="hidden">
+  <div id="route-cams-head">
+    <span id="route-cams-title">📹 Cameras on your route</span>
+    <button id="route-cams-close" aria-label="Close">✕</button>
+  </div>
+  <div id="route-cams-list"></div>
+</div>
+
 <!-- ── Nav footer ───────────────────────────────── -->
 <div id="nav-footer" class="hidden">
   <button id="nav-search-btn" class="nav-footer-icon-btn" title="Search">
@@ -929,6 +942,14 @@
       setCamLayerData();
     });
   }, 200);
+
+  // API for the in-nav "cameras on your route" strip (built in app.js)
+  window.GhostCams = {
+    all: () => cams,
+    ensure: async () => { if (!cams.length) await loadCamMeta(); return cams; },
+    open: (id) => openCamSheet(id),
+    img: (file) => imgUrl(file),
+  };
 })();
 </script>
 <script>

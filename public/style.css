@@ -2011,3 +2011,55 @@ body.previewing #rec-fab { display: none; }
   background:rgba(255,255,255,.06); color:#94a3b8; font-size:13px; line-height:1;
   display:flex; align-items:center; justify-content:center;
 }
+
+/* ── Route cams — live traffic cameras on your route (nav only) ── */
+#route-cams-btn {
+  position: fixed; z-index: 1002; left: 14px;
+  bottom: calc(150px + env(safe-area-inset-bottom));
+  width: 52px; height: 52px; border-radius: 15px;
+  background: linear-gradient(145deg,#12233a,#0a1626); border: 1.5px solid #22d3ee;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  box-shadow: 0 4px 18px rgba(0,0,0,.5), 0 0 14px rgba(34,211,238,.35);
+  -webkit-tap-highlight-color: transparent; transition: transform .1s;
+}
+#route-cams-btn:active { transform: scale(.92); }
+#route-cams-btn.hidden { display: none; }
+#route-cams-count {
+  position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px;
+  border-radius: 999px; background: #22d3ee; color: #06202b; font-size: .72rem; font-weight: 900;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.4);
+}
+#route-cams-count.hidden { display: none; }
+
+#route-cams-sheet {
+  position: fixed; z-index: 1003; left: 0; right: 0;
+  bottom: calc(84px + env(safe-area-inset-bottom)); /* sit above the nav footer */
+  background: rgba(10,12,20,.96); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255,255,255,.1); border-radius: 18px 18px 0 0;
+  box-shadow: 0 -8px 32px rgba(0,0,0,.6); padding: 12px 0 14px;
+  transform: translateY(0); transition: transform .25s ease;
+}
+#route-cams-sheet.hidden { display: none; }
+#route-cams-head { display: flex; align-items: center; justify-content: space-between; padding: 0 16px 10px; }
+#route-cams-title { font-size: .92rem; font-weight: 800; color: #f8fafc; }
+#route-cams-close {
+  width: 30px; height: 30px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(255,255,255,.08); color: #cbd5e1; font-size: .9rem;
+}
+#route-cams-list { display: flex; gap: 12px; overflow-x: auto; padding: 0 16px 4px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+#route-cams-list::-webkit-scrollbar { display: none; }
+.rc-card {
+  flex: 0 0 auto; width: 168px; scroll-snap-align: start; cursor: pointer;
+  background: #0f172a; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; overflow: hidden;
+  transition: transform .1s, border-color .15s;
+}
+.rc-card:active { transform: scale(.97); }
+.rc-card.rc-alt { border-color: rgba(168,85,247,.5); }
+.rc-thumb-wrap { position: relative; width: 100%; height: 100px; background: #060a12; display: flex; align-items: center; justify-content: center; }
+.rc-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.rc-thumb-wrap .rc-loading { position: absolute; font-size: 1.1rem; opacity: .5; }
+.rc-dist { position: absolute; top: 6px; left: 6px; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.7); color: #22d3ee; font-size: .68rem; font-weight: 800; }
+.rc-alt .rc-dist { color: #c4a3f7; }
+.rc-name { padding: 7px 9px 8px; font-size: .74rem; font-weight: 600; color: #dbe2ea; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-alt-tag { color: #a855f7; font-size: .64rem; font-weight: 800; }
+#route-cams-empty { padding: 4px 16px 8px; color: #64748b; font-size: .82rem; }
