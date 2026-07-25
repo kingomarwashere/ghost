@@ -2975,18 +2975,23 @@ function updateGta(speedMs, limitKmh, lat, lng){
   const excessKmh=speedKmh-limit;
 
   // ── Wanted star calculation (always active) ───────────────────────────────
+  // Stars 1–4 scale with how far over the limit you are. The 5th is the
+  // "absolutely flying" star — near-impossible: you must be doing ~150 km/h.
   let target=0;
-  if(excessKmh>=10) target=1;
-  if(excessKmh>=20) target=2;
-  if(excessKmh>=30) target=3;
-  if(excessKmh>=45) target=4;
-  if(excessKmh>=60) target=5;
+  if(excessKmh>=15) target=1;
+  if(excessKmh>=30) target=2;
+  if(excessKmh>=45) target=3;
+  if(excessKmh>=60) target=4;
 
-  // Police or speed trap nearby bumps wanted level
+  // Police or speed trap nearby bumps wanted level — but proximity alone caps
+  // at 4 stars; the 5th can only come from genuinely reckless speed.
   const closestCop=nearReports.filter(r=>r.type==='police'||r.type==='speed_trap')
     .map(r=>haversine(lat,lng,r.lat,r.lng)).sort((a,b)=>a-b)[0]??Infinity;
-  if(closestCop<120&&excessKmh>5) target=Math.min(5,target+2);
-  else if(closestCop<250&&excessKmh>5) target=Math.min(5,target+1);
+  if(closestCop<120&&excessKmh>5) target=Math.min(4,target+2);
+  else if(closestCop<250&&excessKmh>5) target=Math.min(4,target+1);
+
+  // ⭐⭐⭐⭐⭐ — the near-impossible fifth star: ~150 km/h.
+  if(speedKmh>=150) target=5;
 
   gta.starsTarget=target;
 
