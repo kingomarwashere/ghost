@@ -1014,7 +1014,21 @@ async function loadCameras(){
   }catch{}
 }
 
-function scheduleFetch(){clearTimeout(fetchTmr);fetchTmr=setTimeout(()=>{loadReports();loadCameras();if(heatmapVisible)loadHeatmap();},300);}
+let _lastFetchAt=0;
+function scheduleFetch(){
+  const doFetch=()=>{
+    _lastFetchAt=performance.now(); fetchTmr=null;
+    loadReports(); loadCameras(); if(heatmapVisible) loadHeatmap();
+    // Keep proximity-alert data fresh while driving (nav start only loaded it once)
+    if(navState==='navigating'){ loadNearCameras(); loadNearReports(); }
+  };
+  clearTimeout(fetchTmr);
+  // Normally debounce, BUT during nav the motion loop's per-frame jumpTo floods
+  // moveend and would reset the debounce forever — starving camera/report loads.
+  // Force a refresh if it's been >1.5s so cameras keep appearing as you drive.
+  if(performance.now()-_lastFetchAt > 1500) doFetch();
+  else fetchTmr=setTimeout(doFetch, 300);
+}
 map.on('moveend',scheduleFetch);map.on('zoomend',scheduleFetch);
 setInterval(loadReports,90_000);
 
