@@ -2880,7 +2880,17 @@ let _showroom=null;
 ═══════════════════════════════════════════════ */
 const gta={score:0, stars:0, starsTarget:0, highStars:0, cooldownTimer:null, busted:false};
 
-function fmtScore(n){ return n>=1000?`${(n/1000).toFixed(1)}K`:String(n); }
+// Compact score: 523000→"523K", 1000000→"1M", 1500000→"1.5M", 5230→"5.2K".
+let _scoreFmt=null;
+try{ _scoreFmt=new Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:1}); }catch(_){}
+function fmtScore(n){
+  n=Math.floor(n)||0;
+  if(_scoreFmt) return _scoreFmt.format(n);
+  const a=Math.abs(n); // fallback for browsers without compact notation
+  if(a>=1e6) return parseFloat((n/1e6).toFixed(1))+'M';
+  if(a>=1e3) return parseFloat((n/1e3).toFixed(a<1e5?1:0))+'K';
+  return String(n);
+}
 
 function renderGtaStars(stars){
   document.querySelectorAll('.gta-star').forEach(el=>{
