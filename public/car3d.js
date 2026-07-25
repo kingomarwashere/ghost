@@ -96,9 +96,18 @@ try{ _ktx2=new KTX2Loader().setTranscoderPath('https://unpkg.com/three@0.160.0/e
 const modelCache = new Map(); // file -> Promise<THREE.Group>
 
 // ── Body recolour — only for simple flat-material cars that tint cleanly ─────
-const TINTABLE = new Set(['sedan.glb','sedan-sports.glb','hatchback-sports.glb','suv.glb','suv-luxury.glb','van.glb','race.glb','race-future.glb']);
+const TINTABLE = new Set(['sedan.glb','sedan-sports.glb','hatchback-sports.glb','suv.glb','suv-luxury.glb','van.glb','race.glb','race-future.glb',
+  // realistic cars hand-mapped below (they have a flat-colour paint material that recolours cleanly)
+  'sk-e30.glb','sk-phoenix.glb','sk-londonbus.glb']);
+// For hand-mapped realistic cars, recolour ONLY this named material (their body paint).
+const TINT_MAT = { 'sk-e30.glb':'BMW_E30_M3_PAINT', 'sk-phoenix.glb':'Phoenix445_Bodymat', 'sk-londonbus.glb':'van_paint_2' };
 let _tint = '';
 try{ _tint = localStorage.getItem('carTint') || ''; }catch(_){}
+function _tintTargets(root, file){
+  const named=TINT_MAT[file];
+  if(named){ const out=[]; root.traverse(o=>{ if(!o.isMesh||!o.material) return; [].concat(o.material).forEach(m=>{ if(m&&m.name===named) out.push(m); }); }); return out; }
+  return _bodyMats(root);
+}
 function _bodyMats(root){
   const cand=[];
   root.traverse(o=>{ if(!o.isMesh||!o.material) return;
@@ -113,7 +122,7 @@ function _bodyMats(root){
 }
 function applyTint(root, file){
   if(!TINTABLE.has(file)) return;
-  _bodyMats(root).forEach(m=>{
+  _tintTargets(root, file).forEach(m=>{
     if(_tint){ if(!m.userData._origCol) m.userData._origCol=m.color.clone(); m.color.set(_tint); }
     else if(m.userData._origCol){ m.color.copy(m.userData._origCol); }
     m.needsUpdate=true;
