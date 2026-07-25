@@ -2869,10 +2869,38 @@ let _showroom=null;
   const canvas=$$('car-showroom-canvas');
   const nameEl=$$('car-showroom-name');
   function showName(){ const c=currentCar(); if(nameEl) nameEl.textContent=c?c.name:''; }
+  // Colour swatches — shown only for cars that recolour cleanly
+  const colorRow=$$('car-color-row');
+  const SWATCHES=['','#ff0099','#ef4444','#f97316','#fbbf24','#22c55e','#22d3ee','#3b82f6','#a855f7','#f8fafc','#0b0b12'];
+  function buildSwatches(){
+    if(!colorRow) return;
+    const cur=(localStorage.getItem('carTint')||'');
+    colorRow.innerHTML='';
+    SWATCHES.forEach(c=>{
+      const b=document.createElement('button');
+      b.className='car-swatch'+(c===cur?' active':'')+(c===''?' swatch-reset':'');
+      b.title=c===''?'Default paint':c;
+      if(c===''){ b.textContent='✕'; } else { b.style.background=c; }
+      b.addEventListener('click',()=>{
+        window.Car3D?.setTint(c);
+        colorRow.querySelectorAll('.car-swatch').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+      });
+      colorRow.appendChild(b);
+    });
+  }
+  function updateColorRow(){
+    if(!colorRow) return;
+    const c=currentCar();
+    const ok=!!(c&&c.model&&window.Car3D&&window.Car3D.isTintable&&window.Car3D.isTintable(c.model));
+    colorRow.classList.toggle('hidden',!ok);
+    if(ok) buildSwatches();
+  }
   function mount(){
     if(_showroom||!window.Car3D||!canvas) return;
     _showroom=window.Car3D.mountShowroom(canvas);
     const c=currentCar(); if(c&&c.model) _showroom.setModel(c.model);
+    updateColorRow();
   }
   // The module is deferred; retry until it's ready.
   let tries=0; const iv=setInterval(()=>{ mount(); if(_showroom||++tries>50) clearInterval(iv); },100);
@@ -2890,6 +2918,7 @@ let _showroom=null;
       document.querySelectorAll('.car-pick-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       showName();
+      updateColorRow();
       if(car.model) _showroom?.setModel(car.model);
       applyCarSelection();
       // Recreate marker with new car (emoji cars need fresh DOM; 3D just swaps model)

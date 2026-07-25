@@ -1995,3 +1995,18 @@ body.previewing #rec-fab { display: none; }
 }
 #voice-toggle:active { transform: scale(.9); }
 #voice-toggle.muted { opacity: .55; background: rgba(255,255,255,.05); }
+
+/* ── Car colour swatches (garage — tintable cars only) ── */
+#car-color-row{ display:flex; flex-wrap:wrap; gap:9px; margin:12px 0 4px; align-items:center; }
+#car-color-row.hidden{ display:none; }
+.car-swatch{
+  width:28px; height:28px; border-radius:50%; padding:0; cursor:pointer;
+  border:2px solid rgba(255,255,255,.2); box-shadow:0 2px 6px rgba(0,0,0,.4);
+  transition:transform .1s, border-color .15s, box-shadow .15s;
+}
+.car-swatch:active{ transform:scale(.88); }
+.car-swatch.active{ border-color:#fff; box-shadow:0 0 0 3px rgba(255,255,255,.25); }
+.car-swatch.swatch-reset{
+  background:rgba(255,255,255,.06); color:#94a3b8; font-size:13px; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+}

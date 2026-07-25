@@ -95,6 +95,31 @@ let _ktx2=null;
 try{ _ktx2=new KTX2Loader().setTranscoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/basis/'); }catch(_){}
 const modelCache = new Map(); // file -> Promise<THREE.Group>
 
+// ── Body recolour — only for simple flat-material cars that tint cleanly ─────
+const TINTABLE = new Set(['sedan.glb','sedan-sports.glb','hatchback-sports.glb','suv.glb','suv-luxury.glb','van.glb','race.glb','race-future.glb']);
+let _tint = '';
+try{ _tint = localStorage.getItem('carTint') || ''; }catch(_){}
+function _bodyMats(root){
+  const cand=[];
+  root.traverse(o=>{ if(!o.isMesh||!o.material) return;
+    const g=o.geometry, tris=(g&&g.index?g.index.count:(g&&g.attributes&&g.attributes.position?g.attributes.position.count:0))/3;
+    [].concat(o.material).forEach(m=>{ if(!m||!m.color) return;
+      const glassy=m.transparent||(m.opacity!=null&&m.opacity<1)||(m.transmission>0);
+      const l=m.color.getHSL({}).l; if(glassy||l<0.12) return; // skip glass + dark tyres
+      cand.push({m,tris}); });
+  });
+  cand.sort((a,b)=>b.tris-a.tris);
+  return cand.length ? [cand[0].m] : [];
+}
+function applyTint(root, file){
+  if(!TINTABLE.has(file)) return;
+  _bodyMats(root).forEach(m=>{
+    if(_tint){ if(!m.userData._origCol) m.userData._origCol=m.color.clone(); m.color.set(_tint); }
+    else if(m.userData._origCol){ m.color.copy(m.userData._origCol); }
+    m.needsUpdate=true;
+  });
+}
+
 // ── Character faces — drawn as SVG → texture → sprite on the kart's head ─────
 function faceSVG(kind) {
   // Each character is a "bust" (torso drawn first, then head) so the sprite
@@ -260,8 +285,9 @@ function loadModel(file) {
     }
     modelCache.set(file, promise);
   }
-  // Return a fresh clone each time so map + showroom don't share a node
-  return modelCache.get(file).then((root) => root.clone(true));
+  // Return a fresh clone each time so map + showroom don't share a node.
+  // Materials ARE shared with the cached root, so recolouring propagates.
+  return modelCache.get(file).then((root) => { applyTint(root, file); return root.clone(true); });
 }
 
 // PMREM environment → soft reflections that make the paint read as real.
@@ -469,6 +495,14 @@ function init(map) {
 window.Car3D = {
   init,
   setModel(file) { swapModel(file); },
+  isTintable(file) { return TINTABLE.has(file); },
+  setTint(hex) {
+    _tint = (hex || '').trim();
+    try { localStorage.setItem('carTint', _tint); } catch (_) {}
+    // re-colour every loaded tintable car (shared materials → map + garage update)
+    for (const [file, pr] of modelCache) { if (TINTABLE.has(file)) pr.then((root) => applyTint(root, file)); }
+    if (player.map) player.map.triggerRepaint();
+  },
   setPos(lng, lat, headingDeg) {
     player.lng = lng; player.lat = lat;
     if (headingDeg != null) player.headingDeg = headingDeg;
