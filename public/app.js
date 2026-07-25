@@ -1277,6 +1277,7 @@ Object.entries(toggleMap).forEach(([id,key])=>{
   el.addEventListener('change',()=>{
     prefs[key]=el.checked; savePrefs();
     if(key==='avoidTolls') routeOpts.avoidTolls=el.checked;
+    if(key==='voice'){ window._syncVoiceBtn&&window._syncVoiceBtn(); if(el.checked) unlockVoice(); }
   });
 });
 
@@ -2420,7 +2421,7 @@ document.addEventListener('visibilitychange',()=>{
 /* ═══════════════════════════════════════════════
    NAVIGATION
 ═══════════════════════════════════════════════ */
-startNavBtn.addEventListener('click',startNav);
+startNavBtn.addEventListener('click',()=>{ unlockVoice(); startNav(); });
 // Show the score FIRST (banks points + shows the modal, whose Done handler
 // then ends nav). Calling endNav() first would reset gta.score to 0 via
 // gtaEndNav(), so pressing End awarded no points. Mirror the arrival flow.
@@ -3783,13 +3784,42 @@ function showAlert(icon,text,dist,isPolice,hazLat,hazLng,dismissDist){
 
 /* ── Voice guidance ─────────────────────────────── */
 const synth=window.speechSynthesis;
-function speak(text){
-  if(!prefs.voice||!synth)return;
-  synth.cancel();
-  const u=new SpeechSynthesisUtterance(text);
-  u.lang='en-AU';u.rate=1.05;u.volume=0.9;
-  synth.speak(u);
+let _voice=null, _voiceUnlocked=false;
+function pickVoice(){
+  if(!synth) return;
+  const vs=synth.getVoices()||[];
+  _voice = vs.find(v=>v.lang==='en-AU') || vs.find(v=>/^en-GB/i.test(v.lang))
+        || vs.find(v=>/^en/i.test(v.lang)) || vs[0] || null;
 }
+if(synth){ pickVoice(); try{ synth.onvoiceschanged=pickVoice; }catch(_){} }
+// iOS & most mobile browsers silently block speechSynthesis until it has fired
+// once inside a real user gesture. Prime it with a muted utterance on the first
+// tap (and when nav starts / voice is toggled on) so turn-by-turn actually speaks.
+function unlockVoice(){
+  if(_voiceUnlocked||!synth) return;
+  try{ const u=new SpeechSynthesisUtterance(' '); u.volume=0; synth.speak(u); _voiceUnlocked=true; }catch(_){}
+}
+document.addEventListener('pointerdown', unlockVoice, {once:true});
+function speak(text){
+  if(!prefs.voice||!synth||!text) return;
+  try{
+    synth.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang='en-AU'; u.rate=1.05; u.volume=1; if(_voice) u.voice=_voice;
+    synth.speak(u);
+  }catch(_){}
+}
+// Speaker/mute toggle on the nav screen (kept in sync with the settings switch).
+(function(){
+  const btn=$$('voice-toggle'); if(!btn) return;
+  window._syncVoiceBtn=()=>{ btn.textContent=prefs.voice?'🔊':'🔇'; btn.classList.toggle('muted',!prefs.voice); const s=$$('s-voice'); if(s) s.checked=prefs.voice; };
+  _syncVoiceBtn();
+  btn.addEventListener('click',()=>{
+    prefs.voice=!prefs.voice; savePrefs(); _syncVoiceBtn();
+    if(prefs.voice){ unlockVoice(); speak('Voice on'); showToast('🔊 Voice guidance on'); }
+    else { try{ synth&&synth.cancel(); }catch(_){} showToast('🔇 Voice muted'); }
+  });
+})();
 function checkVoice(mIdx,dist){
   const nextM=maneuvers[mIdx+1]; if(!nextM)return;
   const instr=san(nextM.verbal_pre_transition_instruction??nextM.instruction??'');

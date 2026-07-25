@@ -1983,3 +1983,15 @@ body.previewing #rec-fab { display: none; }
 #preview-bar.route-loading #preview-actions button:not(#cancel-route-btn) {
   opacity: .4; pointer-events: none;
 }
+
+/* ── Voice guidance mute toggle (top-right of the nav card) ── */
+#voice-toggle {
+  position: absolute; top: 10px; right: 12px; z-index: 3;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.15);
+  color: #fff; font-size: 1.15rem; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent; transition: transform .1s, opacity .15s, background .15s;
+}
+#voice-toggle:active { transform: scale(.9); }
+#voice-toggle.muted { opacity: .55; background: rgba(255,255,255,.05); }
