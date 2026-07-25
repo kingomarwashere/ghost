@@ -970,6 +970,7 @@ async function loadReports(){
   try{
     const data=await fetch(`/api/reports?${p}`).then(r=>r.json());
     lastReports=Array.isArray(data)?data:[];
+    detectNewCops(lastReports); // 🐷 toast when a fresh police report shows up
     // Refresh traffic colouring on the active/previewed route with fresh reports
     if(routePoints.length) updateTrafficOverlay(navState==='navigating'?routePoints.slice(Math.max(0,_lastRouteIdx)):routePoints);
     clearMarkers(reportMarkers);
@@ -988,6 +989,51 @@ async function loadReports(){
   }catch{}
 }
 window.vote=async(id,action)=>{try{await fetch(`/api/reports/${id}/${action}`,{method:'POST'});loadReports();}catch{}};
+
+/* ── "🐷 Pig located at <suburb>" — announce newly-added police reports ──────
+   Fires when a police report we haven't seen before appears AND was created
+   recently (so old cops scrolling into view as you drive don't spam). The
+   nearest one is announced; a batch just adds "(+N more)". */
+let _seenCops=null, _lastCopAnnounce=0;
+function detectNewCops(data){
+  const cops=(data||[]).filter(r=>r.type==='police');
+  if(_seenCops===null){ _seenCops=new Set(cops.map(c=>String(c.id))); return; } // seed silently on first load
+  const fresh=cops.filter(c=>!_seenCops.has(String(c.id)));
+  if(!fresh.length) return;
+  fresh.forEach(c=>_seenCops.add(String(c.id)));
+  if(_seenCops.size>1500) _seenCops=new Set(cops.map(c=>String(c.id))); // cap growth
+  const now=Date.now();
+  const justAdded=fresh.filter(c=>now-(c.created_at||0)<180000); // genuinely new, not just entering view
+  if(!justAdded.length || now-_lastCopAnnounce<6000) return;      // and don't spam
+  _lastCopAnnounce=now;
+  const me=userMarker?userMarker.getLngLat():(prevPos?{lng:prevPos.lng,lat:prevPos.lat}:null);
+  if(me) justAdded.sort((a,b)=>haversine(me.lat,me.lng,a.lat,a.lng)-haversine(me.lat,me.lng,b.lat,b.lng));
+  announceCop(justAdded[0], justAdded.length-1);
+}
+async function announceCop(r, more){
+  let where='';
+  try{
+    const resp=await fetch(`https://photon.komoot.io/reverse?lon=${r.lng}&lat=${r.lat}&lang=en&limit=1`);
+    const p=(await resp.json())?.features?.[0]?.properties||{};
+    where=p.district||p.locality||p.suburb||p.city||p.town||p.village||p.name||p.county||'';
+  }catch{}
+  const extra=more>0?` (+${more} more)`:'';
+  showToast(where?`🐷 Pig located at ${where}${extra}`:`🐷 Pig reported nearby${extra}`, 3800);
+  if(prefs.haptic&&navigator.vibrate) navigator.vibrate(30);
+}
+
+/* Live refresh while navigating — moveend drives loads only while MOVING, so
+   stopped at a light nothing refreshed for up to 90s. This poll keeps reports
+   (incl. Waze police) + cameras current every 12s regardless of movement. */
+let _navRefresh=null;
+function startNavRefresh(){
+  stopNavRefresh();
+  _navRefresh=setInterval(()=>{
+    if(navState!=='navigating') return;
+    loadReports(); loadCameras(); loadNearReports(); loadNearCameras();
+  }, 12000);
+}
+function stopNavRefresh(){ if(_navRefresh){ clearInterval(_navRefresh); _navRefresh=null; } }
 
 async function loadCameras(){
   if(map.getZoom()<9){clearMarkers(cameraMarkers);return;}
@@ -2433,6 +2479,7 @@ function startNav(){
   if(watchId!=null) navigator.geolocation.clearWatch(watchId);
   watchId=navigator.geolocation.watchPosition(onGPS,gpsErr,{enableHighAccuracy:true,maximumAge:0,timeout:10000});
   startGpsWatchdog(); // surface "Searching for GPS…" + keep the map alive on dropout
+  startNavRefresh();  // keep reports/cameras live even when stopped at a light
   ensureAccelWatch(); // nav's onGPS now feeds the accel timer — stop the standalone watch
   updateNavPanel();
   dingChime();
@@ -2442,6 +2489,7 @@ function endNav(){
   navState='idle';
   if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null;}
   stopGpsWatchdog(); setGpsLost(false);
+  stopNavRefresh();
   ensureAccelWatch(); // resume the standalone accel watch if the timer is on
   [navInst,navFooter,alertBar,arrivalOverlay,$$('nav-search-sheet'),$$('nav-routes-sheet')].forEach(el=>el?.classList.add('hidden'));
   updateRouteWarn(null);
