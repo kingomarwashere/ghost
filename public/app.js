@@ -4492,6 +4492,7 @@ function setAuthMode(mode){
   const m=$$('account-modal'); if(!m) return;
   m.dataset.mode=mode;
   $$('am-title').textContent=mode==='login'?'Welcome back':'Create your account';
+  $$('am-username').placeholder = mode==='register' ? 'Gamertag — 3–16 letters/numbers' : 'Gamertag or email';
   $$('am-email-row').style.display=mode==='register'?'':'none';
   $$('am-submit').textContent=mode==='login'?'Log in':'Create account';
   $$('am-switch').innerHTML=mode==='login'
@@ -4525,7 +4526,9 @@ async function submitAuth(){
       }
     }
   }catch{ err.textContent='Network error'; }
-  finally{ btn.disabled=false; setAuthMode(m.dataset.mode); }
+  finally{ btn.disabled=false; btn.textContent = mode==='login'?'Log in':'Create account'; }
+  // NB: don't call setAuthMode() here — it clears #am-error and would swallow
+  // the validation/duplicate message we just showed.
 }
 async function logout(){
   try{ await authFetch('/api/auth/logout',{method:'DELETE'}); }catch{}
