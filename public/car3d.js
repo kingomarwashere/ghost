@@ -9,6 +9,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const MODEL_DIR = '/cars3d/';
@@ -85,6 +87,12 @@ const loader = new GLTFLoader();
 const _draco = new DRACOLoader();
 _draco.setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/');
 loader.setDRACOLoader(_draco);
+// Meshopt geometry compression — our fleet is compressed with it (EXT_meshopt_compression)
+try{ loader.setMeshoptDecoder(MeshoptDecoder); }catch(_){}
+// KTX2/Basis GPU textures — needs a renderer to detect GPU support, so it's
+// attached in the custom layer's onAdd. Dormant unless a model uses basisu textures.
+let _ktx2=null;
+try{ _ktx2=new KTX2Loader().setTranscoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/basis/'); }catch(_){}
 const modelCache = new Map(); // file -> Promise<THREE.Group>
 
 // ── Character faces — drawn as SVG → texture → sprite on the kart's head ─────
@@ -307,6 +315,8 @@ function makeCustomLayer(map) {
         antialias: true,
       });
       player.renderer.autoClear = false;
+      // Now that we have a GL renderer, enable KTX2 texture transcoding.
+      try{ if(_ktx2){ _ktx2.detectSupport(player.renderer); loader.setKTX2Loader(_ktx2); } }catch(_){}
       ensureEnv(player.renderer, player.scene);
       swapModel(player.modelFile);
     },
