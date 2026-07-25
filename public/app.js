@@ -480,7 +480,7 @@ const ICONS = {
   average_speed: makeEmojiIcon('📡', '#150a2a'),
   traffic:       makeEmojiIcon('🚗', '#1a1408'),
   closure:       makeEmojiIcon('🚧', '#2a1010'),
-  roadwork:      makeEmojiIcon('🔧', '#1a1608'),
+  roadwork:      makeEmojiIcon('👷', '#1a1608'),
   weather:       makeEmojiIcon('🌧️', '#0a1a2a'),
   blocked_lane:  makeEmojiIcon('🦺', '#1a0e00'),
 };
@@ -980,7 +980,7 @@ async function loadReports(){
       if(r.type!=='speed_trap'&&!visibleLayers.police) continue;
       const icon=ICONS[r.type]??ICONS.hazard;
       const age=Math.round((Date.now()-r.created_at)/60000);
-      const label={police:'🐷 5-0',speed_trap:'📷 Speed trap',accident:'💥 Crash',hazard:'💀 Hazard',traffic:'🚗 Traffic',closure:'🚧 Closure',roadwork:'🔧 Roadwork',weather:'🌧️ Weather',blocked_lane:'🦺 Blocked lane'}[r.type]??r.type;
+      const label={police:'🐷 5-0',speed_trap:'📷 Speed trap',accident:'💥 Crash',hazard:'💀 Hazard',traffic:'🚗 Traffic',closure:'🚧 Closure',roadwork:'👷 Roadwork',weather:'🌧️ Weather',blocked_lane:'🦺 Blocked lane'}[r.type]??r.type;
       const ageStr=age<60?`${age}m ago`:`${Math.round(age/60)}h ago`;
       const popupHtml=`<strong>${label}</strong>${r.description?`<p>${escHtml(r.description)}</p>`:''}<p>${ageStr} · ✅ ${r.confirms} 👎 ${r.denies}</p><div class="popup-actions"><button class="popup-confirm" onclick="vote('${r.id}','confirm')">✅ Still there</button><button class="popup-deny" onclick="vote('${r.id}','deny')">👎 Gone</button></div>`;
       const popup=new maplibregl.Popup({offset:24,maxWidth:'260px'}).setHTML(popupHtml);
@@ -1138,9 +1138,9 @@ const REPORT_CATS = {
     ]
   },
   roadwork: {
-    label:'Roadwork', emoji:'🔧', title:'Report roadwork',
+    label:'Roadwork', emoji:'👷', title:'Report roadwork',
     subtypes:[
-      {key:'roadwork',     label:'Roadwork',       emoji:'🔧', bg:'#1a1608'},
+      {key:'roadwork',     label:'Roadwork',       emoji:'👷', bg:'#1a1608'},
       {key:'lane_closed',  label:'Lane closed',    emoji:'🚧', bg:'#2a1010'},
       {key:'slow_zone',    label:'Slow zone',      emoji:'🔽', bg:'#1a1408'},
     ]
