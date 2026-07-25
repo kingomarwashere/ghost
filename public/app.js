@@ -98,6 +98,7 @@ const VECTOR_STYLES = {
   light:   'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
   voyager: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
   gta:     'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json', // base = dark, then recoloured
+  minecraft:'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',    // base = bright, then blockified
 };
 const RASTER_TILES = {
   satellite: { url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', sub:'', attr:'©Esri' },
@@ -281,6 +282,7 @@ map.on('idle', setupMideastTiles);
 map.on('style.load', () => {
   setupMapLayers();
   if(prefs.mapStyle==='gta'){ applyGtaColors(); addGtaPoiLayer(); }
+  else if(prefs.mapStyle==='minecraft'){ applyMinecraftColors(); }
   // Re-draw route after any style swap — covers preview and active nav
   if(routePoints.length) updateRouteGeoJSON();
   if(!_mapReady){
@@ -386,10 +388,18 @@ function hideNavClutter(){
 function setTile(style, isAuto=false){
   const s = VECTOR_STYLES[style] || RASTER_STYLES[style];
   if(!s) return;
-  map.setStyle(s); // triggers style.load → setupMideastTiles + setupMapLayers
+  // Themed styles (gta/minecraft) reuse another style's base URL. A plain
+  // setStyle(sameURL) diffs to a no-op and never fires style.load, so the
+  // recolour never runs. diff:false forces a full replacement → style.load fires.
+  const themed = style==='gta'||style==='minecraft';
+  const prevThemed = prefs.mapStyle==='gta'||prefs.mapStyle==='minecraft';
+  map.setStyle(s, (themed||prevThemed) ? {diff:false} : undefined); // clean reload entering/leaving a theme
   prefs.mapStyle=style; savePrefs();
   if(!isAuto){ prefs.styleOverride=true; savePrefs(); }
   document.querySelectorAll('.style-btn').forEach(b=>b.classList.toggle('active',b.dataset.style===style));
+  if(themed){ // belt & suspenders in case idle settles after style.load
+    map.once('idle',()=>{ if(prefs.mapStyle==='gta'){applyGtaColors();addGtaPoiLayer();} else if(prefs.mapStyle==='minecraft'){applyMinecraftColors();} });
+  }
 }
 // initial setTile handled by map construction style — just sync UI
 document.querySelectorAll('.style-btn').forEach(b=>b.classList.toggle('active',b.dataset.style===prefs.mapStyle));
@@ -4222,6 +4232,33 @@ function triggerArrival(){
 /* ═══════════════════════════════════════════════
    GTA MAP COLOURS
 ═══════════════════════════════════════════════ */
+function applyMinecraftColors(){
+  // Repaint the bright voyager base into a Minecraft overworld palette.
+  const p=(layer,prop,val)=>{try{if(map.getLayer(layer)) map.setPaintProperty(layer,prop,val);}catch{}};
+  const GRASS='#79c05a', GRASS2='#6bab4c', WATER='#3f76e4', LEAVES='#3f7a2e',
+        SAND='#e3dcaf', STONE='#b7b7b7', DIRT='#a6895b', PLANK='#b0885a';
+  // Land = grass
+  p('background','background-color',GRASS);
+  ['landcover','landcover_wood','landcover_grass','landuse','landuse_overlay','landuse_residential','landuse_commercial'].forEach(l=>p(l,'fill-color',GRASS2));
+  ['park','park_national_park','park_nature_reserve','national_park','nature_reserve','pitch','grass','wood','landcover_forest'].forEach(l=>{p(l,'fill-color',LEAVES);p(l,'line-color',LEAVES);});
+  ['sand','beach'].forEach(l=>p(l,'fill-color',SAND));
+  // Water = Minecraft blue
+  ['water','water_shadow','ocean','waterway_tunnel','water_pattern'].forEach(l=>p(l,'fill-color',WATER));
+  ['waterway','waterway_river','waterway_other','waterway-river','river'].forEach(l=>{p(l,'line-color',WATER);p(l,'fill-color',WATER);});
+  // Buildings = stone/planks with a blocky dark edge
+  ['building','building-top'].forEach(l=>{p(l,'fill-color',PLANK);p(l,'fill-outline-color','#5f4a30');});
+  p('building-3d','fill-extrusion-color',PLANK);
+  // Roads = gravel/dirt paths
+  ['road_motorway','road_trunk','motorway','trunk','highway_motorway','tunnel_motorway','bridge_motorway'].forEach(l=>p(l,'line-color',STONE));
+  ['road_primary','road_secondary','primary','secondary','highway_primary','highway_secondary'].forEach(l=>p(l,'line-color','#c9ac78'));
+  ['road_tertiary','road_minor','tertiary','minor_road','road','street','highway_minor','residential'].forEach(l=>p(l,'line-color',DIRT));
+  ['road_path','path','footway','pedestrian'].forEach(l=>p(l,'line-color','#8a6d45'));
+  // Route line — bright pink so it pops on grass
+  p('route-main','line-color','#ff2f8e');
+  p('route-traveled','line-color','#7a1f4a');
+  p('route-alts','line-color','#9a5a3a');
+}
+
 function applyGtaColors(){
   // Override CartoDB dark-matter colours with GTA San Andreas / V palette
   const tryPaint=(layer,prop,val)=>{try{if(map.getLayer(layer)) map.setPaintProperty(layer,prop,val);}catch{}};
