@@ -941,11 +941,16 @@
   const waitForMap = setInterval(() => {
     if (typeof map === 'undefined' || !map.isStyleLoaded()) return;
     clearInterval(waitForMap);
-    loadCamMeta().then(() => {
+    // Lazy-load: the cam metadata is ~57KB. Keep it off the critical load path —
+    // wait for the map to settle (first 'idle'), then fetch when the browser is
+    // idle so tiles + the user's local reports/cameras paint first.
+    const load = () => loadCamMeta().then(() => {
       addCamLayer();
       setCamLayerData();
       setCamLayerVisibility(camVisible); // honor default-on state
     });
+    const defer = () => (window.requestIdleCallback ? requestIdleCallback(load, { timeout: 3000 }) : setTimeout(load, 400));
+    map.loaded() ? defer() : map.once('idle', defer);
   }, 200);
 
   // API for the in-nav "cameras on your route" strip (built in app.js)
@@ -1091,13 +1096,18 @@
 
   pigsBtn.addEventListener('click', () => toggle(false));
 
-  // Init layer as soon as map style is ready, then auto-enable (default ON).
+  // Init the (empty) layer as soon as the style is ready — cheap, no fetch — then
+  // lazy-load the statewide data off the critical path: after the map settles and
+  // the browser is idle. Layer stays default-ON, it just populates a beat later.
   const poll = setInterval(() => {
-    if (typeof map !== 'undefined' && map.isStyleLoaded()) {
-      clearInterval(poll);
-      initPigsLayer();
-      toggle(true); // pigsOn starts false → flips to true, loads data, no camera hijack
-    }
+    if (typeof map === 'undefined' || !map.isStyleLoaded()) return;
+    clearInterval(poll);
+    initPigsLayer();
+    // Guard the defer window: if the user already tapped the button, don't
+    // auto-toggle (which would flip it back off).
+    const load = () => { if (!pigsOn) toggle(true); };
+    const defer = () => (window.requestIdleCallback ? requestIdleCallback(load, { timeout: 3000 }) : setTimeout(load, 600));
+    map.loaded() ? defer() : map.once('idle', defer);
   }, 200);
 })();
 </script>
