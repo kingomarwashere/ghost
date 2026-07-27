@@ -283,6 +283,9 @@ map.on('style.load', () => {
   setupMapLayers();
   if(prefs.mapStyle==='gta'){ applyGtaColors(); addGtaPoiLayer(); }
   else if(prefs.mapStyle==='minecraft'){ applyMinecraftColors(); }
+  // setupMapLayers re-creates the heatmap layer with visibility:'none' on every
+  // style swap — re-apply the on-by-default state so it survives style changes.
+  if(heatmapVisible && map.getLayer('heatmap-layer')) map.setLayoutProperty('heatmap-layer','visibility','visible');
   // Re-draw route after any style swap — covers preview and active nav
   if(routePoints.length) updateRouteGeoJSON();
   if(!_mapReady){
@@ -299,7 +302,15 @@ map.on('style.load', () => {
 });
 
 // Custom layer IDs — never touched by hideNavClutter
-const CUSTOM_LAYERS = new Set(['route-main','route-traveled','route-alts','route-traffic','route-warn','heatmap-layer','3d-buildings','gta-poi']);
+const CUSTOM_LAYERS = new Set(['route-main','route-casing','route-traveled','route-alts','route-traffic','route-warn','heatmap-layer','3d-buildings','gta-poi']);
+
+// Route line widths as zoom-interpolated expressions so the ribbon stays a
+// consistent, readable thickness from overview zoom down to the ~18-20 nav zoom
+// (a fixed pixel width looked fat when zoomed out and vanished on tilted roads).
+const RW_CASING = ['interpolate',['linear'],['zoom'], 10,7, 14,11, 17,16, 19,21, 21,29];
+const RW_MAIN   = ['interpolate',['linear'],['zoom'], 10,4, 14,6.5, 17,10.5, 19,14.5, 21,20];
+const RW_TRAFFIC= ['interpolate',['linear'],['zoom'], 10,3, 14,5, 17,8, 19,11, 21,15];
+const RW_WARN   = ['interpolate',['linear'],['zoom'], 10,6, 14,10, 17,15, 19,20, 21,27];
 
 function setupMapLayers(){
   // Route line sources
@@ -315,22 +326,28 @@ function setupMapLayers(){
     map.addLayer({id:'route-traveled',type:'line',source:'route-traveled',
       layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
       paint:{'line-color':'#5a4700','line-width':8,'line-opacity':0}});
+  // Dark casing UNDER the main route so the bright ribbon reads on light-grey
+  // roads AND dark backgrounds (this is why the route "vanished" on some roads).
+  if(!map.getLayer('route-casing'))
+    map.addLayer({id:'route-casing',type:'line',source:'route-main',
+      layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
+      paint:{'line-color':'#05070f','line-width':RW_CASING,'line-opacity':0.95}});
   if(!map.getLayer('route-main'))
     map.addLayer({id:'route-main',type:'line',source:'route-main',
       layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
-      paint:{'line-color':'#ffd700','line-width':10,'line-opacity':1}});
+      paint:{'line-color':'#ffd700','line-width':RW_MAIN,'line-opacity':1}});
   // Traffic overlay — congested stretches drawn on top of the gold route.
   // Narrower than route-main so the gold shows as an outline; colour by severity.
   if(!map.getLayer('route-traffic'))
     map.addLayer({id:'route-traffic',type:'line',source:'route-traffic',
       layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
       paint:{'line-color':['match',['get','sev'],'heavy','#dc2626','slow','#f97316','#dc2626'],
-             'line-width':7,'line-opacity':0.96}});
+             'line-width':RW_TRAFFIC,'line-opacity':0.96}});
   // Warning flash overlay — same source as route-main, drawn on top
   if(!map.getLayer('route-warn'))
     map.addLayer({id:'route-warn',type:'line',source:'route-main',
       layout:{'line-cap':'round','line-join':'round','visibility':'visible'},
-      paint:{'line-color':'#f59e0b','line-width':12,'line-opacity':0}});
+      paint:{'line-color':'#f59e0b','line-width':RW_WARN,'line-opacity':0}});
   // Heatmap
   if(!map.getSource('heatmap-src')){
     map.addSource('heatmap-src',{type:'geojson',data:emptyFC()});
@@ -412,7 +429,7 @@ const cameraMarkerEls=new Map(); // camId → wrapper DOM element for ripple upd
 function clearMarkers(arr){ arr.forEach(m=>m.remove()); arr.length=0; }
 
 /* ── Heatmap ──────────────────────────────── */
-let heatmapVisible=false;
+let heatmapVisible=true;  // report heatmap ON by default
 const heatmapBtn=$$('heatmap-btn');
 
 async function loadHeatmap(){
@@ -592,6 +609,46 @@ function nearestOnRoute(pts,lat,lng){
   let minD=Infinity,minI=0;
   for(let i=0;i<pts.length;i++){const d=haversine(pts[i][0],pts[i][1],lat,lng);if(d<minD){minD=d;minI=i;}}
   return {idx:minI,dist:minD};
+}
+
+/* ── Route arc-length (drives GPS-loss dead reckoning) ──────────────────────
+   routeCumDist[i] = metres travelled along the polyline to reach routePoints[i].
+   Rebuilt whenever the active route changes (startNav / reroute). */
+let routeCumDist=[];
+function buildRouteCumDist(){
+  routeCumDist=new Array(routePoints.length);
+  let acc=0;
+  for(let i=0;i<routePoints.length;i++){
+    if(i>0) acc+=haversine(routePoints[i-1][0],routePoints[i-1][1],routePoints[i][0],routePoints[i][1]);
+    routeCumDist[i]=acc;
+  }
+}
+// Ground-truth position → metres along the route (nearest vertex + partial segment)
+function posToProgressM(idx,lat,lng){
+  if(!routeCumDist.length) return 0;
+  let m=routeCumDist[idx]||0;
+  const nxt=routePoints[idx+1];
+  if(nxt){ // project onto the segment ahead so progress advances smoothly between vertices
+    const seg=haversine(routePoints[idx][0],routePoints[idx][1],nxt[0],nxt[1]);
+    const fromV=haversine(routePoints[idx][0],routePoints[idx][1],lat,lng);
+    if(seg>0) m+=Math.max(0,Math.min(fromV,seg));
+  }
+  return m;
+}
+// Metres along the route → {lat,lng,idx,hdg} by walking the cumulative table
+function progressMToPos(m){
+  const n=routePoints.length;
+  if(!n||!routeCumDist.length) return null;
+  if(m<=0) return {lat:routePoints[0][0],lng:routePoints[0][1],idx:0,hdg:n>1?bearing(routePoints[0][0],routePoints[0][1],routePoints[1][0],routePoints[1][1]):0};
+  const total=routeCumDist[n-1];
+  if(m>=total){ const a=routePoints[n-2]||routePoints[n-1],b=routePoints[n-1]; return {lat:b[0],lng:b[1],idx:n-1,hdg:bearing(a[0],a[1],b[0],b[1])}; }
+  // find segment i where cumDist[i] <= m <= cumDist[i+1]
+  let lo=0,hi=n-1;
+  while(lo+1<hi){ const mid=(lo+hi)>>1; if(routeCumDist[mid]<=m) lo=mid; else hi=mid; }
+  const a=routePoints[lo], b=routePoints[lo+1];
+  const segLen=(routeCumDist[lo+1]-routeCumDist[lo])||1;
+  const t=Math.max(0,Math.min(1,(m-routeCumDist[lo])/segLen));
+  return {lat:a[0]+(b[0]-a[0])*t, lng:a[1]+(b[1]-a[1])*t, idx:lo, hdg:bearing(a[0],a[1],b[0],b[1])};
 }
 
 /* ═══════════════════════════════════════════════
@@ -2319,6 +2376,22 @@ function parseMaxspeed(raw){
   const n=parseInt(raw);
   return(!isNaN(n)&&n>5&&n<200)?n:null;
 }
+// Sensible AU default speed for a road class when OSM has no maxspeed tag — so a
+// limit sign shows on rural/suburban roads (Chifley Rd, Sofala Rd…) that Overpass
+// returns no maxspeed for. Used only as a fallback below real maxspeed data.
+function classDefaultSpeed(hw){
+  switch(hw){
+    case 'motorway': case 'motorway_link': return 100;
+    case 'trunk': case 'trunk_link': return 90;
+    case 'primary': case 'primary_link': return 80;
+    case 'secondary': case 'secondary_link': return 70;
+    case 'tertiary': case 'tertiary_link': return 60;
+    case 'unclassified': return 60;
+    case 'residential': return 50;
+    case 'living_street': return 20;
+    default: return null;
+  }
+}
 
 function distToSegmentM(lat,lng,[la1,lo1],[la2,lo2]){
   const cos=Math.cos(lat*Math.PI/180);
@@ -2335,7 +2408,10 @@ async function fetchRouteSpeedLimits(){
   const lats=routePoints.map(p=>p[0]),lngs=routePoints.map(p=>p[1]);
   const s=Math.min(...lats)-0.002,n=Math.max(...lats)+0.002;
   const w=Math.min(...lngs)-0.002,e=Math.max(...lngs)+0.002;
-  const q=`[out:json][timeout:25];way["maxspeed"]["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|residential|living_street|unclassified)$"](${s},${w},${n},${e});out tags geom;`;
+  // Fetch drivable ways WHETHER OR NOT they carry a maxspeed tag — we fall back to
+  // a class default when maxspeed is absent so the sign shows on nearly every road.
+  // (residential/living_street excluded: huge in cities and low-value for the HUD.)
+  const q=`[out:json][timeout:25];way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified)$"](${s},${w},${n},${e});out tags geom;`;
   try{
     const resp=await fetch('https://overpass-api.de/api/interpreter',{
       method:'POST',body:'data='+encodeURIComponent(q),
@@ -2344,8 +2420,8 @@ async function fetchRouteSpeedLimits(){
     const {elements}=await resp.json();
     speedLimitWays=[];
     for(const el of elements){
-      if(!el.geometry?.length||!el.tags?.maxspeed) continue;
-      const limit=parseMaxspeed(el.tags.maxspeed);
+      if(!el.geometry?.length) continue;
+      const limit=parseMaxspeed(el.tags?.maxspeed) ?? classDefaultSpeed(el.tags?.highway);
       if(limit) speedLimitWays.push({coords:el.geometry.map(g=>[g.lat,g.lon]),limit});
     }
   }catch{ speedLimitWays=[]; }
@@ -2582,9 +2658,14 @@ function startNav(){
   loadNearCameras();
   loadNearReports();
 
+  // Precompute route arc-length + reset the dead-reckoning estimator for this trip.
+  buildRouteCumDist(); _drProgressM=0; _drSpeed=0; _drActive=false;
+  _lastLimit=null; _lastLimitAtM=-1e9; // don't carry a prior trip's speed limit
+
   if(watchId!=null) navigator.geolocation.clearWatch(watchId);
   watchId=navigator.geolocation.watchPosition(onGPS,gpsErr,{enableHighAccuracy:true,maximumAge:0,timeout:10000});
   startGpsWatchdog(); // surface "Searching for GPS…" + keep the map alive on dropout
+  startDeadReckon();  // keep position/turns/cameras moving during GPS/data dropout
   startNavRefresh();  // keep reports/cameras live even when stopped at a light
   // Build the "cameras on your route" list (loads cam metadata if needed)
   try{ (window.GhostCams?.ensure?.()||Promise.resolve()).then(()=>{ computeRouteCams(); updateRouteCamsBtn(); }); }catch(_){}
@@ -2596,7 +2677,7 @@ function startNav(){
 function endNav(){
   navState='idle';
   if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null;}
-  stopGpsWatchdog(); setGpsLost(false);
+  stopGpsWatchdog(); setGpsLost(false); stopDeadReckon();
   stopNavRefresh();
   _routeCams=[]; $$('route-cams-btn')?.classList.add('hidden'); $$('route-cams-sheet')?.classList.add('hidden');
   ensureAccelWatch(); // resume the standalone accel watch if the timer is on
@@ -2636,6 +2717,44 @@ function endNav(){
    (1) show a "Searching for GPS…" banner, (2) keep forcing repaints so the
    basemap/route don't stay black if a repaint stalled. */
 let _lastFixMs=0, _gpsWatchdog=null, _gpsLost=false;
+
+/* ── Dead reckoning during GPS/data dropout ─────────────────────────────────
+   When fixes stop arriving we keep the nav "alive" by advancing our distance
+   ALONG THE ROUTE using the last-known speed (decaying), then walking that
+   distance down the polyline to an estimated position. That estimate feeds the
+   same turn/camera/ETA logic AND the visual motion controller, so the car keeps
+   following the road through curves and callouts keep firing. A real fix snaps
+   everything back to truth (see onGPS). Speed-based only — no accelerometer. */
+let _drProgressM=0, _drSpeed=0, _drLastMs=0, _drActive=false, _drTimer=null;
+const DR_GAP_MS=3000; // start estimating once ~3s pass with no fix (fixes are ~1Hz)
+function startDeadReckon(){
+  stopDeadReckon();
+  _drLastMs=performance.now();
+  _drTimer=setInterval(deadReckonTick,500);
+}
+function stopDeadReckon(){ if(_drTimer){ clearInterval(_drTimer); _drTimer=null; } _drActive=false; }
+function deadReckonTick(){
+  if(navState!=='navigating'||!routePoints.length||!routeCumDist.length) return;
+  const now=performance.now();
+  const sinceFix=now-_lastFixMs;
+  if(sinceFix<DR_GAP_MS){ _drLastMs=now; return; } // GPS is fresh — onGPS is driving
+  const dt=Math.min((now-_drLastMs)/1000,2); _drLastMs=now;
+  // Hold full speed for the first 3s of the gap, then ease to a stop by ~+18s so
+  // a long tunnel doesn't send the estimate racing off the end of the route.
+  const gapAge=sinceFix/1000;
+  const decay=gapAge<=3?1:Math.max(0,1-(gapAge-3)/15);
+  const spd=_drSpeed*decay;
+  const total=routeCumDist[routeCumDist.length-1]||0;
+  _drProgressM=Math.min(_drProgressM+spd*dt, total);
+  const est=progressMToPos(_drProgressM);
+  if(!est) return;
+  _drActive=true;
+  // Feed the visual motion loop so the car follows the polyline (not a straight
+  // line off the road), and update all the turn/camera/ETA readouts.
+  _setMotionTarget(est.lat,est.lng,est.hdg,spd);
+  applyNavProgress(est.lat,est.lng,est.hdg,est.idx,true);
+}
+
 function setGpsLost(lost){
   if(lost===_gpsLost) return;
   _gpsLost=lost;
@@ -2711,6 +2830,7 @@ async function reroute(lat,lng){
     maneuvers=routeData.legs[0].maneuvers;
     currentMidx=0; lastVoice=-1;
     allRoutes=[routeData]; selectedRouteIdx=0;
+    buildRouteCumDist(); _drProgressM=0; // new geometry → rebuild arc-length, re-anchor on next fix
     updateRouteGeoJSON();
     map.getSource('route-traveled')?.setData(emptyFC());
     showToast('Route updated',2000);
@@ -3385,33 +3505,46 @@ function onGPS(pos){
   window.Race?.tick(lat,lng);    // race: push my position + poll opponent
 
   const {idx,dist}=nearestOnRoute(routePoints,lat,lng);
-  updateRouteStyling(idx);
 
   if(dist>60){
     offCount++;
     if(offCount>=3){offCount=0;reroute(lat,lng);return;}
   } else offCount=0;
 
-  for(let i=maneuvers.length-1;i>=0;i--){if(idx>=maneuvers[i].begin_shape_index){currentMidx=i;break;}}
+  // Re-anchor the dead-reckoning estimator to this ground-truth fix.
+  _drProgressM=posToProgressM(idx,lat,lng);
+  _drSpeed=speedMs; _drLastMs=performance.now();
+  // If we'd been coasting on estimates (GPS/data gap), the fix is back → reload
+  // the whole-route hazard set so "what's upcoming" is a fresh, correct default.
+  if(_drActive){ _drActive=false; loadNearCameras(); loadNearReports(); }
 
+  applyNavProgress(lat,lng,hdg,idx,false);
+  trackNavDistance();
+
+  if(!headingUpMode&&speedMs>2){
+    headingUpMode=true;
+  }
+}
+
+// Shared "where am I on the route / what's next" update. Runs on every real GPS
+// fix AND — during a GPS/data dropout — on every dead-reckoning tick with an
+// estimated position, so turn callouts, camera alerts and ETA keep working with
+// no signal. `estimated` is informational (kept for future tuning).
+function applyNavProgress(lat,lng,hdg,idx,estimated){
+  if(navState!=='navigating'||!routePoints.length) return;
+  updateRouteStyling(idx);
+  for(let i=maneuvers.length-1;i>=0;i--){if(idx>=maneuvers[i].begin_shape_index){currentMidx=i;break;}}
   const nextM=maneuvers[currentMidx+1]??maneuvers[currentMidx];
   const nextPt=routePoints[nextM.begin_shape_index]??routePoints[routePoints.length-1];
   const distToTurn=haversine(lat,lng,nextPt[0],nextPt[1]);
   // Base remaining time + traffic still ahead of us (shrinks as we clear jams)
   remainingSec=Math.round(routeData.summary.time*(1-Math.min(idx/routePoints.length,1)))
                + trafficDelaySec(routePoints.slice(idx));
-
   updateNavPanel(distToTurn);
   checkVoice(currentMidx,distToTurn);
   checkProximityAlerts(lat,lng,hdg);
-  trackNavDistance();
   if(perspective3D&&currentMidx!==lastRefreshedMidx){lastRefreshedMidx=currentMidx;refreshStreetLabels();}
   updateSpeedProfileCursor();
-
-  if(!headingUpMode&&speedMs>2){
-    headingUpMode=true;
-  }
-
   if((nextM.type>=4&&nextM.type<=6)&&distToTurn<25){
     triggerArrival();
   }
@@ -3605,20 +3738,34 @@ function updateNavPanel(distToTurn){
   }
 }
 
+let _lastLimit=null, _lastLimitAtM=-1e9;
 function getSpeedLimit(lat,lng){
-  const m=maneuvers[currentMidx];
-  if(m?.speed_limit&&m.speed_limit<200) return m.speed_limit;
-  if(!speedLimitWays.length) return null;
   const clat=lat??prevPos?.lat, clng=lng??prevPos?.lng;
-  if(clat==null) return null;
-  let minD=Infinity,best=null;
-  for(const way of speedLimitWays){
-    for(let i=0;i<way.coords.length-1;i++){
-      const d=distToSegmentM(clat,clng,way.coords[i],way.coords[i+1]);
-      if(d<minD){minD=d;best=way.limit;}
+  let lim=null;
+  // 1. Limit provided by the routing engine for the current maneuver.
+  const m=maneuvers[currentMidx];
+  if(m?.speed_limit&&m.speed_limit<200) lim=m.speed_limit;
+  // 2. Nearest OSM way — real maxspeed if tagged, else the road-class default.
+  if(lim==null && speedLimitWays.length && clat!=null){
+    let minD=Infinity,best=null;
+    for(const way of speedLimitWays){
+      for(let i=0;i<way.coords.length-1;i++){
+        const d=distToSegmentM(clat,clng,way.coords[i],way.coords[i+1]);
+        if(d<minD){minD=d;best=way.limit;}
+      }
+    }
+    if(minD<45) lim=best;
+  }
+  // 3. A nearby speed camera's posted zone.
+  if(lim==null && clat!=null && Array.isArray(nearCameras)){
+    for(const cam of nearCameras){
+      if(cam.speed_limit && haversine(clat,clng,cam.lat,cam.lng)<300){ lim=cam.speed_limit; break; }
     }
   }
-  return minD<30?best:null;
+  if(lim!=null){ _lastLimit=lim; _lastLimitAtM=_drProgressM; return lim; }
+  // 4. Hold the last known limit through short data gaps (until ~6km past it).
+  if(_lastLimit!=null && (_drProgressM-_lastLimitAtM)<6000) return _lastLimit;
+  return null;
 }
 
 /* ── Compass widget — driven by map's rotate event ── */
@@ -3756,15 +3903,28 @@ function refreshStreetLabels(){
   }
 }
 
+// Bounding box covering the WHOLE active route (+~5km pad). During navigation we
+// load cameras/reports for the entire corridor up front (and on each refresh) so
+// upcoming hazards are always in memory — they don't vanish when data drops or the
+// map viewport lags behind the car. Falls back to the viewport when not navigating.
+function _hazardBounds(){
+  if(navState==='navigating' && routePoints.length){
+    let s=90,w=180,n=-90,e=-180;
+    for(const [la,lo] of routePoints){ if(la<s)s=la; if(la>n)n=la; if(lo<w)w=lo; if(lo>e)e=lo; }
+    const pad=0.05; // ~5km
+    return {getSouth:()=>s-pad,getWest:()=>w-pad,getNorth:()=>n+pad,getEast:()=>e+pad};
+  }
+  return map.getBounds().pad(0.3);
+}
 async function loadNearCameras(){
-  const b=map.getBounds().pad(0.3);
+  const b=_hazardBounds();
   const p=new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});
-  try{nearCameras=await fetch(`/api/cameras?${p}`).then(r=>r.json());}catch{}
+  try{const r=await fetch(`/api/cameras?${p}`).then(r=>r.json()); if(Array.isArray(r)) nearCameras=r;}catch{}
 }
 async function loadNearReports(){
-  const b=map.getBounds().pad(0.3);
+  const b=_hazardBounds();
   const p=new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});
-  try{nearReports=await fetch(`/api/reports?${p}`).then(r=>r.json());}catch{}
+  try{const r=await fetch(`/api/reports?${p}`).then(r=>r.json()); if(Array.isArray(r)) nearReports=r;}catch{}
 }
 
 /* ── Route warning flash (camera approach) ──────────────────────────────── */
@@ -4405,12 +4565,20 @@ function trackNavDistance(){
   _prevNavPos=prevPos?{...prevPos}:null;
 }
 
+const MIN_BANK_KM=1; // must drive at least 1km before a trip's score counts (anti-gaming)
 function showScoreSubmit(){
   if(gta.score<100){ endNav(); return; } // Not worth showing for tiny scores
   const modal=$$('score-modal'); if(!modal) return;
   $$('score-modal-score').textContent=fmtScore(Math.floor(gta.score))+' pts';
   $$('score-modal-stars').textContent='★'.repeat(gta.highStars)+'☆'.repeat(5-gta.highStars);
   const banked=$$('score-modal-banked'), submitBtn=$$('score-modal-submit');
+  // Anti-gaming gate: show the fun score, but don't bank a trip under 1km.
+  if(_navDistance < MIN_BANK_KM*1000){
+    if(banked) banked.innerHTML=`<span style="opacity:.7">Drive at least ${MIN_BANK_KM}km to bank points — this trip was ${(_navDistance/1000).toFixed(2)}km.</span>`;
+    if(submitBtn){ submitBtn.textContent='Done'; submitBtn.dataset.mode='done'; }
+    modal.classList.remove('hidden');
+    return;
+  }
   if(currentUser){
     // Auto-bank onto the account total
     if(banked) banked.innerHTML=`Banking to <b>${escHtml(currentUser.username)}</b>…`;
@@ -4433,6 +4601,10 @@ async function bankScore(){
       currentUser=d.user; renderAccountUI();
       const banked=$$('score-modal-banked');
       if(banked) banked.innerHTML=`＋${fmtScore(d.added)} pts · Total <b>${fmtScore(currentUser.score)}</b> 🏆`;
+    } else if(d?.error){
+      // Backend rejected the bank (e.g. under the 1km distance gate)
+      const banked=$$('score-modal-banked');
+      if(banked) banked.innerHTML=`<span style="opacity:.7">${escHtml(d.error)}</span>`;
     }
   }catch{ const b=$$('score-modal-banked'); if(b) b.textContent='Could not save (offline?)'; }
 }
