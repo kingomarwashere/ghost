@@ -640,7 +640,10 @@
 <div id="cam-grid-panel" class="hidden">
   <div id="cam-grid-header">
     <span>Traffic Cameras <span id="cam-grid-count"></span></span>
-    <button id="cam-grid-close">✕</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button id="cam-grid-maptoggle" title="Show cameras on the map">📍 On map</button>
+      <button id="cam-grid-close">✕</button>
+    </div>
   </div>
   <div id="cam-grid-scroll">
     <div id="cam-grid-items"></div>
@@ -848,15 +851,31 @@
   }
 
   // ── Camera grid ───────────────────────────────────────────────────
-  function openGrid() {
-    const bounds = map.getBounds();
-    const inView = cams.filter(c =>
-      c.lat >= bounds.getSouth() && c.lat <= bounds.getNorth() &&
-      c.lng >= bounds.getWest()  && c.lng <= bounds.getEast()
-    );
-    document.getElementById('cam-grid-count').textContent = `(${inView.length})`;
+  // Tapping a thumbnail opens its live sheet. Bound ONCE (delegated) — binding
+  // inside openGrid re-added a listener on every open, stacking N sheets.
+  (function bindGridClick() {
     const grid = document.getElementById('cam-grid-items');
-    grid.innerHTML = inView.map(c => `
+    grid.addEventListener('click', e => {
+      const thumb = e.target.closest('.cam-thumb');
+      if (!thumb) return;
+      document.getElementById('cam-grid-panel').classList.add('hidden');
+      openCamSheet(thumb.dataset.id);
+    });
+  })();
+
+  async function openGrid() {
+    // Full gallery of every NSW camera (nearest first when we know the map
+    // centre), not just the current viewport — this is the "select all" view.
+    if (!cams.length) await loadCamMeta();
+    const ctr = map.getCenter();
+    const list = [...cams].sort((a, b) => {
+      const da = (a.lat - ctr.lat) ** 2 + (a.lng - ctr.lng) ** 2;
+      const db = (b.lat - ctr.lat) ** 2 + (b.lng - ctr.lng) ** 2;
+      return da - db;
+    });
+    document.getElementById('cam-grid-count').textContent = `(${list.length})`;
+    const grid = document.getElementById('cam-grid-items');
+    grid.innerHTML = list.map(c => `
       <div class="cam-thumb" data-id="${c.id}">
         <div class="cam-thumb-img-wrap">
           <img class="cam-thumb-img" data-src="${imgUrl(c.file)}" src="" alt="">
@@ -880,22 +899,21 @@
 
     grid.querySelectorAll('.cam-thumb-img').forEach(img => obs.observe(img));
 
-    grid.addEventListener('click', e => {
-      const thumb = e.target.closest('.cam-thumb');
-      if (!thumb) return;
-      document.getElementById('cam-grid-panel').classList.add('hidden');
-      openCamSheet(thumb.dataset.id);
-    });
-
+    syncCamToggleUI();
     document.getElementById('cam-grid-panel').classList.remove('hidden');
   }
 
-  // ── Toggle button ─────────────────────────────────────────────────
+  // ── Map-marker visibility (toggled from inside the grid now) ──────
   function toggleCamLayer() {
     camVisible = !camVisible;
-    document.getElementById('trafficcam-btn').classList.toggle('active', camVisible);
+    syncCamToggleUI();
     setCamLayerVisibility(camVisible);
     if (!camVisible) closeCamSheet();
+  }
+  function syncCamToggleUI() {
+    document.getElementById('trafficcam-btn').classList.toggle('active', camVisible);
+    const mt = document.getElementById('cam-grid-maptoggle');
+    if (mt) { mt.classList.toggle('active', camVisible); mt.textContent = camVisible ? '📍 On map' : '📍 Hidden'; }
   }
 
   // ── Cam-sheet drag-to-expand ──────────────────────────────────────
@@ -945,7 +963,10 @@
   })();
 
   // ── Init ──────────────────────────────────────────────────────────
-  document.getElementById('trafficcam-btn').addEventListener('click', toggleCamLayer);
+  // Toolbar camera button opens the full gallery ("select all of them"). The
+  // on/off-the-map control lives inside the grid now (cam-grid-maptoggle).
+  document.getElementById('trafficcam-btn').addEventListener('click', openGrid);
+  document.getElementById('cam-grid-maptoggle').addEventListener('click', toggleCamLayer);
   document.getElementById('cam-sheet-close').addEventListener('click', closeCamSheet);
   document.getElementById('cam-grid-open-btn').addEventListener('click', openGrid);
   document.getElementById('cam-grid-close').addEventListener('click', () =>
