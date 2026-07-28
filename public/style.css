@@ -1123,6 +1123,7 @@ body:not(.navigating) #street-pill { display: none; }
   top: calc(env(safe-area-inset-top, 0px) + 70px); /* below topbar (~58px) */
   right: 10px;
   z-index: 1005;
+  pointer-events: none; /* decorative HUD — must never intercept clicks on panels beneath it */
   display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
   background: rgba(0,0,0,0.60);
   border-radius: 12px;
@@ -1549,7 +1550,7 @@ body.navigating #cw-fab {
 
 /* ── Traffic camera sheet ───────────────────── */
 #cam-sheet {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 420;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 1100;
   background: var(--panel-bg, #13131f);
   border-radius: 18px 18px 0 0;
   border-top: 1px solid rgba(255,255,255,.08);
@@ -1594,7 +1595,7 @@ body.navigating #cw-fab {
 
 /* ── Camera grid panel ──────────────────────── */
 #cam-grid-panel {
-  position: fixed; inset: 0; z-index: 430;
+  position: fixed; inset: 0; z-index: 1100;
   background: #0a0a14; display: flex; flex-direction: column;
 }
 #cam-grid-header {
