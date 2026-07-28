@@ -4453,7 +4453,6 @@ function applyMinecraftColors(){
   ['waterway','waterway_river','waterway_other','waterway-river','river'].forEach(l=>{p(l,'line-color',WATER);p(l,'fill-color',WATER);});
   // Buildings = stone/planks with a blocky dark edge
   ['building','building-top'].forEach(l=>{p(l,'fill-color',PLANK);p(l,'fill-outline-color','#5f4a30');});
-  p('building-3d','fill-extrusion-color',PLANK);
   // Roads = gravel/dirt paths
   ['road_motorway','road_trunk','motorway','trunk','highway_motorway','tunnel_motorway','bridge_motorway'].forEach(l=>p(l,'line-color',STONE));
   ['road_primary','road_secondary','primary','secondary','highway_primary','highway_secondary'].forEach(l=>p(l,'line-color','#c9ac78'));
@@ -4463,6 +4462,27 @@ function applyMinecraftColors(){
   p('route-main','line-color','#ff2f8e');
   p('route-traveled','line-color','#7a1f4a');
   p('route-alts','line-color','#9a5a3a');
+
+  // ── Blockify: make it read like Minecraft geometry, not just its palette ──
+  const lay=(layer,prop,val)=>{try{if(map.getLayer(layer)) map.setLayoutProperty(layer,prop,val);}catch{}};
+  const style=map.getStyle&&map.getStyle();
+  if(style&&style.layers) style.layers.forEach(l=>{
+    if(l.id.startsWith('route-')||l.id.startsWith('me_')) return;
+    // Hard pixel edges: kill fill anti-aliasing so coastlines/parks/buildings
+    // meet the grass in jagged steps instead of smooth curves.
+    if(l.type==='fill') p(l.id,'fill-antialias',false);
+    // Square road corners + ends — no rounded joins/caps (blocks have right angles).
+    if(l.type==='line'){ lay(l.id,'line-join','miter'); lay(l.id,'line-cap','butt'); }
+  });
+
+  // Voxel buildings: flat-shaded opaque walls (no vertical gradient) with heights
+  // snapped up to 4 m "blocks" so towers read as stacked cubes, not smooth prisms.
+  const H4=['*',4,['ceil',['/',['coalesce',['get','render_height'],['get','height'],4],4]]];
+  p('3d-buildings','fill-extrusion-color',PLANK);
+  p('3d-buildings','fill-extrusion-height',H4);
+  p('3d-buildings','fill-extrusion-base',['*',4,['floor',['/',['coalesce',['get','render_min_height'],['get','min_height'],0],4]]]);
+  p('3d-buildings','fill-extrusion-opacity',1);
+  try{ map.setPaintProperty('3d-buildings','fill-extrusion-vertical-gradient',false); }catch{}
 }
 
 function applyGtaColors(){
