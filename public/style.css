@@ -952,7 +952,9 @@ body.navigating #compass-widget { top: calc(env(safe-area-inset-top, 0px) + 250p
   box-shadow: 0 4px 24px rgba(0,0,0,.6);
   pointer-events: none;
 }
-body.navigating #toast { bottom: calc(120px + env(safe-area-inset-bottom)); }
+/* During nav, float the toast high (just under the instruction bar) so transient
+   messages like "Route updated" don't cover the street-name pill / speedometer. */
+body.navigating #toast { top: calc(178px + env(safe-area-inset-top)); bottom: auto; }
 
 /* ── Near-me chips ───────────────────────────────── */
 #nearme-chips {
@@ -1029,7 +1031,8 @@ body.previewing #radical-footer-root { display: none !important; }
 /* ── Street name pill ──────────────────────────── */
 #street-pill {
   position: absolute; z-index: 900;
-  left: 88px; right: 64px;
+  left: 84px; right: 84px;
+  max-width: 340px; margin: 0 auto;
   bottom: calc(115px + env(safe-area-inset-bottom));
   background: rgba(10,10,10,0.88);
   border-radius: 20px; padding: 8px 14px;
@@ -2031,8 +2034,15 @@ body.previewing #rec-fab { display: none; }
 }
 #route-cams-count.hidden { display: none; }
 
+/* While the route-cams sheet is open it owns the bottom band — hide the speed
+   float and right-side FABs that would otherwise render on top of it. */
+body.cams-open #nav-speed-float,
+body.cams-open #report-btn,
+body.cams-open #recenter-btn,
+body.cams-open #rec-fab,
+body.cams-open #cw-fab { display: none !important; }
 #route-cams-sheet {
-  position: fixed; z-index: 1003; left: 0; right: 0;
+  position: fixed; z-index: 1150; left: 0; right: 0;
   bottom: calc(84px + env(safe-area-inset-bottom)); /* sit above the nav footer */
   background: rgba(10,12,20,.96); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid rgba(255,255,255,.1); border-radius: 18px 18px 0 0;

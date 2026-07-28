@@ -130,6 +130,13 @@ auth.post('/score', async (c) => {
   const stars = Math.max(0, Math.min(5, Math.floor(Number(b.stars) || 0)));
   const dist  = Math.max(0, Number(b.distance_km) || 0);
 
+  // Anti-gaming: a trip must cover at least 1km of real driving before it can
+  // bank points. Blocks the "start nav, immediately end" exploit and any client
+  // that POSTs a score with little/no distance. Distance is the server-side gate.
+  if (dist < 1) {
+    return c.json({ error: 'drive at least 1km to bank points', added: 0, distance_km: dist }, 200);
+  }
+
   await c.env.DB.prepare(
     `UPDATE users SET score = score + ?, trips = COALESCE(trips,0) + 1,
        distance_km = COALESCE(distance_km,0) + ?, high_stars = MAX(COALESCE(high_stars,0), ?),

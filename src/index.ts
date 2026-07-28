@@ -38,7 +38,7 @@ app.route('/api/race', race);
 
 app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
 
-// ── Nominatim geocoder proxy (adds required User-Agent, caches 5 min) ────────
+// ── Nominatim geocoder proxy (adds required User-Agent, caches 1h) ───────────
 app.get('/api/geocode', async (c) => {
   const q   = c.req.query('q')   ?? '';
   const lat = c.req.query('lat') ?? '';
@@ -53,10 +53,83 @@ app.get('/api/geocode', async (c) => {
   const resp = await fetch(url, {
     headers: { 'User-Agent': 'ghost-nav/1.0 (ghost.theradicalparty.com)', 'Accept': 'application/json' },
     // @ts-ignore
-    cf: { cacheTtl: 300, cacheEverything: true },
+    cf: { cacheTtl: 3600, cacheEverything: true },
   });
   if (!resp.ok) return c.json([]);
-  return c.json(await resp.json());
+  return c.json(await resp.json(), 200, { 'Cache-Control': 'public, max-age=3600' });
+});
+
+// ── Unified geocoder: Photon + Nominatim fanned out server-side, merged, and
+//    edge-cached so the browser makes ONE fast request and popular queries are
+//    near-instant globally. Replaces the client fanning out to 3 slow sources. ─
+async function unifiedGeocode(q: string, lat: string, lon: string) {
+  const near = !!(lat && lon);
+  const photonP = new URLSearchParams({ q, limit: '10', lang: 'en', bbox: '113.3,-43.6,153.6,-10.4' });
+  if (near) { photonP.set('lat', lat); photonP.set('lon', lon); }
+  const nomP = new URLSearchParams({ q, format: 'jsonv2', countrycodes: 'au', limit: '8', addressdetails: '1', ...(near ? { lat, lon } : {}) });
+
+  const [photon, nom] = await Promise.allSettled([
+    fetch(`https://photon.komoot.io/api/?${photonP}`, {
+      // @ts-ignore
+      cf: { cacheTtl: 600, cacheEverything: true },
+    }).then(r => (r.ok ? r.json() : null)),
+    fetch(`https://nominatim.openstreetmap.org/search?${nomP}`, {
+      headers: { 'User-Agent': 'ghost-nav/1.0 (ghost.theradicalparty.com)', 'Accept': 'application/json' },
+      // @ts-ignore
+      cf: { cacheTtl: 600, cacheEverything: true },
+    }).then(r => (r.ok ? r.json() : null)),
+  ]);
+
+  const out: any[] = [];
+  const seen = new Set<string>();
+  const push = (o: any) => {
+    if (!o || o.lat == null || o.lng == null || !o.name || isNaN(o.lat) || isNaN(o.lng)) return;
+    const key = `${String(o.name).toLowerCase()}|${o.lat.toFixed(3)}|${o.lng.toFixed(3)}`;
+    if (seen.has(key)) return; seen.add(key); out.push(o);
+  };
+
+  if (photon.status === 'fulfilled' && (photon.value as any)?.features) {
+    for (const f of (photon.value as any).features) {
+      const p = f.properties ?? {}; const g = f.geometry?.coordinates;
+      if (!g) continue;
+      push({ lat: g[1], lng: g[0], name: p.name || p.street || p.city || p.county || 'Place',
+        sub: [p.housenumber ? `${p.housenumber} ${p.street || ''}`.trim() : p.street, p.suburb || p.district || p.town || p.village || p.city, p.state].filter(Boolean).join(', '),
+        osmKey: p.osm_key ?? '', osmVal: p.osm_value ?? '', importance: 0.5 });
+    }
+  }
+  if (nom.status === 'fulfilled' && Array.isArray(nom.value)) {
+    for (const r of nom.value as any[]) {
+      const a = r.address ?? {};
+      const raw = r.name || a.road || a.suburb || r.display_name?.split(',')[0] || 'Place';
+      push({ lat: parseFloat(r.lat), lng: parseFloat(r.lon), name: raw,
+        sub: [a.road && !String(raw).includes(a.road) ? a.road : null, a.suburb || a.quarter || a.village || a.town || a.city_district, a.state_district || a.state].filter(Boolean).join(', '),
+        osmKey: r.category ?? '', osmVal: r.type ?? '', importance: r.importance ?? 0.5 });
+    }
+  }
+  return out;
+}
+
+app.get('/api/search', async (c) => {
+  const q = (c.req.query('q') ?? '').trim();
+  const lat = c.req.query('lat') ?? '';
+  const lon = c.req.query('lon') ?? '';
+  if (q.length < 2) return c.json([]);
+
+  // Edge-cache key: normalized query + coarse ~11km location bucket, so nearby
+  // users share hits while proximity biasing still differs region-to-region.
+  const latB = lat ? String(Math.round(parseFloat(lat) * 10) / 10) : '';
+  const lonB = lon ? String(Math.round(parseFloat(lon) * 10) / 10) : '';
+  const cacheKey = new Request(`https://ghost.cache/search?q=${encodeURIComponent(q.toLowerCase())}&lat=${latB}&lon=${lonB}`);
+  // @ts-ignore — Workers Cache API
+  const cache = caches.default;
+  const hit = await cache.match(cacheKey);
+  if (hit) return hit;
+
+  const results = await unifiedGeocode(q, lat, lon);
+  const res = c.json(results, 200, { 'Cache-Control': 'public, max-age=600' });
+  // Persist a cacheable copy at the edge (10 min) without blocking the response.
+  c.executionCtx.waitUntil(cache.put(cacheKey, res.clone()));
+  return res;
 });
 
 // ── NSW Traffic Cameras ──────────────────────────────────────────────────────

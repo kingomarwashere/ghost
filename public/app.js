@@ -611,6 +611,20 @@ function nearestOnRoute(pts,lat,lng){
   return {idx:minI,dist:minD};
 }
 
+// Forward-biased route matcher for live nav. Searches a window ahead of the
+// current cursor so a route that loops near itself (interchanges/ramps) doesn't
+// snap our position far ahead. Only falls back to a global scan when the car is
+// genuinely off the windowed route (post-reroute or a big GPS jump).
+function matchRouteIdx(lat,lng){
+  const len=routePoints.length;
+  if(!len) return {idx:0,dist:Infinity};
+  const lo=Math.max(0,_lastRouteIdx-4), hi=Math.min(len-1,_lastRouteIdx+200);
+  let minD=Infinity,best=Math.min(_lastRouteIdx,len-1);
+  for(let i=lo;i<=hi;i++){const d=haversine(routePoints[i][0],routePoints[i][1],lat,lng);if(d<minD){minD=d;best=i;}}
+  if(minD>100){ const g=nearestOnRoute(routePoints,lat,lng); if(g.dist<minD) return g; }
+  return {idx:best,dist:minD};
+}
+
 /* ── Route arc-length (drives GPS-loss dead reckoning) ──────────────────────
    routeCumDist[i] = metres travelled along the polyline to reach routePoints[i].
    Rebuilt whenever the active route changes (startNav / reroute). */
@@ -738,10 +752,10 @@ function showToast(msg, dur=2800) {
 function san(s){ return s ? String(s).replace(/\bisrael\b/gi, 'Palestine') : s; }
 
 // ── Overpass name-search: find any OSM POI whose name matches the query ─────
-async function overpassNameSearch(q, lat, lng, radius=8000){
+async function overpassNameSearch(q, lat, lng, radius=8000, signal, timeoutMs=9000){
   // Search across all common POI-holding tag keys
   const filter=`[name~"${q.replace(/"/g,'')}",i][~"^(amenity|shop|tourism|leisure|office|brand)$"~"."]`;
-  const results=await overpassSearch(filter,'📍',lat,lng,radius);
+  const results=await overpassSearch(filter,'📍',lat,lng,radius,signal,timeoutMs);
   // Assign proper emoji based on OSM tags (best effort from name match)
   return results.map(r=>({...r}));
 }
@@ -792,6 +806,16 @@ async function geocodeNominatimAU(q, lat, lng){
       };
     });
   }catch{return [];}
+}
+
+// ── Unified geocoder — one fast, edge-cached request (Photon+Nominatim merged
+//    server-side). Replaces the client awaiting 3 slow sources in parallel. ────
+async function unifiedSearch(q, lat, lng, signal){
+  const params=new URLSearchParams({ q, lat:String(lat??''), lon:String(lng??'') });
+  try{
+    const data=await fetch(`/api/search?${params}`,{signal}).then(r=>r.json());
+    return Array.isArray(data)?data:[];
+  }catch{ return []; }
 }
 
 // ── Coordinate paste ("−33.86, 151.21") ──────────────────────────────────────
@@ -969,10 +993,15 @@ function detectCategory(q){
 }
 
 // ── Overpass API — comprehensive OSM POI search ──────────────────────────────
-async function overpassSearch(filter, emoji, lat, lng, radius=6000){
-  const q=`[out:json][timeout:10];(node${filter}(around:${radius},${lat},${lng});way${filter}(around:${radius},${lat},${lng}););out center 25;`;
+async function overpassSearch(filter, emoji, lat, lng, radius=6000, signal, timeoutMs=9000){
+  const q=`[out:json][timeout:8];(node${filter}(around:${radius},${lat},${lng});way${filter}(around:${radius},${lat},${lng}););out center 25;`;
+  // Hard-cap Overpass (it can hang for 10s+) and honour the caller's abort so a
+  // superseded search stops fetching. Either firing returns [] gracefully.
+  const ctrl=new AbortController();
+  const to=setTimeout(()=>ctrl.abort(),timeoutMs);
+  if(signal){ if(signal.aborted) ctrl.abort(); else signal.addEventListener('abort',()=>ctrl.abort(),{once:true}); }
   try{
-    const resp=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(q)});
+    const resp=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(q),signal:ctrl.signal});
     if(!resp.ok) return [];
     const data=await resp.json();
     return (data.elements??[]).map(el=>{
@@ -991,6 +1020,7 @@ async function overpassSearch(filter, emoji, lat, lng, radius=6000){
       return {lat:elLat,lng:elLng,name,sub,dist,_emoji:emoji};
     }).filter(Boolean).sort((a,b)=>a.dist-b.dist);
   }catch{return [];}
+  finally{ clearTimeout(to); }
 }
 
 // ── Photon geocoder — address / place-name search ────────────────────────────
@@ -1170,7 +1200,7 @@ function updateRouteCamsBtn(){
   const show = navState==='navigating' && _routeCams.length>0;
   btn.classList.toggle('hidden', !show);
   if(show){ const n=_aheadCams().length; if(cnt){ cnt.textContent=String(n); cnt.classList.toggle('hidden', n===0); } }
-  else { $$('route-cams-sheet')?.classList.add('hidden'); }
+  else { $$('route-cams-sheet')?.classList.add('hidden'); document.body.classList.remove('cams-open'); }
 }
 function renderRouteCams(){
   const listEl=$$('route-cams-list'); if(!listEl) return;
@@ -1190,12 +1220,19 @@ function renderRouteCams(){
     card.addEventListener('click',()=> window.GhostCams&&window.GhostCams.open(rc.cam.id));
   });
 }
+function setRouteCamsOpen(open){
+  const sheet=$$('route-cams-sheet'); if(!sheet) return;
+  if(open){ renderRouteCams(); sheet.classList.remove('hidden'); }
+  else sheet.classList.add('hidden');
+  // While open the sheet owns the bottom band — hide the speed float + side FABs
+  // it would otherwise collide with (they render above it otherwise).
+  document.body.classList.toggle('cams-open', open);
+}
 $$('route-cams-btn')?.addEventListener('click',()=>{
   const sheet=$$('route-cams-sheet'); if(!sheet) return;
-  const open=!sheet.classList.contains('hidden');
-  if(open){ sheet.classList.add('hidden'); } else { renderRouteCams(); sheet.classList.remove('hidden'); }
+  setRouteCamsOpen(sheet.classList.contains('hidden'));
 });
-$$('route-cams-close')?.addEventListener('click',()=> $$('route-cams-sheet')?.classList.add('hidden'));
+$$('route-cams-close')?.addEventListener('click',()=> setRouteCamsOpen(false));
 
 async function loadCameras(){
   if(map.getZoom()<9){clearMarkers(cameraMarkers);return;}
@@ -1750,34 +1787,28 @@ const _arc=(a,b)=>((b-a)%360+540)%360-180;
 // Only searches a small forward window around _lastRouteIdx so it's O(1) in practice.
 function _syncRouteLine(lat, lng) {
   if (!routePoints.length || navState !== 'navigating') return;
-  // Find the nearest route vertex to the ANIMATED car. The window must always
-  // bracket the car: because the car icon leads (feed-forward) and glides ahead
-  // between 1 Hz GPS fixes, a fixed window anchored to the last GPS index can
-  // fall behind at speed — then the search clamps to a vertex BEHIND the car and
-  // the line is drawn trailing behind it. So we advance the cursor every frame
-  // (below) and search a generous window forward.
   const len = routePoints.length;
-  const lo = Math.max(0, Math.min(_lastRouteIdx - 2, len - 1));
-  const hi = Math.min(len - 1, lo + 80);
-  let minD = Infinity, best = lo;
+  // Forward-biased window around the cursor. NEVER a global scan: at interchanges
+  // the route passes near a LATER part of itself, so a global nearest-vertex can
+  // jump far ahead — leaving routePoints.slice(best+1) empty and collapsing the
+  // line to a single (invisible) point (the reported "route vanished" bug).
+  const lo = Math.max(0, _lastRouteIdx - 3);
+  const hi = Math.min(len - 1, _lastRouteIdx + 160);
+  let minD = Infinity, best = _lastRouteIdx;
   for (let i = lo; i <= hi; i++) {
     const d = haversine(routePoints[i][0], routePoints[i][1], lat, lng);
     if (d < minD) { minD = d; best = i; }
   }
-  // Self-heal: if the nearest in-window vertex is implausibly far, the cursor is
-  // stale (e.g. just after a reroute) — do one full scan to re-acquire the car.
-  if (minD > 150) {
-    minD = Infinity;
-    for (let i = 0; i < len; i++) {
-      const d = haversine(routePoints[i][0], routePoints[i][1], lat, lng);
-      if (d < minD) { minD = d; best = i; }
-    }
-  }
   _lastRouteIdx = best; // cursor follows the car at 60 fps so the window can't lag
+  // Always draw car → remaining route as ≥2 points; clamp a near-end cursor so it
+  // can't produce a 1-point LineString (which renders nothing).
+  const rest = routePoints.slice(best + 1);
+  const coords = rest.length ? toGL([[lat, lng], ...rest])
+                             : toGL([[lat, lng], routePoints[len - 1]]);
   try {
     map.getSource('route-main')?.setData({
       type: 'Feature',
-      geometry: { type: 'LineString', coordinates: toGL([[lat, lng], ...routePoints.slice(best + 1)]) }
+      geometry: { type: 'LineString', coordinates: coords }
     });
   } catch (_) {}
 }
@@ -1983,7 +2014,11 @@ function showSuggestions(filterQ=''){
 }
 
 /* ── Live search ────────────────────────────────── */
-let srchDebounce=null;
+let srchDebounce=null, _searchSeq=0, _searchAbort=null;
+// Short-lived client cache so backspacing / re-typing a query is instant.
+const _searchCache=new Map(); const SEARCH_TTL=120000, SEARCH_CACHE_MAX=60;
+function searchCacheGet(k){ const e=_searchCache.get(k); if(!e) return null; if(Date.now()-e.t>SEARCH_TTL){_searchCache.delete(k);return null;} _searchCache.delete(k); _searchCache.set(k,e); return e.r; }
+function searchCacheSet(k,r){ _searchCache.set(k,{t:Date.now(),r}); if(_searchCache.size>SEARCH_CACHE_MAX) _searchCache.delete(_searchCache.keys().next().value); }
 function wireInput(input, field){
   input.addEventListener('focus',()=>{
     setActiveField(field);
@@ -1996,7 +2031,7 @@ function wireInput(input, field){
     clearTimeout(srchDebounce);
     if(!q){showSuggestions();return;}
     if(q.length<3){ showSuggestions(q); return; } // show locals only until 3 chars
-    srchDebounce=setTimeout(()=>doSearch(q),300);
+    srchDebounce=setTimeout(()=>doSearch(q),220);
   });
 }
 wireInput(fromInput,'from');
@@ -2065,29 +2100,39 @@ async function doSearch(q){
     bindResultClicks(); return;
   }
 
-  // ④ Free-text: fan out to three sources in parallel
-  const [photonRaw, nomRaw, overpassByName]=await Promise.all([
-    geocode(q,lat,lng),
-    geocodeNominatimAU(q,lat,lng),
-    overpassNameSearch(q,lat,lng,12000),
-  ]);
+  // ④ Free-text — progressive. Paint the fast edge-cached geocoder the instant
+  //    it returns; merge slow Overpass POIs in late (hard-capped at 2.8s) so the
+  //    UI NEVER blocks on the slowest source (the old code awaited all three).
+  const seq=++_searchSeq;
+  if(_searchAbort) _searchAbort.abort();  // cancel a prior in-flight search
+  _searchAbort=new AbortController();
+  const signal=_searchAbort.signal;
 
-  const enriched=[
-    ...enrichPhoton(photonRaw,lat,lng),
-    ...enrichPhoton(nomRaw,lat,lng),
-    ...overpassByName,
-  ];
-  const merged=mergeResults([enriched],lat,lng); // dedup
-  if(!merged.length&&!locals.length){
-    searchResultsEl.innerHTML=`<div class="no-results">Nothing found for "<strong>${escHtml(q)}</strong>"<br><small>Check spelling or try a suburb name</small></div>`;
-    return;
-  }
+  const collected=[]; let settled=0;
+  const paint=()=>{
+    const merged=mergeResults([collected],lat,lng); // dedup
+    merged.forEach(r=>{ r._score=scoreResult(r,q,lat,lng); });
+    merged.sort((a,b)=>b._score-a._score);
+    renderSearchResults(merged,locals,q);
+    searchCacheSet(q.toLowerCase(),merged);
+  };
+  const ingest=(list)=>{ if(seq!==_searchSeq||!list?.length) return; collected.push(...list); paint(); };
+  const finish=()=>{ if(seq!==_searchSeq) return;
+    if(++settled>=2 && !collected.length && !locals.length){
+      searchResultsEl.innerHTML=`<div class="no-results">Nothing found for "<strong>${escHtml(q)}</strong>"<br><small>Check spelling or try a suburb name</small></div>`;
+    }
+  };
 
-  // ⑤ Score every result and sort
-  merged.forEach(r=>{ r._score=scoreResult(r,q,lat,lng); });
-  merged.sort((a,b)=>b._score-a._score);
+  // Instant paint from cache while the network refreshes underneath.
+  const cached=searchCacheGet(q.toLowerCase());
+  if(cached?.length) renderSearchResults(cached,locals,q);
 
-  // ⑥ Render — sections: locals first, then place results
+  unifiedSearch(q,lat,lng,signal).then(r=>ingest(enrichPhoton(r,lat,lng))).catch(()=>{}).finally(finish);
+  overpassNameSearch(q,lat,lng,12000,signal,2800).then(r=>ingest(r)).catch(()=>{}).finally(finish);
+}
+
+// Shared renderer: locals section + place results (used for progressive paints).
+function renderSearchResults(merged,locals,q){
   let html='';
   if(locals.length){
     html+=`<div class="results-section-label">🕐 Recent &amp; saved</div>`;
@@ -2097,7 +2142,8 @@ async function doSearch(q){
     if(locals.length) html+=`<div class="results-section-label">🔍 Results</div>`;
     html+=merged.slice(0,20).map(r=>resultRow(r,isFav(r.name),true,r._emoji??placeEmoji(r),placeLabel(r),q)).join('');
   }
-  searchResultsEl.innerHTML=html||`<div class="no-results">Nothing found</div>`;
+  if(!html) html=`<div class="no-results srch-spin">Searching…</div>`;
+  searchResultsEl.innerHTML=html;
   bindResultClicks();
 }
 
@@ -2659,7 +2705,7 @@ function startNav(){
   loadNearReports();
 
   // Precompute route arc-length + reset the dead-reckoning estimator for this trip.
-  buildRouteCumDist(); _drProgressM=0; _drSpeed=0; _drActive=false;
+  buildRouteCumDist(); _drProgressM=0; _drSpeed=0; _drActive=false; _lastRouteIdx=0;
   _lastLimit=null; _lastLimitAtM=-1e9; // don't carry a prior trip's speed limit
 
   if(watchId!=null) navigator.geolocation.clearWatch(watchId);
@@ -2679,7 +2725,7 @@ function endNav(){
   if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null;}
   stopGpsWatchdog(); setGpsLost(false); stopDeadReckon();
   stopNavRefresh();
-  _routeCams=[]; $$('route-cams-btn')?.classList.add('hidden'); $$('route-cams-sheet')?.classList.add('hidden');
+  _routeCams=[]; $$('route-cams-btn')?.classList.add('hidden'); $$('route-cams-sheet')?.classList.add('hidden'); document.body.classList.remove('cams-open');
   ensureAccelWatch(); // resume the standalone accel watch if the timer is on
   [navInst,navFooter,alertBar,arrivalOverlay,$$('nav-search-sheet'),$$('nav-routes-sheet')].forEach(el=>el?.classList.add('hidden'));
   updateRouteWarn(null);
@@ -2830,7 +2876,7 @@ async function reroute(lat,lng){
     maneuvers=routeData.legs[0].maneuvers;
     currentMidx=0; lastVoice=-1;
     allRoutes=[routeData]; selectedRouteIdx=0;
-    buildRouteCumDist(); _drProgressM=0; // new geometry → rebuild arc-length, re-anchor on next fix
+    buildRouteCumDist(); _drProgressM=0; _lastRouteIdx=0; // new geometry → rebuild arc-length + re-anchor cursor
     updateRouteGeoJSON();
     map.getSource('route-traveled')?.setData(emptyFC());
     showToast('Route updated',2000);
@@ -3457,7 +3503,7 @@ function onGPS(pos){
   // Eliminates GPS drift that places the car icon off the road.
   let dispLat=lat, dispLng=lng, dispHdg=hdg;
   if(navState==='navigating' && routePoints.length){
-    const {idx:sIdx,dist:sDist}=nearestOnRoute(routePoints,lat,lng);
+    const {idx:sIdx,dist:sDist}=matchRouteIdx(lat,lng);
     if(sDist<40){
       dispLat=routePoints[sIdx][0];
       dispLng=routePoints[sIdx][1];
@@ -3504,7 +3550,7 @@ function onGPS(pos){
   updateCongestionGlow(lat,lng); // red/amber edge glow when inside a jam
   window.Race?.tick(lat,lng);    // race: push my position + poll opponent
 
-  const {idx,dist}=nearestOnRoute(routePoints,lat,lng);
+  const {idx,dist}=matchRouteIdx(lat,lng);
 
   if(dist>60){
     offCount++;
