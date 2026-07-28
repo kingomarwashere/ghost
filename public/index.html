@@ -985,8 +985,10 @@
       setCamLayerData();
       setCamLayerVisibility(camVisible); // honor default-on state
     });
-    const defer = () => (window.requestIdleCallback ? requestIdleCallback(load, { timeout: 3000 }) : setTimeout(load, 400));
-    map.loaded() ? defer() : map.once('idle', defer);
+    // Load off the critical path, but DON'T gate on map 'idle': the 3D car repaints
+    // the map continuously so 'idle' can never fire, which left the markers missing
+    // entirely. requestIdleCallback's timeout guarantees it runs regardless.
+    (window.requestIdleCallback ? requestIdleCallback(load, { timeout: 2000 }) : setTimeout(load, 300));
 
     // Heal after every style swap: setStyle wipes the traffic-cams source/layers,
     // so re-add them (with data + current visibility) whenever a new style loads.
@@ -1151,8 +1153,9 @@
     // Guard the defer window: if the user already tapped the button, don't
     // auto-toggle (which would flip it back off).
     const load = () => { if (!pigsOn) toggle(true); };
-    const defer = () => (window.requestIdleCallback ? requestIdleCallback(load, { timeout: 3000 }) : setTimeout(load, 600));
-    map.loaded() ? defer() : map.once('idle', defer);
+    // Don't gate on map 'idle' — the 3D car repaints continuously so it may never
+    // fire; the requestIdleCallback timeout guarantees the overlay still loads.
+    (window.requestIdleCallback ? requestIdleCallback(load, { timeout: 2500 }) : setTimeout(load, 500));
 
     // Heal after every style swap: setStyle wipes the pigs source/layers, so if
     // the overlay is on, re-init + re-populate it. Done inline (not via toggle,
