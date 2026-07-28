@@ -4451,8 +4451,11 @@ function applyMinecraftColors(){
   // Water = Minecraft blue
   ['water','water_shadow','ocean','waterway_tunnel','water_pattern'].forEach(l=>p(l,'fill-color',WATER));
   ['waterway','waterway_river','waterway_other','waterway-river','river'].forEach(l=>{p(l,'line-color',WATER);p(l,'fill-color',WATER);});
-  // Buildings = stone/planks with a blocky dark edge
-  ['building','building-top'].forEach(l=>{p(l,'fill-color',PLANK);p(l,'fill-outline-color','#5f4a30');});
+  // Building footprints = cobblestone grey (NOT brown planks). In a dense CBD the
+  // flat footprint fill tiles the whole ground, so brown here = the "mud" look;
+  // grey reads as a clean Minecraft stone town and lets green grass/roads pop.
+  const COBBLE='#8f8b83';
+  ['building','building-top'].forEach(l=>{p(l,'fill-color',COBBLE);p(l,'fill-outline-color','#5a564f');});
   // Roads = gravel/dirt paths
   ['road_motorway','road_trunk','motorway','trunk','highway_motorway','tunnel_motorway','bridge_motorway'].forEach(l=>p(l,'line-color',STONE));
   ['road_primary','road_secondary','primary','secondary','highway_primary','highway_secondary'].forEach(l=>p(l,'line-color','#c9ac78'));
@@ -4475,14 +4478,19 @@ function applyMinecraftColors(){
     if(l.type==='line'){ lay(l.id,'line-join','miter'); lay(l.id,'line-cap','butt'); }
   });
 
-  // Voxel buildings: flat-shaded opaque walls (no vertical gradient) with heights
-  // snapped up to 4 m "blocks" so towers read as stacked cubes, not smooth prisms.
-  const H4=['*',4,['ceil',['/',['coalesce',['get','render_height'],['get','height'],4],4]]];
-  p('3d-buildings','fill-extrusion-color',PLANK);
-  p('3d-buildings','fill-extrusion-height',H4);
-  p('3d-buildings','fill-extrusion-base',['*',4,['floor',['/',['coalesce',['get','render_min_height'],['get','min_height'],0],4]]]);
+  // Voxel buildings — Minecraft VILLAGE scale, not a city skyline. The previous
+  // pass kept real heights (ceil only rounded up), so a CBD became a chaotic wall
+  // of tall brown extrusions that buried the road. Now every building is a short
+  // flat-shaded cobblestone block, 4–20 m (1–5 blocks) snapped to 4 m steps, and
+  // buildings only render from z16 so the distant skyline can't wall off the view.
+  const H=['coalesce',['get','render_height'],['get','height'],6];
+  const BLOCK=['max',4,['min',20,['*',4,['ceil',['/',H,4]]]]];
+  p('3d-buildings','fill-extrusion-color',COBBLE);
+  p('3d-buildings','fill-extrusion-height',BLOCK);
+  p('3d-buildings','fill-extrusion-base',0);
   p('3d-buildings','fill-extrusion-opacity',1);
   try{ map.setPaintProperty('3d-buildings','fill-extrusion-vertical-gradient',false); }catch{}
+  try{ map.setLayerZoomRange('3d-buildings',16,24); }catch{}
 }
 
 function applyGtaColors(){
