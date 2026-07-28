@@ -720,41 +720,56 @@
   }
 
   // ── MapLibre layer ────────────────────────────────────────────────
+  let camHandlersBound = false;
   function addCamLayer() {
-    if (map.getSource('traffic-cams')) return;
-    map.addSource('traffic-cams', {
-      type: 'geojson',
-      data: { type: 'FeatureCollection', features: [] },
-    });
-    map.addLayer({
-      id: 'traffic-cams-circle',
-      type: 'circle',
-      source: 'traffic-cams',
-      layout: { visibility: 'none' },
-      paint: {
-        'circle-radius': 10,
-        'circle-color': '#0f172a',
-        'circle-stroke-width': 2,
-        'circle-stroke-color': '#38bdf8',
-      },
-    });
-    map.addLayer({
-      id: 'traffic-cams-label',
-      type: 'symbol',
-      source: 'traffic-cams',
-      layout: {
-        visibility: 'none',
-        'text-field': '📹',
-        'text-size': 14,
-        'text-allow-overlap': true,
-      },
-    });
-    map.on('click', 'traffic-cams-circle', e => {
-      const props = e.features[0].properties;
-      openCamSheet(props.id);
-    });
-    map.on('mouseenter', 'traffic-cams-circle', () => map.getCanvas().style.cursor = 'pointer');
-    map.on('mouseleave', 'traffic-cams-circle', () => map.getCanvas().style.cursor = '');
+    // Re-adds the source+layers if missing. MUST be idempotent AND re-runnable:
+    // a map-style swap (setStyle for GTA/Minecraft/day-night) wipes every custom
+    // source & layer, so this is called again on each 'style.load' to heal them —
+    // otherwise the live cams vanish the moment the user changes map style.
+    if (!map.getSource('traffic-cams')) {
+      map.addSource('traffic-cams', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+    }
+    if (!map.getLayer('traffic-cams-circle')) {
+      map.addLayer({
+        id: 'traffic-cams-circle',
+        type: 'circle',
+        source: 'traffic-cams',
+        layout: { visibility: 'none' },
+        paint: {
+          'circle-radius': 10,
+          'circle-color': '#0f172a',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#38bdf8',
+        },
+      });
+    }
+    if (!map.getLayer('traffic-cams-label')) {
+      map.addLayer({
+        id: 'traffic-cams-label',
+        type: 'symbol',
+        source: 'traffic-cams',
+        layout: {
+          visibility: 'none',
+          'text-field': '📹',
+          'text-size': 14,
+          'text-allow-overlap': true,
+        },
+      });
+    }
+    // Bind interaction handlers ONCE — they persist across style swaps and would
+    // otherwise stack (double-open the sheet) each time we re-add the layer.
+    if (!camHandlersBound) {
+      map.on('click', 'traffic-cams-circle', e => {
+        const props = e.features[0].properties;
+        openCamSheet(props.id);
+      });
+      map.on('mouseenter', 'traffic-cams-circle', () => map.getCanvas().style.cursor = 'pointer');
+      map.on('mouseleave', 'traffic-cams-circle', () => map.getCanvas().style.cursor = '');
+      camHandlersBound = true;
+    }
   }
 
   function setCamLayerData() {
@@ -951,6 +966,15 @@
     });
     const defer = () => (window.requestIdleCallback ? requestIdleCallback(load, { timeout: 3000 }) : setTimeout(load, 400));
     map.loaded() ? defer() : map.once('idle', defer);
+
+    // Heal after every style swap: setStyle wipes the traffic-cams source/layers,
+    // so re-add them (with data + current visibility) whenever a new style loads.
+    map.on('style.load', () => {
+      if (!cams.length) return;   // metadata not fetched yet — first load handles it
+      addCamLayer();
+      setCamLayerData();
+      setCamLayerVisibility(camVisible);
+    });
   }, 200);
 
   // API for the in-nav "cameras on your route" strip (built in app.js)
@@ -1108,6 +1132,27 @@
     const load = () => { if (!pigsOn) toggle(true); };
     const defer = () => (window.requestIdleCallback ? requestIdleCallback(load, { timeout: 3000 }) : setTimeout(load, 600));
     map.loaded() ? defer() : map.once('idle', defer);
+
+    // Heal after every style swap: setStyle wipes the pigs source/layers, so if
+    // the overlay is on, re-init + re-populate it. Done inline (not via toggle,
+    // which flips pigsOn and would turn the overlay OFF).
+    map.on('style.load', async () => {
+      if (!pigsOn) return;
+      initPigsLayer();
+      try {
+        const data = await fetch('/api/reports/pigs').then(r => r.json());
+        if (!map.getSource('pigs-src')) return;
+        map.getSource('pigs-src').setData({
+          type: 'FeatureCollection',
+          features: data.map(r => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [r.lng, r.lat] },
+            properties: { id: r.id, desc: r.description ?? '', age: r.created_at },
+          })),
+        });
+        setVisibility(true);
+      } catch {}
+    });
   }, 200);
 })();
 </script>
