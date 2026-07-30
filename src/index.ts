@@ -92,18 +92,26 @@ async function unifiedGeocode(q: string, lat: string, lon: string) {
     for (const f of (photon.value as any).features) {
       const p = f.properties ?? {}; const g = f.geometry?.coordinates;
       if (!g) continue;
-      push({ lat: g[1], lng: g[0], name: p.name || p.street || p.city || p.county || 'Place',
-        sub: [p.housenumber ? `${p.housenumber} ${p.street || ''}`.trim() : p.street, p.suburb || p.district || p.town || p.village || p.city, p.state].filter(Boolean).join(', '),
-        osmKey: p.osm_key ?? '', osmVal: p.osm_value ?? '', importance: 0.5 });
+      // Keep the house number IN the name ("83 Queen Street") so civic addresses
+      // are recognisable and rank above nearby bus stops — dropping it collapsed
+      // them to a bare "Queen Street".
+      const hn = p.housenumber;
+      const name = hn && (p.street || p.name) ? `${hn} ${p.street || p.name}`.trim()
+                 : (p.name || p.street || p.city || p.county || 'Place');
+      push({ lat: g[1], lng: g[0], name,
+        sub: [hn ? null : p.street, p.suburb || p.district || p.town || p.village || p.city, p.state].filter(Boolean).join(', '),
+        osmKey: p.osm_key ?? '', osmVal: p.osm_value ?? '', house: !!hn, importance: hn ? 0.85 : 0.5 });
     }
   }
   if (nom.status === 'fulfilled' && Array.isArray(nom.value)) {
     for (const r of nom.value as any[]) {
       const a = r.address ?? {};
-      const raw = r.name || a.road || a.suburb || r.display_name?.split(',')[0] || 'Place';
+      const hn = a.house_number, road = a.road;
+      const raw = hn && road ? `${hn} ${road}`
+                : (r.name || road || a.suburb || r.display_name?.split(',')[0] || 'Place');
       push({ lat: parseFloat(r.lat), lng: parseFloat(r.lon), name: raw,
-        sub: [a.road && !String(raw).includes(a.road) ? a.road : null, a.suburb || a.quarter || a.village || a.town || a.city_district, a.state_district || a.state].filter(Boolean).join(', '),
-        osmKey: r.category ?? '', osmVal: r.type ?? '', importance: r.importance ?? 0.5 });
+        sub: [!hn && road && !String(raw).includes(road) ? road : null, a.suburb || a.quarter || a.village || a.town || a.city_district, a.state_district || a.state].filter(Boolean).join(', '),
+        osmKey: r.category ?? '', osmVal: r.type ?? '', house: !!hn, importance: hn ? 0.85 : (r.importance ?? 0.5) });
     }
   }
   return out;
@@ -119,7 +127,9 @@ app.get('/api/search', async (c) => {
   // users share hits while proximity biasing still differs region-to-region.
   const latB = lat ? String(Math.round(parseFloat(lat) * 10) / 10) : '';
   const lonB = lon ? String(Math.round(parseFloat(lon) * 10) / 10) : '';
-  const cacheKey = new Request(`https://ghost.cache/search?q=${encodeURIComponent(q.toLowerCase())}&lat=${latB}&lon=${lonB}`);
+  // Bump `v` whenever the result shape/ranking changes so a deploy invalidates
+  // stale edge-cached search results (v2: house numbers kept in the name).
+  const cacheKey = new Request(`https://ghost.cache/search?v=2&q=${encodeURIComponent(q.toLowerCase())}&lat=${latB}&lon=${lonB}`);
   // @ts-ignore — Workers Cache API
   const cache = caches.default;
   const hit = await cache.match(cacheKey);

@@ -811,17 +811,18 @@ async function geocodeNominatimAU(q, lat, lng){
     const data=await fetch(`/api/geocode?${params}`).then(r=>r.json());
     return (data??[]).map(r=>{
       const a=r.address??{};
-      const raw=r.name||a.road||a.suburb||r.display_name?.split(',')[0]||'Place';
+      const hn=a.house_number, road=a.road;
+      const raw=hn&&road?`${hn} ${road}`:(r.name||road||a.suburb||r.display_name?.split(',')[0]||'Place');
       const parts=[
-        a.road&&!raw.includes(a.road)?a.road:null,
+        !hn&&road&&!raw.includes(road)?road:null,
         a.suburb||a.quarter||a.village||a.town||a.city_district,
         a.state_district||a.state,
       ].filter(Boolean);
       return {
         lat:parseFloat(r.lat), lng:parseFloat(r.lon),
         name:san(raw), sub:san(parts.join(', ')),
-        osmKey:r.category||'', osmVal:r.type||'',
-        importance:r.importance??0.5,
+        osmKey:r.category||'', osmVal:r.type||'', house:!!hn,
+        importance:hn?0.85:(r.importance??0.5),
       };
     });
   }catch{return [];}
@@ -880,7 +881,11 @@ function scoreResult(r, q, lat, lng){
   const imp=Math.min(1,r.importance??0.5);
   // History boost
   const hist=isFav(r.name)?0.25:(getRecent().some(x=>x.name===r.name)?0.12:0);
-  return txt*0.48+prox*0.24+imp*0.18+hist*0.10;
+  // When the query leads with a house number ("83 queen st…") the user wants a
+  // civic address — push real house-number matches above nearby bus stops/POIs.
+  const qHasNum=/^\s*\d{1,5}\b/.test(ql);
+  const houseBoost=(r.house && qHasNum)?0.5:0;
+  return txt*0.48+prox*0.24+imp*0.18+hist*0.10+houseBoost;
 }
 
 // ── Format distance string ────────────────────────────────────────────────────
@@ -1058,14 +1063,18 @@ async function geocode(q, nearLat, nearLng){
     return (data.features ?? []).map(f => {
       const p = f.properties;
       const [lng, lat] = f.geometry.coordinates;
+      const hn = p.housenumber;
+      const name = hn && (p.street || p.name) ? `${hn} ${p.street || p.name}`.trim()
+                 : (p.name || p.street || p.city || p.county || 'Place');
       return {
         lat, lng,
-        name: san(p.name || p.street || p.city || p.county || 'Place'),
-        sub:  san([p.housenumber ? `${p.housenumber} ${p.street||''}`.trim() : p.street,
+        name: san(name),
+        sub:  san([hn ? null : p.street,
                    p.suburb || p.district || p.town || p.village || p.city,
                    p.state].filter(Boolean).join(', ')),
         osmKey: p.osm_key ?? '',
         osmVal: p.osm_value ?? '',
+        house: !!hn,
       };
     });
   } catch { return []; }
@@ -1074,6 +1083,7 @@ async function geocode(q, nearLat, nearLng){
 // Photon uses osm_key/osm_value instead of Nominatim's category/type
 function placeEmoji(r) {
   const k = r.osmKey||r.category||'', v = r.osmVal||r.type||'';
+  if(r.house) return '🏠';
   if(k==='railway') return v==='tram_stop'?'🚋':'🚆';
   if(k==='public_transport') return '🚉';
   if(k==='aeroway') return '✈️';
