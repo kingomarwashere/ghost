@@ -2,7 +2,26 @@
    PWA — register service worker
 ═══════════════════════════════════════════════ */
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  // Reload once when a freshly-installed SW takes control, so an already-open
+  // home-screen app swaps to the new version without a manual refresh. Guard
+  // against the first-install controllerchange (no prior controller) + loops.
+  let _swRefreshing = false;
+  const _hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (_swRefreshing || !_hadController) return;
+    _swRefreshing = true;
+    window.location.reload();
+  });
+  // updateViaCache:'none' → the browser never serves sw.js itself from HTTP cache,
+  // so update checks always see the freshly deployed worker.
+  navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then(reg => {
+    reg.update();
+    // Check for a new deploy whenever the app regains focus + hourly while open.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reg.update();
+    });
+    setInterval(() => reg.update(), 60 * 60 * 1000);
+  }).catch(()=>{});
 }
 
 /* ═══════════════════════════════════════════════
@@ -1088,7 +1107,10 @@ function placeSub(r) { return r.sub || r.display_name?.split(',').slice(1,3).joi
 let visibleLayers={police:true,speed:true,red_light:true}, fetchTmr=null;
 
 async function loadReports(){
-  if(map.getZoom()<12){clearMarkers(reportMarkers);return;}
+  // Zoom guard keeps the idle map uncluttered, but during nav we ALWAYS want
+  // reports (incl. pigs) loaded regardless of zoom — otherwise a low preview
+  // zoom at trip start leaves the map bare until the user pans.
+  if(map.getZoom()<12 && navState!=='navigating'){clearMarkers(reportMarkers);return;}
   const b=map.getBounds();
   const p=new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});
   try{
@@ -1155,6 +1177,7 @@ function startNavRefresh(){
   _navRefresh=setInterval(()=>{
     if(navState!=='navigating') return;
     loadReports(); loadCameras(); loadNearReports(); loadNearCameras();
+    try{ window.GhostPigs?.refresh?.(); }catch(_){} // keep statewide pigs current
     updateRouteCamsBtn();
     if(!$$('route-cams-sheet')?.classList.contains('hidden')) renderRouteCams(); // refresh live thumbs
   }, 12000);
@@ -1235,7 +1258,7 @@ $$('route-cams-btn')?.addEventListener('click',()=>{
 $$('route-cams-close')?.addEventListener('click',()=> setRouteCamsOpen(false));
 
 async function loadCameras(){
-  if(map.getZoom()<9){clearMarkers(cameraMarkers);return;}
+  if(map.getZoom()<9 && navState!=='navigating'){clearMarkers(cameraMarkers);return;}
   const b=map.getBounds();
   const p=new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});
   try{
@@ -2262,23 +2285,25 @@ async function calcRoute(fromLat,fromLng,toLat,toLng){
   setSheetState('peek');
 
   try{
-    const resp=await fetch('/api/route',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const resp=await fetch('/api/route',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(16000)});
     if(myReq!==_routeReq) return; // superseded by a newer request / cancelled
     if(!resp.ok){ routeFail('Couldn’t find a route there.'); return; }
     const data=await resp.json();
     if(myReq!==_routeReq) return;
+    // Guard against a flaky upstream handing back a 200 with no usable trip.
+    if(!data?.trip?.legs?.[0]?.shape){ routeFail('Couldn’t find a route there.'); return; }
 
     allRoutes=[];
     allRoutes.push(data.trip);
     if(data.alternates){
-      data.alternates.forEach(a=>allRoutes.push(a.trip));
+      data.alternates.forEach(a=>{ if(a?.trip?.legs?.[0]?.shape) allRoutes.push(a.trip); });
     }
     selectedRouteIdx=0;
     showRouteLoading(false);
     applySelectedRoute();
     fetchSchoolZones();
     fetchRouteSpeedLimits();
-  }catch(e){ routeFail('Routing error — check your connection.'); }
+  }catch(e){ if(myReq!==_routeReq) return; routeFail(e?.name==='TimeoutError'?'Routing timed out — try again.':'Routing error — check your connection.'); }
 }
 
 // Preview sheet loading state — shown instantly while the route is fetched.
@@ -2704,6 +2729,14 @@ function startNav(){
   loadNearCameras();
   loadNearReports();
 
+  // Force every hazard overlay ON the moment nav starts — don't wait on the
+  // page-idle lazy-load or a user pan. Speed/red-light camera + report markers,
+  // the statewide pigs layer, and live traffic cams are all always-on for nav.
+  loadCameras();   // fixed enforcement-camera markers
+  loadReports();   // reports incl. 🐷 police
+  try{ window.GhostCams?.show?.(); }catch(_){}   // live traffic-cam layer
+  try{ window.GhostPigs?.ensureOn?.(); }catch(_){} // statewide police overlay
+
   // Precompute route arc-length + reset the dead-reckoning estimator for this trip.
   buildRouteCumDist(); _drProgressM=0; _drSpeed=0; _drActive=false; _lastRouteIdx=0;
   _lastLimit=null; _lastLimitAtM=-1e9; // don't carry a prior trip's speed limit
@@ -2851,8 +2884,18 @@ function targetNavZoom(speedMs){
 const LOOK_CAP={15:900,16:500,17:220,18:90,19:50};
 
 /* ── Silent reroute (mid-navigation, no preview bar) ── */
+// Reroute in-flight guard + cooldown. Off-route detection can fire GPS-fast, so
+// without these a second reroute would launch while the first is still awaiting
+// (a stale response could then clobber a newer route). One at a time, and no more
+// than one every few seconds even if we stay off-route.
+let _rerouting=false, _lastRerouteAt=0;
+const REROUTE_COOLDOWN_MS=4000;
 async function reroute(lat,lng){
-  if(!routePoints.length) return;
+  if(!routePoints.length || navState!=='navigating') return;
+  if(_rerouting) return;                                   // one at a time
+  if(Date.now()-_lastRerouteAt < REROUTE_COOLDOWN_MS) return; // don't spam upstream
+  _rerouting=true; _lastRerouteAt=Date.now();
+  const myGen=++_routeReq; // invalidate any in-flight preview fetch; tag this reroute
   showToast('Recalculating…',20000);
   const dest=routePoints[routePoints.length-1];
   const costOpts={};
@@ -2863,25 +2906,33 @@ async function reroute(lat,lng){
   }
   try{
     const resp=await fetch('/api/route',{method:'POST',headers:{'Content-Type':'application/json'},
+      signal:AbortSignal.timeout(16000),
       body:JSON.stringify({
         locations:[{lon:lng,lat:lat},{lon:dest[1],lat:dest[0]}],
         costing:'auto',
         directions_options:{units:'kilometers',language:'en-US'},
         ...(Object.keys(costOpts).length?{costing_options:costOpts}:{}),
       })});
+    // Bail if the trip ended or a newer route request superseded us mid-flight.
+    if(navState!=='navigating' || myGen!==_routeReq){ return; }
     if(!resp.ok){showToast('Could not reroute',3000);return;}
     const data=await resp.json();
+    if(navState!=='navigating' || myGen!==_routeReq){ return; }
+    if(!data?.trip?.legs?.[0]?.shape){ showToast('Could not reroute',3000); return; }
     routeData=data.trip;
     routePoints=decodePolyline6(routeData.legs[0].shape);
     maneuvers=routeData.legs[0].maneuvers;
-    currentMidx=0; lastVoice=-1;
+    currentMidx=0; lastVoice=-1; offCount=0;
     allRoutes=[routeData]; selectedRouteIdx=0;
     buildRouteCumDist(); _drProgressM=0; _lastRouteIdx=0; // new geometry → rebuild arc-length + re-anchor cursor
     updateRouteGeoJSON();
     map.getSource('route-traveled')?.setData(emptyFC());
     showToast('Route updated',2000);
     loadNearCameras(); loadNearReports();
-  }catch{showToast('Rerouting failed',3000);}
+    // New geometry → refresh which cameras are "on your route".
+    try{ computeRouteCams(); updateRouteCamsBtn(); }catch(_){}
+  }catch(e){ showToast(e?.name==='TimeoutError'?'Reroute timed out':'Rerouting failed',3000); }
+  finally{ _rerouting=false; }
 }
 
 /* ═══════════════════════════════════════════════

@@ -1,7 +1,7 @@
-const CACHE      = 'radar-v15';
+const CACHE      = 'radar-v16';
 const TILE_CACHE = 'radar-tiles-v1';
 const TILE_MAX   = 500;
-const STATIC = ['/', '/index.html', '/app.js', '/style.css', '/manifest.json', '/icon.svg'];
+const STATIC = ['/', '/index.html', '/app.js', '/style.css', '/manifest.json', '/icon.svg', '/car3d.js', '/game.js', '/race.js'];
 
 // Tile CDN hostnames to cache
 const TILE_HOSTS = [
@@ -93,7 +93,36 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Static assets — cache-first with network update
+  // Same-origin app shell + assets (index.html, app.js, style.css, icons…) —
+  // NETWORK-FIRST so home-screen PWA users always get the latest deploy while
+  // online, and only fall back to cache when offline. (Cache-first was leaving
+  // installed users a version behind on every update.)
+  if (url.origin === self.location.origin) {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(async () => {
+          const cached = await caches.match(e.request);
+          if (cached) return cached;
+          // Offline navigation with nothing cached → serve the app shell.
+          if (e.request.mode === 'navigate') {
+            return (await caches.match('/index.html')) || (await caches.match('/')) ||
+                   new Response('', { status: 503 });
+          }
+          return new Response('', { status: 503 });
+        })
+    );
+    return;
+  }
+
+  // Cross-origin third-party assets (CDN libs, fonts — versioned URLs) —
+  // cache-first with background refresh.
   e.respondWith(
     caches.match(e.request).then(cached => {
       const net = fetch(e.request).then(res => {

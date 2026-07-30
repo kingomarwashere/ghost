@@ -1006,6 +1006,19 @@
     ensure: async () => { if (!cams.length) await loadCamMeta(); return cams; },
     open: (id) => openCamSheet(id),
     img: (file) => imgUrl(file),
+    // Force the live traffic-cam layer ON (used by nav start) — loads metadata if
+    // it hasn't lazy-loaded yet, heals the layer, and makes it visible. Safe to
+    // call repeatedly and before the idle lazy-load has fired.
+    show: async () => {
+      camVisible = true;
+      if (!cams.length) await loadCamMeta();
+      try {
+        if (typeof map !== 'undefined' && map.isStyleLoaded()) {
+          addCamLayer(); setCamLayerData(); setCamLayerVisibility(true);
+        }
+      } catch {}
+      syncCamToggleUI();
+    },
   };
 })();
 </script>
@@ -1096,6 +1109,23 @@
     });
   }
 
+  // Fetch + repaint the statewide pig data onto the (already-init'd) layer without
+  // touching pigsOn or the camera. Used by the nav auto-on + periodic refresh.
+  async function refreshPigData() {
+    try {
+      const data = await fetch('/api/reports/pigs').then(r => r.json());
+      if (!map.getSource('pigs-src')) initPigsLayer();
+      map.getSource('pigs-src').setData({
+        type: 'FeatureCollection',
+        features: (data || []).map(r => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [r.lng, r.lat] },
+          properties: { id: r.id, desc: r.description ?? '', age: r.created_at },
+        })),
+      });
+    } catch {}
+  }
+
   // auto=true means the layer is being enabled automatically on load — in that
   // case we must NOT hijack the map camera (fitBounds to all NSW) or clobber the
   // button's SVG icon with an emoji. Manual clicks keep the original behaviour.
@@ -1163,21 +1193,24 @@
     map.on('style.load', async () => {
       if (!pigsOn) return;
       initPigsLayer();
-      try {
-        const data = await fetch('/api/reports/pigs').then(r => r.json());
-        if (!map.getSource('pigs-src')) return;
-        map.getSource('pigs-src').setData({
-          type: 'FeatureCollection',
-          features: data.map(r => ({
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: [r.lng, r.lat] },
-            properties: { id: r.id, desc: r.description ?? '', age: r.created_at },
-          })),
-        });
-        setVisibility(true);
-      } catch {}
+      await refreshPigData();
+      setVisibility(true);
     });
   }, 200);
+
+  // API for nav: force the statewide pig overlay ON without hijacking the camera
+  // (unlike a manual tap, which fitBounds to all NSW). Idempotent + safe pre-idle.
+  window.GhostPigs = {
+    ensureOn: async () => {
+      if (typeof map === 'undefined' || !map.isStyleLoaded()) return;
+      if (!map.getSource('pigs-src')) initPigsLayer();
+      pigsOn = true;
+      pigsBtn.classList.add('active');
+      await refreshPigData();
+      setVisibility(true);
+    },
+    refresh: async () => { if (pigsOn) await refreshPigData(); },
+  };
 })();
 </script>
 <script src="https://theradicalparty.com/footer.js" data-mode="pill" defer></script>
