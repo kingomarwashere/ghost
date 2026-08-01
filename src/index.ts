@@ -317,5 +317,12 @@ export default {
   fetch: app.fetch.bind(app),
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(scrapeAll(env.DB, env.OPENWEB_NINJA_KEY));
+    // Bound report_history growth. The heatmap only queries the last 30 days;
+    // keep 90 to leave analytics headroom, then delete the rest each cron run so
+    // the permanent log can't grow forever.
+    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    ctx.waitUntil(
+      env.DB.prepare('DELETE FROM report_history WHERE created_at < ?').bind(cutoff).run().catch(() => {})
+    );
   },
 };

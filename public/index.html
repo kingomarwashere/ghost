@@ -1206,16 +1206,27 @@
 
   // API for nav: force the statewide pig overlay ON without hijacking the camera
   // (unlike a manual tap, which fitBounds to all NSW). Idempotent + safe pre-idle.
+  let _lastPigRefresh = 0;
   window.GhostPigs = {
     ensureOn: async () => {
       if (typeof map === 'undefined' || !map.isStyleLoaded()) return;
       if (!map.getSource('pigs-src')) initPigsLayer();
       pigsOn = true;
       pigsBtn.classList.add('active');
+      _lastPigRefresh = Date.now();
       await refreshPigData();
       setVisibility(true);
     },
-    refresh: async () => { if (pigsOn) await refreshPigData(); },
+    // Called from the 20s nav poll, but the statewide payload is ~26KB and barely
+    // changes minute-to-minute — throttle to ~60s so we don't refetch all of NSW
+    // three times a minute while driving.
+    refresh: async () => {
+      if (!pigsOn) return;
+      const now = Date.now();
+      if (now - _lastPigRefresh < 55000) return;
+      _lastPigRefresh = now;
+      await refreshPigData();
+    },
   };
 })();
 </script>
