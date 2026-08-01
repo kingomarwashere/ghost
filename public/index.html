@@ -199,6 +199,15 @@
   <span>Searching for GPS…</span>
 </div>
 
+<!-- ── Resume-trip prompt (shown after a reload mid-navigation) ── -->
+<div id="resume-trip" class="hidden">
+  <div id="resume-text">Resume trip to <strong id="resume-dest"></strong>?</div>
+  <div id="resume-actions">
+    <button id="resume-yes">Resume</button>
+    <button id="resume-no" aria-label="Dismiss">✕</button>
+  </div>
+</div>
+
 <!-- ── GTA HUD (stars + score, nav only) ─────────────── -->
 <div id="gta-hud" data-stars="0">
   <div id="gta-stars-row">
@@ -363,6 +372,7 @@
       <label class="setting-row"><span>📷 Camera alerts</span>      <input type="checkbox" id="s-camera"  checked></label>
       <label class="setting-row"><span>🐷 Wanted alerts</span>      <input type="checkbox" id="s-police"  checked></label>
       <label class="setting-row"><span>📳 Haptic feedback</span>    <input type="checkbox" id="s-haptic"  checked></label>
+      <label class="setting-row"><span>🔋 Battery / data saver</span><input type="checkbox" id="s-saver"></label>
       <label class="setting-row"><span>🚫 Avoid tolls by default</span><input type="checkbox" id="s-tolls" checked></label>
       <label class="setting-row"><span>📍 Choose custom start point</span><input type="checkbox" id="s-choosestart"></label>
       <label class="setting-row"><span>⏱️ Acceleration timer</span><input type="checkbox" id="s-acceltimer"></label>
@@ -551,6 +561,17 @@
     <button id="nrs-close" class="rpt-close">✕</button>
   </div>
   <div id="nrs-list"></div>
+</div>
+
+<!-- ── Quick-report bar (nav): one tap = report + auto-dismiss ── -->
+<div id="quick-report" class="hidden">
+  <div id="qr-row">
+    <button class="qr-btn" data-type="police" data-label="Police"><span class="qr-emoji">🐷</span><span>5-0</span></button>
+    <button class="qr-btn" data-type="accident" data-label="Crash"><span class="qr-emoji">💥</span><span>Crash</span></button>
+    <button class="qr-btn" data-type="hazard" data-label="Hazard"><span class="qr-emoji">💀</span><span>Hazard</span></button>
+    <button class="qr-btn" data-type="speed_trap" data-label="Speed trap"><span class="qr-emoji">📷</span><span>Camera</span></button>
+    <button class="qr-btn qr-more" id="qr-more"><span class="qr-emoji">⋯</span><span>More</span></button>
+  </div>
 </div>
 
 <!-- ── Waze-style report bottom sheet ──────────── -->

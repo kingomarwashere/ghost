@@ -33,7 +33,7 @@ function $$(id){return document.getElementById(id);}
    SETTINGS — persisted to localStorage
 ═══════════════════════════════════════════════ */
 const PREF_KEY = 'radar_prefs';
-const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'voyager', lighting:'auto', styleOverride:false, avoidTolls:true, accelTimer:false, accelRange:'0-100' };
+const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'voyager', lighting:'auto', styleOverride:false, avoidTolls:true, accelTimer:false, accelRange:'0-100', saver:false };
 const prefs = { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}') };
 const savePrefs = () => localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
 
@@ -55,6 +55,47 @@ function toggleFav(p) {
   return idx < 0;
 }
 const isFav = name => getFavs().some(f => f.name === name);
+// Home / Work quick-destination shortcuts (one each, pinned in the planner).
+const HOME_KEY = 'radar_home', WORK_KEY = 'radar_work';
+const shortcutKey = slot => (slot === 'home' ? HOME_KEY : WORK_KEY);
+const getShortcut = slot => { try { return JSON.parse(localStorage.getItem(shortcutKey(slot)) || 'null'); } catch { return null; } };
+const setShortcut = (slot, p) => {
+  if (p) localStorage.setItem(shortcutKey(slot), JSON.stringify({ name: p.name, sub: p.sub ?? '', lat: p.lat, lng: p.lng }));
+  else localStorage.removeItem(shortcutKey(slot));
+};
+let _settingShortcut = null; // 'home' | 'work' while the user is picking a place to pin
+
+// Active-trip persistence — survive an accidental reload / crash mid-navigation.
+const TRIP_KEY = 'radar_active_trip';
+function saveActiveTrip(){
+  try{
+    if(!routePoints.length) return;
+    const d=routePoints[routePoints.length-1];
+    localStorage.setItem(TRIP_KEY, JSON.stringify({
+      dest:{ name: toPlace?.name || 'your destination', sub: toPlace?.sub || '', lat: d[0], lng: d[1] },
+      ts: Date.now(),
+    }));
+  }catch(_){}
+}
+function clearActiveTrip(){ try{ localStorage.removeItem(TRIP_KEY); }catch(_){} }
+function resumeTrip(dest){
+  toPlace={ name:dest.name, sub:dest.sub||'', lat:dest.lat, lng:dest.lng };
+  const gps=userMarker?userMarker.getLngLat():null;
+  const from=gps?{lat:gps.lat,lng:gps.lng}:{lat:map.getCenter().lat,lng:map.getCenter().lng};
+  calcRoute(from.lat,from.lng,dest.lat,dest.lng); // → route preview → tap Go
+}
+// If the app was reloaded while a trip was active (and recently), offer to resume.
+function maybeOfferResume(){
+  if(navState==='navigating'||navState==='previewing') return;
+  let t; try{ t=JSON.parse(localStorage.getItem(TRIP_KEY)||'null'); }catch{ return; }
+  if(!t?.dest || Date.now()-t.ts > 30*60*1000){ clearActiveTrip(); return; }
+  const el=$$('resume-trip'); if(!el) return;
+  $$('resume-dest').textContent=t.dest.name||'your destination';
+  el.classList.remove('hidden');
+  $$('resume-yes').onclick=()=>{ el.classList.add('hidden'); resumeTrip(t.dest); };
+  $$('resume-no').onclick =()=>{ el.classList.add('hidden'); clearActiveTrip(); };
+}
+setTimeout(maybeOfferResume, 1600); // after the map + first GPS fix settle
 
 /* ═══════════════════════════════════════════════
    ROUTE AVOIDANCE OPTIONS
@@ -1161,7 +1202,7 @@ function startNavRefresh(){
     try{ window.GhostPigs?.refresh?.(); }catch(_){} // keep statewide pigs current
     updateRouteCamsBtn();
     if(!$$('route-cams-sheet')?.classList.contains('hidden')) renderRouteCams(); // refresh live thumbs
-  }, 20000);
+  }, prefs.saver ? 40000 : 20000);
 }
 function stopNavRefresh(){ if(_navRefresh){ clearInterval(_navRefresh); _navRefresh=null; } }
 
@@ -1279,7 +1320,7 @@ function scheduleFetch(){
   // change second-to-second, the 8km look-ahead corridor already covers what's
   // coming, and the 20s nav poll backs it up. 1.5s meant ~4 API calls every 1.5s
   // for the whole drive (~160 req/min) — mostly redundant data + battery.
-  const forceMs = navState==='navigating' ? 6000 : 1500;
+  const forceMs = navState==='navigating' ? (prefs.saver?12000:6000) : 1500;
   if(performance.now()-_lastFetchAt > forceMs) doFetch();
   else fetchTmr=setTimeout(doFetch, 300);
 }
@@ -1387,7 +1428,9 @@ function openReportSheet(){
 }
 function closeReportSheet(){ reportSheet.classList.add('hidden'); selCat=null; selSubKey=null; }
 
-reportBtn.addEventListener('click', openReportSheet);
+// While navigating, the report FAB opens the one-tap quick bar (safe at speed);
+// parked/idle it opens the full category sheet (you have time to be specific).
+reportBtn.addEventListener('click', ()=>{ if(navState==='navigating') openQuickReport(); else openReportSheet(); });
 $$('rpt-close1').addEventListener('click', closeReportSheet);
 $$('rpt-back').addEventListener('click', ()=>{
   rptStep1.classList.remove('hidden');
@@ -1442,6 +1485,38 @@ $$('rpt-submit').addEventListener('click', async()=>{
   finally{ btn.disabled=false; btn.textContent='Report'; }
 });
 
+/* ── Quick-report: one tap while driving → submit + auto-dismiss ── */
+const quickReportEl=$$('quick-report');
+let _qrTimer=null;
+function reportPos(){
+  if(navState==='navigating'&&prevPos) return {lat:prevPos.lat,lng:prevPos.lng};
+  const c=map.getCenter(); return {lat:c.lat,lng:c.lng};
+}
+function openQuickReport(){
+  clearTimeout(_qrTimer);
+  quickReportEl.classList.remove('hidden');
+  _qrTimer=setTimeout(closeQuickReport,6000); // don't linger if the driver ignores it
+}
+function closeQuickReport(){ clearTimeout(_qrTimer); quickReportEl.classList.add('hidden'); }
+async function submitQuickReport(type,label,btn){
+  const pos=reportPos();
+  if(prefs.haptic&&navigator.vibrate) navigator.vibrate(30);
+  btn?.classList.add('qr-flash');
+  closeQuickReport(); // optimistic — dismiss immediately so it feels instant
+  try{
+    const res=await fetch('/api/reports',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lat:pos.lat,lng:pos.lng,type,description:label})});
+    if(res.ok){ window.Game?.onReport(); loadReports(); showToast(`${label} reported — thanks! 🙏`); }
+    else showToast('Couldn’t send report');
+  }catch{ showToast('No connection — report not sent'); }
+  finally{ setTimeout(()=>btn?.classList.remove('qr-flash'),300); }
+}
+quickReportEl.querySelectorAll('.qr-btn:not(.qr-more)').forEach(b=>{
+  b.addEventListener('click',()=>submitQuickReport(b.dataset.type,b.dataset.label,b));
+});
+$$('qr-more').addEventListener('click',()=>{ closeQuickReport(); openReportSheet(); });
+quickReportEl.addEventListener('click',e=>{ if(e.target===quickReportEl) closeQuickReport(); }); // tap-outside dismiss
+
 /* ═══════════════════════════════════════════════
    SETTINGS PANEL
 ═══════════════════════════════════════════════ */
@@ -1478,16 +1553,28 @@ $$('idle-settings-btn').addEventListener('click', ()=>stylePanel.classList.remov
 
 document.querySelectorAll('.style-btn').forEach(btn=>{ btn.addEventListener('click',()=>{ setTile(btn.dataset.style);stylePanel.classList.add('hidden'); }); });
 
-const toggleMap = { 's-voice':'voice','s-camera':'cameraAlerts','s-police':'policeAlerts','s-haptic':'haptic','s-tolls':'avoidTolls' };
+const toggleMap = { 's-voice':'voice','s-camera':'cameraAlerts','s-police':'policeAlerts','s-haptic':'haptic','s-tolls':'avoidTolls','s-saver':'saver' };
 Object.entries(toggleMap).forEach(([id,key])=>{
   const el=document.getElementById(id); if(!el)return;
-  el.checked=prefs[key]??true;
+  el.checked=prefs[key]??(key==='saver'?false:true);
   el.addEventListener('change',()=>{
     prefs[key]=el.checked; savePrefs();
     if(key==='avoidTolls') routeOpts.avoidTolls=el.checked;
     if(key==='voice'){ window._syncVoiceBtn&&window._syncVoiceBtn(); if(el.checked) unlockVoice(); }
+    if(key==='saver'){ applySaverMode(); showToast(el.checked?'🔋 Battery saver on':'Battery saver off'); }
   });
 });
+// Battery / data saver: flatten to 2D, dim the map, cut animations + polling.
+function applySaverMode(){
+  const on=!!prefs.saver;
+  document.body.classList.toggle('saver',on);
+  if(navState==='navigating'){
+    if(on && perspective3D){ try{ disable3DView(); }catch(_){} perspective3D=false; document.body.classList.remove('nav-3d'); try{ map.easeTo({pitch:0,duration:300}); }catch(_){} }
+    else if(!on && !perspective3D){ try{ enable3DView(); }catch(_){} perspective3D=true; document.body.classList.add('nav-3d'); }
+    startNavRefresh(); // reapply the (now slower/faster) poll cadence
+  }
+}
+setTimeout(applySaverMode, 0); // apply persisted pref after top-level eval (navState is declared later)
 
 // Acceleration timer toggle + range picker
 (()=>{
@@ -1958,6 +2045,7 @@ function openPlanner(){
   showSuggestions();
 }
 function closePlanner(){
+  _settingShortcut=null; // cancel any pending Home/Work pin
   // Dismiss keyboard before animating out
   fromInput.blur(); toInput.blur();
   topbar.classList.remove('hidden');
@@ -1976,6 +2064,31 @@ function setActiveField(f){
 }
 
 /* ── Suggestions (recents + favs + near-me chips) ─── */
+// Home / Work pinned shortcuts row for the planner.
+function homeWorkHtml(){
+  const chip=(slot,ico,label)=>{
+    const p=getShortcut(slot);
+    if(p) return `<button class="hw-chip" data-slot="${slot}"><span class="hw-ico">${ico}</span><span class="hw-name">${escHtml(p.name)}</span><span class="hw-edit" data-edit="${slot}" title="Change">✎</span></button>`;
+    return `<button class="hw-chip hw-unset" data-slot="${slot}"><span class="hw-ico">${ico}</span><span class="hw-name">Set ${label}</span></button>`;
+  };
+  return `<div id="hw-row">${chip('home','🏠','Home')}${chip('work','💼','Work')}</div>`;
+}
+function enterSetShortcut(slot){
+  _settingShortcut=slot;
+  showToast(`Search & pick your ${slot==='home'?'Home':'Work'} 📍`,3200);
+  setActiveField('to'); toInput.focus(); showSuggestions();
+}
+function bindHomeWork(){
+  searchResultsEl.querySelectorAll('.hw-chip').forEach(chip=>{
+    chip.addEventListener('click',e=>{
+      const slot=chip.dataset.slot;
+      if(e.target.dataset?.edit){ e.stopPropagation(); enterSetShortcut(slot); return; }
+      const p=getShortcut(slot);
+      if(p) selectPlace(p);        // one-tap route there
+      else enterSetShortcut(slot); // not set yet → pick a place
+    });
+  });
+}
 function showSuggestions(filterQ=''){
   const favs=getFavs(), recents=getRecent();
   const ql=filterQ.toLowerCase();
@@ -1993,6 +2106,7 @@ function showSuggestions(filterQ=''){
   }
   const gps=userMarker?userMarker.getLngLat():null;
   let html='';
+  html+=homeWorkHtml();
   html+=`<div id="nearme-chips">
     <button class="nearme-chip" data-q="petrol">⛽ Petrol</button>
     <button class="nearme-chip" data-q="food">🍔 Food</button>
@@ -2013,6 +2127,7 @@ function showSuggestions(filterQ=''){
   }
   searchResultsEl.innerHTML=html;
   bindResultClicks();
+  bindHomeWork();
   searchResultsEl.querySelectorAll('.nearme-chip').forEach(chip=>{
     chip.addEventListener('click',async()=>{
       const q=chip.dataset.q;
@@ -2217,6 +2332,14 @@ function bindResultClicks(){
 }
 
 function selectPlace(p){
+  // If the user is pinning a Home/Work shortcut, capture this place instead of routing.
+  if(_settingShortcut){
+    const slot=_settingShortcut; _settingShortcut=null;
+    setShortcut(slot,p);
+    showToast(`${slot==='home'?'🏠 Home':'💼 Work'} saved`);
+    showSuggestions();
+    return;
+  }
   addRecent(p);
   if(activeField==='from'){
     fromPlace=p; fromInput.value=p.name; fromClear.classList.remove('hidden');
@@ -2760,6 +2883,8 @@ function startNav(){
   // Build the "cameras on your route" list (loads cam metadata if needed)
   try{ (window.GhostCams?.ensure?.()||Promise.resolve()).then(()=>{ computeRouteCams(); updateRouteCamsBtn(); }); }catch(_){}
   ensureAccelWatch(); // nav's onGPS now feeds the accel timer — stop the standalone watch
+  if(prefs.saver) applySaverMode(); // start flat/2D + slow-poll if saver is on
+  saveActiveTrip(); // persist so an accidental reload can resume this trip
   updateNavPanel();
   dingChime();
 }
@@ -2770,6 +2895,8 @@ function endNav(){
   stopGpsWatchdog(); setGpsLost(false); stopDeadReckon();
   stopNavRefresh();
   _routeCams=[]; $$('route-cams-btn')?.classList.add('hidden'); $$('route-cams-sheet')?.classList.add('hidden'); document.body.classList.remove('cams-open');
+  closeQuickReport();
+  clearActiveTrip(); // trip finished/cancelled — nothing to resume
   ensureAccelWatch(); // resume the standalone accel watch if the timer is on
   [navInst,navFooter,alertBar,arrivalOverlay,$$('nav-search-sheet'),$$('nav-routes-sheet')].forEach(el=>el?.classList.add('hidden'));
   updateRouteWarn(null);
@@ -2848,8 +2975,14 @@ function deadReckonTick(){
 function setGpsLost(lost){
   if(lost===_gpsLost) return;
   _gpsLost=lost;
-  $$('gps-lost')?.classList.toggle('hidden', !lost);
-  if(lost && prefs.voice){ try{ speak('GPS signal lost. Searching.'); }catch(_){} }
+  const el=$$('gps-lost');
+  if(el){
+    // Reassure the driver nav still works — we dead-reckon through the gap.
+    const label=el.querySelector('span:last-child');
+    if(label) label.textContent = navState==='navigating' ? 'Weak signal — estimating position' : 'Searching for GPS…';
+    el.classList.toggle('hidden', !lost);
+  }
+  if(lost && prefs.voice){ try{ speak('GPS signal weak. Estimating your position.'); }catch(_){} }
 }
 function startGpsWatchdog(){
   stopGpsWatchdog();
@@ -4492,6 +4625,7 @@ function triggerArrival(){
   stopNavRefresh(); stopDeadReckon(); stopGpsWatchdog();
   if(watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; }
   if(_mRaf!=null){ cancelAnimationFrame(_mRaf); _mRaf=null; }
+  clearActiveTrip(); // arrived — nothing to resume
 }
 
 /* ═══════════════════════════════════════════════

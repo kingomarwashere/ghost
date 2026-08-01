@@ -619,6 +619,33 @@ body.navigating #recenter-btn { bottom: calc(152px + env(safe-area-inset-bottom)
   transition: transform .3s cubic-bezier(0.32, 0.72, 0, 1);
 }
 #report-sheet:not(.hidden) { transform: translateY(0); }
+
+/* ── Quick-report bar (one-tap hazard reporting while driving) ── */
+#quick-report {
+  position: fixed; left: 0; right: 0; z-index: 2000;
+  bottom: calc(84px + env(safe-area-inset-bottom)); /* above the nav footer */
+  padding: 0 10px;
+  transform: translateY(140%); opacity: 0;
+  transition: transform .28s cubic-bezier(0.32,0.72,0,1), opacity .2s;
+  pointer-events: none;
+}
+#quick-report:not(.hidden) { transform: translateY(0); opacity: 1; pointer-events: auto; }
+#qr-row {
+  display: flex; gap: 8px; justify-content: center;
+  background: rgba(14,16,24,.94); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 20px;
+  padding: 10px; box-shadow: 0 -8px 32px rgba(0,0,0,.6);
+}
+.qr-btn {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 12px 4px; border: none; border-radius: 14px; cursor: pointer;
+  background: rgba(255,255,255,.06); color: #f1f5f9; font: 700 .72rem/1 var(--font, sans-serif);
+  -webkit-tap-highlight-color: transparent; transition: transform .1s, background .15s;
+}
+.qr-btn:active { transform: scale(.9); background: rgba(255,255,255,.14); }
+.qr-btn .qr-emoji { font-size: 1.7rem; line-height: 1; }
+.qr-btn.qr-more { background: rgba(255,255,255,.03); color: #94a3b8; }
+.qr-btn.qr-flash { background: var(--red, #ef4444); color: #fff; }
 .rpt-drag-handle {
   width: 36px; height: 4px; border-radius: 2px;
   background: rgba(255,255,255,.2); margin: 10px auto 14px;
@@ -957,6 +984,52 @@ body.navigating #compass-widget { top: calc(env(safe-area-inset-top, 0px) + 250p
 body.navigating #toast { top: calc(178px + env(safe-area-inset-top)); bottom: auto; }
 
 /* ── Near-me chips ───────────────────────────────── */
+/* ── Resume-trip prompt (post-reload) ── */
+#resume-trip {
+  position: fixed; left: 12px; right: 12px; z-index: 1600;
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 12px;
+  background: rgba(14,16,24,.97); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(34,211,238,.4); border-radius: 16px;
+  padding: 12px 14px; box-shadow: 0 8px 32px rgba(0,0,0,.6);
+}
+#resume-trip.hidden { display: none; }
+#resume-text { flex: 1; min-width: 0; color: #f1f5f9; font-size: .9rem; }
+#resume-text strong { color: #22d3ee; }
+#resume-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+#resume-yes {
+  background: #22d3ee; color: #06202b; border: none; border-radius: 10px;
+  font-weight: 800; font-size: .85rem; padding: 9px 16px; cursor: pointer;
+}
+#resume-yes:active { transform: scale(.94); }
+#resume-no {
+  width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(255,255,255,.08); color: #cbd5e1; font-size: .9rem;
+}
+
+/* ── Battery / data saver: dim the map + kill the always-running nav glows ── */
+body.saver #map { filter: brightness(0.8) saturate(0.9); }
+body.saver #route-warn,
+body.saver #congestion-glow,
+body.saver #speed-limit-sign.over-limit { animation: none !important; }
+
+/* ── Home / Work quick-destination shortcuts ── */
+#hw-row { display: flex; gap: 8px; padding: 10px 10px 4px; }
+.hw-chip {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.06); border: 1px solid var(--border); border-radius: 14px;
+  color: var(--text); cursor: pointer; padding: 10px 12px; text-align: left;
+  -webkit-tap-highlight-color: transparent; transition: background .15s;
+}
+.hw-chip:active { background: rgba(255,255,255,.14); }
+.hw-chip .hw-ico { font-size: 1.25rem; flex-shrink: 0; }
+.hw-chip .hw-name { flex: 1; min-width: 0; font-size: .82rem; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hw-chip.hw-unset { color: #94a3b8; }
+.hw-chip.hw-unset .hw-name { font-weight: 600; }
+.hw-chip .hw-edit { flex-shrink: 0; color: #64748b; font-size: .85rem; padding: 2px 4px; }
+.hw-chip .hw-edit:active { color: var(--text); }
+
 #nearme-chips {
   display: flex; gap: 8px; padding: 8px 10px 4px; flex-wrap: wrap;
 }
