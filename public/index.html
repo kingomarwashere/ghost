@@ -685,6 +685,12 @@
   "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
 }}
 </script>
+<!-- Shared pure-logic core (geo, route matching, address search). Classic scripts
+     so load order is guaranteed: geo → route-match → address populate
+     globalThis.GhostCore before app.js reads it. Unit-tested in test/unit/. -->
+<script src="/lib/geo.js"></script>
+<script src="/lib/route-match.js"></script>
+<script src="/lib/address.js"></script>
 <script src="/app.js"></script>
 <script src="/game.js"></script>
 <script src="/race.js"></script>

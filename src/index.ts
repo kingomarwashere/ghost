@@ -11,6 +11,7 @@ import { scrapeAll } from './routes/waze';
 import auth from './routes/auth';
 import adminApi from './routes/admin-api';
 import race from './routes/race';
+import { parseAddress, mapPhoton, mapNominatim, dedupe } from './geocode';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -62,59 +63,52 @@ app.get('/api/geocode', async (c) => {
 // ── Unified geocoder: Photon + Nominatim fanned out server-side, merged, and
 //    edge-cached so the browser makes ONE fast request and popular queries are
 //    near-instant globally. Replaces the client fanning out to 3 slow sources. ─
+const NOM_HEADERS = { 'User-Agent': 'ghost-nav/1.0 (ghost.theradicalparty.com)', 'Accept': 'application/json' };
+const jsonOrNull = (r: Response) => (r.ok ? r.json() : null);
+
 async function unifiedGeocode(q: string, lat: string, lon: string) {
   const near = !!(lat && lon);
+  const parsed = parseAddress(q);
+
   const photonP = new URLSearchParams({ q, limit: '10', lang: 'en', bbox: '113.3,-43.6,153.6,-10.4' });
   if (near) { photonP.set('lat', lat); photonP.set('lon', lon); }
   const nomP = new URLSearchParams({ q, format: 'jsonv2', countrycodes: 'au', limit: '8', addressdetails: '1', ...(near ? { lat, lon } : {}) });
 
-  const [photon, nom] = await Promise.allSettled([
+  const fetches: Promise<any>[] = [
     fetch(`https://photon.komoot.io/api/?${photonP}`, {
       // @ts-ignore
       cf: { cacheTtl: 600, cacheEverything: true },
-    }).then(r => (r.ok ? r.json() : null)),
+    }).then(jsonOrNull),
     fetch(`https://nominatim.openstreetmap.org/search?${nomP}`, {
-      headers: { 'User-Agent': 'ghost-nav/1.0 (ghost.theradicalparty.com)', 'Accept': 'application/json' },
+      headers: NOM_HEADERS,
       // @ts-ignore
       cf: { cacheTtl: 600, cacheEverything: true },
-    }).then(r => (r.ok ? r.json() : null)),
+    }).then(jsonOrNull),
+  ];
+
+  // Structured pass: when the user typed a civic address ("83 queen st ashfield"),
+  // ask Nominatim by field (street + city) — free-text mode buries the house
+  // behind POIs, but structured mode returns the exact building reliably.
+  if (parsed.isAddress) {
+    const structP = new URLSearchParams({ format: 'jsonv2', countrycodes: 'au', limit: '8', addressdetails: '1', street: parsed.street });
+    if (parsed.locality) structP.set('city', parsed.locality);
+    fetches.push(
+      fetch(`https://nominatim.openstreetmap.org/search?${structP}`, {
+        headers: NOM_HEADERS,
+        // @ts-ignore
+        cf: { cacheTtl: 600, cacheEverything: true },
+      }).then(jsonOrNull),
+    );
+  }
+
+  const [photon, nom, struct] = await Promise.allSettled(fetches);
+  const val = (s: PromiseSettledResult<any>) => (s?.status === 'fulfilled' ? s.value : null);
+
+  return dedupe([
+    mapPhoton(val(photon)),
+    mapNominatim(val(nom)),
+    mapNominatim(val(struct)),   // undefined when not an address query → mapped to []
   ]);
-
-  const out: any[] = [];
-  const seen = new Set<string>();
-  const push = (o: any) => {
-    if (!o || o.lat == null || o.lng == null || !o.name || isNaN(o.lat) || isNaN(o.lng)) return;
-    const key = `${String(o.name).toLowerCase()}|${o.lat.toFixed(3)}|${o.lng.toFixed(3)}`;
-    if (seen.has(key)) return; seen.add(key); out.push(o);
-  };
-
-  if (photon.status === 'fulfilled' && (photon.value as any)?.features) {
-    for (const f of (photon.value as any).features) {
-      const p = f.properties ?? {}; const g = f.geometry?.coordinates;
-      if (!g) continue;
-      // Keep the house number IN the name ("83 Queen Street") so civic addresses
-      // are recognisable and rank above nearby bus stops — dropping it collapsed
-      // them to a bare "Queen Street".
-      const hn = p.housenumber;
-      const name = hn && (p.street || p.name) ? `${hn} ${p.street || p.name}`.trim()
-                 : (p.name || p.street || p.city || p.county || 'Place');
-      push({ lat: g[1], lng: g[0], name,
-        sub: [hn ? null : p.street, p.suburb || p.district || p.town || p.village || p.city, p.state].filter(Boolean).join(', '),
-        osmKey: p.osm_key ?? '', osmVal: p.osm_value ?? '', house: !!hn, importance: hn ? 0.85 : 0.5 });
-    }
-  }
-  if (nom.status === 'fulfilled' && Array.isArray(nom.value)) {
-    for (const r of nom.value as any[]) {
-      const a = r.address ?? {};
-      const hn = a.house_number, road = a.road;
-      const raw = hn && road ? `${hn} ${road}`
-                : (r.name || road || a.suburb || r.display_name?.split(',')[0] || 'Place');
-      push({ lat: parseFloat(r.lat), lng: parseFloat(r.lon), name: raw,
-        sub: [!hn && road && !String(raw).includes(road) ? road : null, a.suburb || a.quarter || a.village || a.town || a.city_district, a.state_district || a.state].filter(Boolean).join(', '),
-        osmKey: r.category ?? '', osmVal: r.type ?? '', house: !!hn, importance: hn ? 0.85 : (r.importance ?? 0.5) });
-    }
-  }
-  return out;
 }
 
 app.get('/api/search', async (c) => {
@@ -128,8 +122,8 @@ app.get('/api/search', async (c) => {
   const latB = lat ? String(Math.round(parseFloat(lat) * 10) / 10) : '';
   const lonB = lon ? String(Math.round(parseFloat(lon) * 10) / 10) : '';
   // Bump `v` whenever the result shape/ranking changes so a deploy invalidates
-  // stale edge-cached search results (v2: house numbers kept in the name).
-  const cacheKey = new Request(`https://ghost.cache/search?v=2&q=${encodeURIComponent(q.toLowerCase())}&lat=${latB}&lon=${lonB}`);
+  // stale edge-cached search results (v3: structured address pass + dedupe/tagging).
+  const cacheKey = new Request(`https://ghost.cache/search?v=3&q=${encodeURIComponent(q.toLowerCase())}&lat=${latB}&lon=${lonB}`);
   // @ts-ignore — Workers Cache API
   const cache = caches.default;
   const hit = await cache.match(cacheKey);

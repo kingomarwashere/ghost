@@ -5,11 +5,16 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "db:schema": "wrangler d1 execute radar-db --file=schema.sql --remote"
+    "db:schema": "wrangler d1 execute radar-db --file=schema.sql --remote",
+    "test": "vitest run -c vitest.config.mts",
+    "test:watch": "vitest -c vitest.config.mts",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250109.0",
+    "@cloudflare/workers-types": "^5",
+    "@vitest/coverage-v8": "^4.1.0",
     "typescript": "^5.7.3",
+    "vitest": "^4.1.0",
     "wrangler": "^4.0.0"
   },
   "dependencies": {

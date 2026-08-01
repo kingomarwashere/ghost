@@ -443,9 +443,14 @@ document.querySelectorAll('.style-btn').forEach(b=>b.classList.toggle('active',b
 /* ═══════════════════════════════════════════════
    MARKER ARRAYS (replaces Leaflet cluster groups)
 ═══════════════════════════════════════════════ */
-let reportMarkers=[], cameraMarkers=[];
+let cameraMarkers=[];
 const cameraMarkerEls=new Map(); // camId → wrapper DOM element for ripple updates
 function clearMarkers(arr){ arr.forEach(m=>m.remove()); arr.length=0; }
+// Report markers are diffed (not torn down) each refresh — keyed by report id →
+// {marker, sig}. sig captures the fields that affect the rendered marker/popup,
+// so an unchanged report keeps its existing DOM node instead of being rebuilt.
+const reportMarkerById=new Map();
+function clearReportMarkers(){ for(const e of reportMarkerById.values()) e.marker.remove(); reportMarkerById.clear(); }
 
 /* ── Heatmap ──────────────────────────────── */
 let heatmapVisible=true;  // report heatmap ON by default
@@ -589,16 +594,10 @@ const dingChime   = () => playTone(880,.3,.2);
 /* ═══════════════════════════════════════════════
    UTILITIES
 ═══════════════════════════════════════════════ */
-function haversine(lat1,lon1,lat2,lon2){
-  const R=6371000,r=Math.PI/180;
-  const dL=(lat2-lat1)*r, dO=(lon2-lon1)*r;
-  const a=Math.sin(dL/2)**2+Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dO/2)**2;
-  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-function bearing(lat1,lon1,lat2,lon2){
-  const r=Math.PI/180;
-  return (Math.atan2(Math.sin((lon2-lon1)*r)*Math.cos(lat2*r),Math.cos(lat1*r)*Math.sin(lat2*r)-Math.sin(lat1*r)*Math.cos(lat2*r)*Math.cos((lon2-lon1)*r))*180/Math.PI+360)%360;
-}
+// haversine/bearing/toGL/decodePolyline6/nearestOnRoute now live in the shared
+// core (public/lib/geo.js, unit-tested) and are loaded before this script.
+const haversine = GhostCore.haversine;
+const bearing   = GhostCore.bearing;
 const toKmh = ms => Math.round(ms * 3.6);
 const toMph = ms => Math.round(ms * 2.237);
 function fmtSpeed(ms) {
@@ -607,82 +606,31 @@ function fmtSpeed(ms) {
 }
 function fmtDist(m) { return m<1000?`${Math.round(m/10)*10}m`:`${(m/1000).toFixed(1)}km`; }
 function fmtTime(s) { const m=Math.round(s/60); return m<60?`${m} min`:`${Math.floor(m/60)}h ${m%60}m`; }
-// routePoints are [lat,lng] arrays; MapLibre/GeoJSON needs [lng,lat] — declare early to avoid TDZ
-const toGL = pts => pts.map(p=>[p[1],p[0]]);
+// routePoints are [lat,lng] arrays; MapLibre/GeoJSON needs [lng,lat]
+const toGL = GhostCore.toGL;
 function fmtETA(s)  { return new Date(Date.now()+s*1000).toLocaleTimeString([],{hour:'numeric',minute:'2-digit',hour12:true}); }
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function decodePolyline6(str){
-  let idx=0,lat=0,lng=0; const out=[];
-  while(idx<str.length){
-    let b,shift=0,res=0;
-    do{b=str.charCodeAt(idx++)-63;res|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);
-    lat+=(res&1)?~(res>>1):res>>1; shift=res=0;
-    do{b=str.charCodeAt(idx++)-63;res|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);
-    lng+=(res&1)?~(res>>1):res>>1;
-    out.push([lat/1e6,lng/1e6]);
-  }
-  return out;
-}
-function nearestOnRoute(pts,lat,lng){
-  let minD=Infinity,minI=0;
-  for(let i=0;i<pts.length;i++){const d=haversine(pts[i][0],pts[i][1],lat,lng);if(d<minD){minD=d;minI=i;}}
-  return {idx:minI,dist:minD};
-}
+const decodePolyline6 = GhostCore.decodePolyline6;
+const nearestOnRoute  = GhostCore.nearestOnRoute;
 
 // Forward-biased route matcher for live nav. Searches a window ahead of the
 // current cursor so a route that loops near itself (interchanges/ramps) doesn't
 // snap our position far ahead. Only falls back to a global scan when the car is
 // genuinely off the windowed route (post-reroute or a big GPS jump).
-function matchRouteIdx(lat,lng){
-  const len=routePoints.length;
-  if(!len) return {idx:0,dist:Infinity};
-  const lo=Math.max(0,_lastRouteIdx-4), hi=Math.min(len-1,_lastRouteIdx+200);
-  let minD=Infinity,best=Math.min(_lastRouteIdx,len-1);
-  for(let i=lo;i<=hi;i++){const d=haversine(routePoints[i][0],routePoints[i][1],lat,lng);if(d<minD){minD=d;best=i;}}
-  if(minD>100){ const g=nearestOnRoute(routePoints,lat,lng); if(g.dist<minD) return g; }
-  return {idx:best,dist:minD};
-}
+// Thin wrappers: pure logic lives in public/lib/route-match.js (unit-tested);
+// these thread the live module state (routePoints / _lastRouteIdx / routeCumDist).
+function matchRouteIdx(lat,lng){ return GhostCore.matchRouteIdx(routePoints,_lastRouteIdx,lat,lng); }
 
 /* ── Route arc-length (drives GPS-loss dead reckoning) ──────────────────────
    routeCumDist[i] = metres travelled along the polyline to reach routePoints[i].
    Rebuilt whenever the active route changes (startNav / reroute). */
 let routeCumDist=[];
-function buildRouteCumDist(){
-  routeCumDist=new Array(routePoints.length);
-  let acc=0;
-  for(let i=0;i<routePoints.length;i++){
-    if(i>0) acc+=haversine(routePoints[i-1][0],routePoints[i-1][1],routePoints[i][0],routePoints[i][1]);
-    routeCumDist[i]=acc;
-  }
-}
+function buildRouteCumDist(){ routeCumDist=GhostCore.buildRouteCumDist(routePoints); }
 // Ground-truth position → metres along the route (nearest vertex + partial segment)
-function posToProgressM(idx,lat,lng){
-  if(!routeCumDist.length) return 0;
-  let m=routeCumDist[idx]||0;
-  const nxt=routePoints[idx+1];
-  if(nxt){ // project onto the segment ahead so progress advances smoothly between vertices
-    const seg=haversine(routePoints[idx][0],routePoints[idx][1],nxt[0],nxt[1]);
-    const fromV=haversine(routePoints[idx][0],routePoints[idx][1],lat,lng);
-    if(seg>0) m+=Math.max(0,Math.min(fromV,seg));
-  }
-  return m;
-}
+function posToProgressM(idx,lat,lng){ return GhostCore.posToProgressM(routePoints,routeCumDist,idx,lat,lng); }
 // Metres along the route → {lat,lng,idx,hdg} by walking the cumulative table
-function progressMToPos(m){
-  const n=routePoints.length;
-  if(!n||!routeCumDist.length) return null;
-  if(m<=0) return {lat:routePoints[0][0],lng:routePoints[0][1],idx:0,hdg:n>1?bearing(routePoints[0][0],routePoints[0][1],routePoints[1][0],routePoints[1][1]):0};
-  const total=routeCumDist[n-1];
-  if(m>=total){ const a=routePoints[n-2]||routePoints[n-1],b=routePoints[n-1]; return {lat:b[0],lng:b[1],idx:n-1,hdg:bearing(a[0],a[1],b[0],b[1])}; }
-  // find segment i where cumDist[i] <= m <= cumDist[i+1]
-  let lo=0,hi=n-1;
-  while(lo+1<hi){ const mid=(lo+hi)>>1; if(routeCumDist[mid]<=m) lo=mid; else hi=mid; }
-  const a=routePoints[lo], b=routePoints[lo+1];
-  const segLen=(routeCumDist[lo+1]-routeCumDist[lo])||1;
-  const t=Math.max(0,Math.min(1,(m-routeCumDist[lo])/segLen));
-  return {lat:a[0]+(b[0]-a[0])*t, lng:a[1]+(b[1]-a[1])*t, idx:lo, hdg:bearing(a[0],a[1],b[0],b[1])};
-}
+function progressMToPos(m){ return GhostCore.progressMToPos(routePoints,routeCumDist,m); }
 
 /* ═══════════════════════════════════════════════
    3D PERSPECTIVE VIEW
@@ -858,34 +806,16 @@ function highlightQuery(text, q){
 }
 
 // ── Relevance score (higher = better) ────────────────────────────────────────
+// Ranking rewritten & unit-tested in public/lib/address.js. When the query leads
+// with a house number it switches to "address mode": text + exact house-number
+// match dominate and proximity is only a faint tiebreak, so the right building a
+// few km away beats a bus stop next to you. This wrapper supplies live history.
 function scoreResult(r, q, lat, lng){
-  const ql=q.toLowerCase().trim();
-  const nl=(r.name??'').toLowerCase();
-  const sl=(r.sub??'').toLowerCase();
-  // Text match
-  let txt=0;
-  if(nl===ql)                                         txt=1.00;
-  else if(nl.startsWith(ql))                          txt=0.90;
-  else if(nl.includes(' '+ql)||nl.includes(ql+' '))   txt=0.80;
-  else if(nl.includes(ql))                             txt=0.68;
-  else if(sl.includes(ql))                             txt=0.42;
-  else{
-    const toks=ql.split(/\s+/).filter(t=>t.length>1);
-    const hits=toks.filter(t=>nl.includes(t)||sl.includes(t)).length;
-    txt=hits?hits/toks.length*0.55:0;
-  }
-  // Proximity (log decay, full score inside 200 m)
-  const dist=r.dist??(lat&&lng?haversine(lat,lng,r.lat,r.lng):50000);
-  const prox=dist<200?1:Math.max(0,1-Math.log10(dist/200)/3.2);
-  // Place importance
-  const imp=Math.min(1,r.importance??0.5);
-  // History boost
-  const hist=isFav(r.name)?0.25:(getRecent().some(x=>x.name===r.name)?0.12:0);
-  // When the query leads with a house number ("83 queen st…") the user wants a
-  // civic address — push real house-number matches above nearby bus stops/POIs.
-  const qHasNum=/^\s*\d{1,5}\b/.test(ql);
-  const houseBoost=(r.house && qHasNum)?0.5:0;
-  return txt*0.48+prox*0.24+imp*0.18+hist*0.10+houseBoost;
+  return GhostCore.scoreResult(r, q, {
+    lat, lng,
+    isFav: isFav(r.name),
+    isRecent: getRecent().some(x=>x.name===r.name),
+  });
 }
 
 // ── Format distance string ────────────────────────────────────────────────────
@@ -1120,7 +1050,7 @@ async function loadReports(){
   // Zoom guard keeps the idle map uncluttered, but during nav we ALWAYS want
   // reports (incl. pigs) loaded regardless of zoom — otherwise a low preview
   // zoom at trip start leaves the map bare until the user pans.
-  if(map.getZoom()<12 && navState!=='navigating'){clearMarkers(reportMarkers);return;}
+  if(map.getZoom()<12 && navState!=='navigating'){clearReportMarkers();return;}
   const b=map.getBounds();
   const p=new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});
   try{
@@ -1129,18 +1059,35 @@ async function loadReports(){
     detectNewCops(lastReports); // 🐷 toast when a fresh police report shows up
     // Refresh traffic colouring on the active/previewed route with fresh reports
     if(routePoints.length) updateTrafficOverlay(navState==='navigating'?routePoints.slice(Math.max(0,_lastRouteIdx)):routePoints);
-    clearMarkers(reportMarkers);
+    // Diff against the currently-rendered markers: reuse unchanged ones and only
+    // add / remove / rebuild what actually changed, rather than tearing down and
+    // recreating every marker DOM node on each refresh (a churn cost on pans and
+    // the nav poll).
+    const desired=new Map();
     for(const r of data){
       // speed_trap uses speed layer filter; police/all others use police filter
       if(r.type==='speed_trap'&&!visibleLayers.speed) continue;
       if(r.type!=='speed_trap'&&!visibleLayers.police) continue;
+      desired.set(String(r.id), r);
+    }
+    // Drop markers that are gone or now filtered out.
+    for(const [id,entry] of reportMarkerById){
+      if(!desired.has(id)){ entry.marker.remove(); reportMarkerById.delete(id); }
+    }
+    // Add new / rebuild changed. sig changes when type, vote counts, or position move.
+    for(const [id,r] of desired){
+      const sig=`${r.type}|${r.confirms}|${r.denies}|${r.lat.toFixed(5)}|${r.lng.toFixed(5)}`;
+      const existing=reportMarkerById.get(id);
+      if(existing && existing.sig===sig) continue; // unchanged — keep the DOM node
+      if(existing) existing.marker.remove();
       const icon=ICONS[r.type]??ICONS.hazard;
       const age=Math.round((Date.now()-r.created_at)/60000);
       const label={police:'🐷 5-0',speed_trap:'📷 Speed trap',accident:'💥 Crash',hazard:'💀 Hazard',traffic:'🚗 Traffic',closure:'🚧 Closure',roadwork:'👷 Roadwork',weather:'🌧️ Weather',blocked_lane:'🦺 Blocked lane'}[r.type]??r.type;
       const ageStr=age<60?`${age}m ago`:`${Math.round(age/60)}h ago`;
       const popupHtml=`<strong>${label}</strong>${r.description?`<p>${escHtml(r.description)}</p>`:''}<p>${ageStr} · ✅ ${r.confirms} 👎 ${r.denies}</p><div class="popup-actions"><button class="popup-confirm" onclick="vote('${r.id}','confirm')">✅ Still there</button><button class="popup-deny" onclick="vote('${r.id}','deny')">👎 Gone</button></div>`;
       const popup=new maplibregl.Popup({offset:24,maxWidth:'260px'}).setHTML(popupHtml);
-      reportMarkers.push(new maplibregl.Marker({element:icon.el(),anchor:'center'}).setLngLat([r.lng,r.lat]).setPopup(popup).addTo(map));
+      const marker=new maplibregl.Marker({element:icon.el(),anchor:'center'}).setLngLat([r.lng,r.lat]).setPopup(popup).addTo(map);
+      reportMarkerById.set(id,{marker,sig});
     }
   }catch{}
 }
@@ -1180,7 +1127,9 @@ async function announceCop(r, more){
 
 /* Live refresh while navigating — moveend drives loads only while MOVING, so
    stopped at a light nothing refreshed for up to 90s. This poll keeps reports
-   (incl. Waze police) + cameras current every 12s regardless of movement. */
+   (incl. Waze police) + cameras current regardless of movement. 20s (was 12s):
+   police-alert freshness is unaffected at driving speeds and it ~halves the
+   background fetch/marker churn. */
 let _navRefresh=null;
 function startNavRefresh(){
   stopNavRefresh();
@@ -1190,7 +1139,7 @@ function startNavRefresh(){
     try{ window.GhostPigs?.refresh?.(); }catch(_){} // keep statewide pigs current
     updateRouteCamsBtn();
     if(!$$('route-cams-sheet')?.classList.contains('hidden')) renderRouteCams(); // refresh live thumbs
-  }, 12000);
+  }, 20000);
 }
 function stopNavRefresh(){ if(_navRefresh){ clearInterval(_navRefresh); _navRefresh=null; } }
 
@@ -1818,8 +1767,13 @@ const _arc=(a,b)=>((b-a)%360+540)%360-180;
 
 // Trim the route line to start at the animated car position (60fps).
 // Only searches a small forward window around _lastRouteIdx so it's O(1) in practice.
+// Route-line redraw throttle state. `_syncRouteRef` tracks the active routePoints
+// array by identity so any reroute (which reassigns routePoints) auto-resets the
+// cache and forces an immediate redraw.
+let _lastSyncIdx = -1, _lastSyncLat = null, _lastSyncLng = null, _syncRest = null, _syncRouteRef = null;
 function _syncRouteLine(lat, lng) {
   if (!routePoints.length || navState !== 'navigating') return;
+  if (_syncRouteRef !== routePoints) { _syncRouteRef = routePoints; _lastSyncIdx = -1; _lastSyncLat = null; _lastSyncLng = null; _syncRest = null; }
   const len = routePoints.length;
   // Forward-biased window around the cursor. NEVER a global scan: at interchanges
   // the route passes near a LATER part of itself, so a global nearest-vertex can
@@ -1833,11 +1787,19 @@ function _syncRouteLine(lat, lng) {
     if (d < minD) { minD = d; best = i; }
   }
   _lastRouteIdx = best; // cursor follows the car at 60 fps so the window can't lag
+  // Throttle the GPU upload: the 60fps motion loop calls us every frame, but the
+  // remaining-route line only needs redrawing when we advance a vertex or the car
+  // has moved a few metres — not 60×/s. Rebuilding + re-uploading the whole
+  // remaining polyline every frame was the #1 nav lag source.
+  if (!GhostCore.routeSyncNeeded(_lastSyncIdx, best, _lastSyncLat, _lastSyncLng, lat, lng, 6)) return;
+  // Re-slice the (potentially long) remaining polyline only when we actually
+  // advance a vertex; between advances just re-anchor its head to the car.
+  if (best !== _lastSyncIdx || !_syncRest) _syncRest = routePoints.slice(best + 1);
+  _lastSyncIdx = best; _lastSyncLat = lat; _lastSyncLng = lng;
   // Always draw car → remaining route as ≥2 points; clamp a near-end cursor so it
   // can't produce a 1-point LineString (which renders nothing).
-  const rest = routePoints.slice(best + 1);
-  const coords = rest.length ? toGL([[lat, lng], ...rest])
-                             : toGL([[lat, lng], routePoints[len - 1]]);
+  const coords = _syncRest.length ? toGL([[lat, lng], ..._syncRest])
+                                  : toGL([[lat, lng], routePoints[len - 1]]);
   try {
     map.getSource('route-main')?.setData({
       type: 'Feature',
@@ -2063,7 +2025,9 @@ function wireInput(input, field){
     (field==='from'?fromClear:toClear).classList.toggle('hidden',!q);
     clearTimeout(srchDebounce);
     if(!q){showSuggestions();return;}
-    if(q.length<3){ showSuggestions(q); return; } // show locals only until 3 chars
+    // Number-led (civic address) queries search from 2 chars; everything else at 3.
+    const minLen = /^\d/.test(q) ? 2 : 3;
+    if(q.length<minLen){ showSuggestions(q); return; }
     srchDebounce=setTimeout(()=>doSearch(q),220);
   });
 }
@@ -2883,13 +2847,7 @@ function gpsErr(e){
 })();
 
 /* ── Auto-zoom + look-ahead per zoom level ──────── */
-function targetNavZoom(speedMs){
-  const kmh=speedMs*3.6;
-  if(perspective3D) return kmh>70?18:18.8; // gentle zoom change (car size held steady in car3d.js)
-  if(kmh>75) return 16.5;
-  if(kmh>35) return 17.2;
-  return 17.8;
-}
+function targetNavZoom(speedMs){ return GhostCore.targetNavZoom(speedMs,perspective3D); }
 // Max look-ahead in metres per zoom level (keeps car visible in lower third of screen)
 const LOOK_CAP={15:900,16:500,17:220,18:90,19:50};
 
@@ -3719,42 +3677,8 @@ function detectCongestion(lat,lng,kmh,lim){
 }
 
 // Build a FeatureCollection of the congested sub-segments of `points` ([lat,lng][]).
-function computeTrafficFC(points){
-  const feats=[];
-  if(!points || points.length<2) return {type:'FeatureCollection',features:feats};
-  const srcs=congestionSources();
-  if(!srcs.length) return {type:'FeatureCollection',features:feats};
-  const THRESH=80, DILATE=120; // metres: match radius + spread so it reads as a stretch
-  const sev=new Array(points.length).fill(0);
-  for(let i=0;i<points.length;i++){
-    const la=points[i][0], lo=points[i][1];
-    for(const s of srcs){
-      if(haversine(la,lo,s.lat,s.lng)<THRESH){ sev[i]=Math.max(sev[i], s.sev==='heavy'?2:1); }
-    }
-  }
-  // Dilate congestion along the route so a point report colours a visible stretch.
-  const dil=sev.slice();
-  for(let i=0;i<points.length;i++){
-    if(!sev[i]) continue;
-    let d=0;
-    for(let j=i+1;j<points.length;j++){ d+=haversine(points[j-1][0],points[j-1][1],points[j][0],points[j][1]); if(d>DILATE)break; dil[j]=Math.max(dil[j],sev[i]); }
-    d=0;
-    for(let j=i-1;j>=0;j--){ d+=haversine(points[j+1][0],points[j+1][1],points[j][0],points[j][1]); if(d>DILATE)break; dil[j]=Math.max(dil[j],sev[i]); }
-  }
-  // Group consecutive equal-severity vertices into line features.
-  let start=0;
-  while(start<points.length){
-    if(!dil[start]){ start++; continue; }
-    let end=start;
-    while(end+1<points.length && dil[end+1]===dil[start]) end++;
-    // Extend by one vertex on each side so adjacent runs join visually.
-    const a=Math.max(0,start-1), b=Math.min(points.length-1,end+1);
-    if(b>a) feats.push({type:'Feature',properties:{sev:dil[start]===2?'heavy':'slow'},
-      geometry:{type:'LineString',coordinates:toGL(points.slice(a,b+1))}});
-    start=end+1;
-  }
-  return {type:'FeatureCollection',features:feats};
-}
+// Pure logic in public/lib/geo.js; here we feed it the live congestion sources.
+function computeTrafficFC(points){ return GhostCore.computeTrafficFC(points, congestionSources()); }
 
 function updateTrafficOverlay(points){
   try{ map.getSource('route-traffic')?.setData(computeTrafficFC(points)); }catch(_){}
@@ -3802,6 +3726,16 @@ function updateRouteGeoJSON(){
   updateTrafficOverlay(routePoints);
 }
 
+let _lastTrafficAt=0, _lastTrafficIdx=-999;
+// The congestion overlay is O(points·sources) with a dilation pass — recomputing
+// it on every GPS fix / dead-reckon tick is wasteful. Refresh at most ~every
+// 2.5s, or immediately when the route index jumps (reroute / big skip). Fresh
+// reports still force an out-of-band refresh via loadReports().
+function _trafficDirty(idx){
+  const now=performance.now();
+  if(Math.abs(idx-_lastTrafficIdx)>40 || now-_lastTrafficAt>2500){ _lastTrafficAt=now; _lastTrafficIdx=idx; return true; }
+  return false;
+}
 function updateRouteStyling(idx){
   if(!routePoints.length) return;
   _lastRouteIdx=idx;
@@ -3811,7 +3745,7 @@ function updateRouteStyling(idx){
   const animLng = _mv ? _mv.lng : routePoints[idx][1];
   _syncRouteLine(animLat, animLng);
   map.getSource('route-traveled')?.setData({type:'Feature',geometry:{type:'LineString',coordinates:[]}});
-  updateTrafficOverlay(routePoints.slice(Math.max(0,idx)));
+  if(_trafficDirty(idx)) updateTrafficOverlay(routePoints.slice(Math.max(0,idx)));
 }
 
 function updateNavPanel(distToTurn){
@@ -4016,9 +3950,18 @@ function refreshStreetLabels(){
 // map viewport lags behind the car. Falls back to the viewport when not navigating.
 function _hazardBounds(){
   if(navState==='navigating' && routePoints.length){
-    let s=90,w=180,n=-90,e=-180;
-    for(const [la,lo] of routePoints){ if(la<s)s=la; if(la>n)n=la; if(lo<w)w=lo; if(lo>e)e=lo; }
-    const pad=0.05; // ~5km
+    // Only the stretch AHEAD (~8km) rather than the whole trip's bounding box, so
+    // hazard/camera fetches stay small and relevant as you drive — a Sydney→
+    // Newcastle route used to request a ~150km box every refresh.
+    const AHEAD_M=8000;
+    const start=Math.max(0,Math.min(_lastRouteIdx,routePoints.length-1));
+    let s=90,w=180,n=-90,e=-180,acc=0;
+    for(let i=start;i<routePoints.length;i++){
+      const [la,lo]=routePoints[i];
+      if(la<s)s=la; if(la>n)n=la; if(lo<w)w=lo; if(lo>e)e=lo;
+      if(i>start){ acc+=haversine(routePoints[i-1][0],routePoints[i-1][1],la,lo); if(acc>AHEAD_M) break; }
+    }
+    const pad=0.01; // ~1km lateral cushion for side streets
     return {getSouth:()=>s-pad,getWest:()=>w-pad,getNorth:()=>n+pad,getEast:()=>e+pad};
   }
   return map.getBounds().pad(0.3);
