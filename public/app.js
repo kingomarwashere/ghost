@@ -451,6 +451,15 @@ function clearMarkers(arr){ arr.forEach(m=>m.remove()); arr.length=0; }
 // so an unchanged report keeps its existing DOM node instead of being rebuilt.
 const reportMarkerById=new Map();
 function clearReportMarkers(){ for(const e of reportMarkerById.values()) e.marker.remove(); reportMarkerById.clear(); }
+const REPORT_LABELS={police:'🐷 5-0',speed_trap:'📷 Speed trap',accident:'💥 Crash',hazard:'💀 Hazard',traffic:'🚗 Traffic',closure:'🚧 Closure',roadwork:'👷 Roadwork',weather:'🌧️ Weather',blocked_lane:'🦺 Blocked lane'};
+// Popup HTML for a report — recomputed each time so the "Xm ago" age and vote
+// counts are always current (not frozen at marker-creation time).
+function reportPopupHtml(r){
+  const label=REPORT_LABELS[r.type]??r.type;
+  const age=Math.round((Date.now()-r.created_at)/60000);
+  const ageStr=age<60?`${age}m ago`:`${Math.round(age/60)}h ago`;
+  return `<strong>${label}</strong>${r.description?`<p>${escHtml(r.description)}</p>`:''}<p>${ageStr} · ✅ ${r.confirms} 👎 ${r.denies}</p><div class="popup-actions"><button class="popup-confirm" onclick="vote('${r.id}','confirm')">✅ Still there</button><button class="popup-deny" onclick="vote('${r.id}','deny')">👎 Gone</button></div>`;
+}
 
 /* ── Heatmap ──────────────────────────────── */
 let heatmapVisible=true;  // report heatmap ON by default
@@ -609,7 +618,7 @@ function fmtTime(s) { const m=Math.round(s/60); return m<60?`${m} min`:`${Math.f
 // routePoints are [lat,lng] arrays; MapLibre/GeoJSON needs [lng,lat]
 const toGL = GhostCore.toGL;
 function fmtETA(s)  { return new Date(Date.now()+s*1000).toLocaleTimeString([],{hour:'numeric',minute:'2-digit',hour12:true}); }
-function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 const decodePolyline6 = GhostCore.decodePolyline6;
 const nearestOnRoute  = GhostCore.nearestOnRoute;
@@ -721,7 +730,11 @@ function san(s){ return s ? String(s).replace(/\bisrael\b/gi, 'Palestine') : s; 
 // ── Overpass name-search: find any OSM POI whose name matches the query ─────
 async function overpassNameSearch(q, lat, lng, radius=8000, signal, timeoutMs=9000){
   // Search across all common POI-holding tag keys
-  const filter=`[name~"${q.replace(/"/g,'')}",i][~"^(amenity|shop|tourism|leisure|office|brand)$"~"."]`;
+  // Escape regex metacharacters — q is interpolated into an Overpass regex, so a
+  // bare "(", "+", "[" etc. (e.g. "fish (co", "C++") would make an invalid query
+  // that silently returns nothing.
+  const rx=q.replace(/[\\^$.*+?()[\]{}|]/g,'\\$&').replace(/"/g,'');
+  const filter=`[name~"${rx}",i][~"^(amenity|shop|tourism|leisure|office|brand)$"~"."]`;
   const results=await overpassSearch(filter,'📍',lat,lng,radius,signal,timeoutMs);
   // Assign proper emoji based on OSM tags (best effort from name match)
   return results.map(r=>({...r}));
@@ -1074,20 +1087,29 @@ async function loadReports(){
     for(const [id,entry] of reportMarkerById){
       if(!desired.has(id)){ entry.marker.remove(); reportMarkerById.delete(id); }
     }
-    // Add new / rebuild changed. sig changes when type, vote counts, or position move.
+    // Add new / update changed. sig changes when type, vote counts, or position move.
     for(const [id,r] of desired){
       const sig=`${r.type}|${r.confirms}|${r.denies}|${r.lat.toFixed(5)}|${r.lng.toFixed(5)}`;
       const existing=reportMarkerById.get(id);
-      if(existing && existing.sig===sig) continue; // unchanged — keep the DOM node
-      if(existing) existing.marker.remove();
+      if(existing){
+        existing.r=r; // keep the latest data so the popup open-handler shows fresh age/counts
+        if(existing.sig===sig) continue;                 // nothing visual changed
+        if(existing.type===r.type){
+          // Same icon — update in place so an OPEN popup (e.g. right after the
+          // user votes) isn't torn down; just move it and refresh its content.
+          existing.sig=sig;
+          existing.marker.setLngLat([r.lng,r.lat]);
+          existing.marker.getPopup()?.setHTML(reportPopupHtml(r));
+          continue;
+        }
+        existing.marker.remove(); reportMarkerById.delete(id); // type changed → rebuild
+      }
       const icon=ICONS[r.type]??ICONS.hazard;
-      const age=Math.round((Date.now()-r.created_at)/60000);
-      const label={police:'🐷 5-0',speed_trap:'📷 Speed trap',accident:'💥 Crash',hazard:'💀 Hazard',traffic:'🚗 Traffic',closure:'🚧 Closure',roadwork:'👷 Roadwork',weather:'🌧️ Weather',blocked_lane:'🦺 Blocked lane'}[r.type]??r.type;
-      const ageStr=age<60?`${age}m ago`:`${Math.round(age/60)}h ago`;
-      const popupHtml=`<strong>${label}</strong>${r.description?`<p>${escHtml(r.description)}</p>`:''}<p>${ageStr} · ✅ ${r.confirms} 👎 ${r.denies}</p><div class="popup-actions"><button class="popup-confirm" onclick="vote('${r.id}','confirm')">✅ Still there</button><button class="popup-deny" onclick="vote('${r.id}','deny')">👎 Gone</button></div>`;
-      const popup=new maplibregl.Popup({offset:24,maxWidth:'260px'}).setHTML(popupHtml);
-      const marker=new maplibregl.Marker({element:icon.el(),anchor:'center'}).setLngLat([r.lng,r.lat]).setPopup(popup).addTo(map);
-      reportMarkerById.set(id,{marker,sig});
+      const entry={marker:null,sig,type:r.type,r};
+      const popup=new maplibregl.Popup({offset:24,maxWidth:'260px'}).setHTML(reportPopupHtml(r));
+      popup.on('open',()=>popup.setHTML(reportPopupHtml(entry.r))); // always-current age/counts
+      entry.marker=new maplibregl.Marker({element:icon.el(),anchor:'center'}).setLngLat([r.lng,r.lat]).setPopup(popup).addTo(map);
+      reportMarkerById.set(id,entry);
     }
   }catch{}
 }
@@ -1393,7 +1415,7 @@ document.querySelectorAll('.rpt-cat').forEach(btn=>{
 
 $$('rpt-cancel').addEventListener('click', closeReportSheet);
 $$('rpt-submit').addEventListener('click', async()=>{
-  if(!pendingLat||!selCat||!selSubKey) return;
+  if(pendingLat==null||pendingLng==null||!selCat||!selSubKey) return;
   const btn=$$('rpt-submit'); btn.disabled=true; btn.textContent='Reporting…';
   // Map sub-key back to a DB-valid type for the API
   const apiType = selCat; // police|speed_trap|accident|hazard
@@ -2017,8 +2039,10 @@ function searchCacheSet(k,r){ _searchCache.set(k,{t:Date.now(),r}); if(_searchCa
 function wireInput(input, field){
   input.addEventListener('focus',()=>{
     setActiveField(field);
-    if(input.value.trim().length>=2) doSearch(input.value.trim());
-    else showSuggestions();
+    const q=input.value.trim();
+    const minLen=/^\d/.test(q)?2:3; // match the input handler's gate
+    if(q.length>=minLen) doSearch(q);
+    else showSuggestions(q);
   });
   input.addEventListener('input',()=>{
     const q=input.value.trim();
@@ -2047,7 +2071,9 @@ swapBtn.addEventListener('click',()=>{
   fromClear.classList.toggle('hidden',!fromInput.value);
   toClear.classList.toggle('hidden',!toInput.value);
   fromInput.placeholder=fromPlace?'':'📍 My location';
-  if(fromPlace&&toPlace)tryRoute();
+  // Re-route whenever there's a destination — tryRoute falls back to My-location
+  // for a null origin, so requiring fromPlace here left valid swaps doing nothing.
+  if(toPlace)tryRoute();
 });
 
 async function doSearch(q){
@@ -2105,24 +2131,30 @@ async function doSearch(q){
   _searchAbort=new AbortController();
   const signal=_searchAbort.signal;
 
-  const collected=[]; let settled=0;
+  // Cache key includes a coarse (~11km) location bucket so results ranked by
+  // distance for one area aren't replayed after the user has moved.
+  const cacheKey=`${q.toLowerCase()}@${lat?lat.toFixed(1):''},${lng?lng.toFixed(1):''}`;
+  const collected=[]; let settled=0, painted=false;
   const paint=()=>{
     const merged=mergeResults([collected],lat,lng); // dedup
     merged.forEach(r=>{ r._score=scoreResult(r,q,lat,lng); });
     merged.sort((a,b)=>b._score-a._score);
     renderSearchResults(merged,locals,q);
-    searchCacheSet(q.toLowerCase(),merged);
+    searchCacheSet(cacheKey,merged);
+    painted=true;
   };
   const ingest=(list)=>{ if(seq!==_searchSeq||!list?.length) return; collected.push(...list); paint(); };
   const finish=()=>{ if(seq!==_searchSeq) return;
-    if(++settled>=2 && !collected.length && !locals.length){
+    // Only show "Nothing found" if we never painted anything (don't clobber a
+    // cached list when both live sources come back empty on a transient failure).
+    if(++settled>=2 && !collected.length && !locals.length && !painted){
       searchResultsEl.innerHTML=`<div class="no-results">Nothing found for "<strong>${escHtml(q)}</strong>"<br><small>Check spelling or try a suburb name</small></div>`;
     }
   };
 
   // Instant paint from cache while the network refreshes underneath.
-  const cached=searchCacheGet(q.toLowerCase());
-  if(cached?.length) renderSearchResults(cached,locals,q);
+  const cached=searchCacheGet(cacheKey);
+  if(cached?.length){ renderSearchResults(cached,locals,q); painted=true; }
 
   unifiedSearch(q,lat,lng,signal).then(r=>ingest(enrichPhoton(r,lat,lng))).catch(()=>{}).finally(finish);
   overpassNameSearch(q,lat,lng,12000,signal,2800).then(r=>ingest(r)).catch(()=>{}).finally(finish);
@@ -3594,7 +3626,7 @@ function onGPS(pos){
 // Shared "where am I on the route / what's next" update. Runs on every real GPS
 // fix AND — during a GPS/data dropout — on every dead-reckoning tick with an
 // estimated position, so turn callouts, camera alerts and ETA keep working with
-// no signal. `estimated` is informational (kept for future tuning).
+// no signal. `estimated`=true suppresses the arrival trigger (see below).
 function applyNavProgress(lat,lng,hdg,idx,estimated){
   if(navState!=='navigating'||!routePoints.length) return;
   updateRouteStyling(idx);
@@ -3603,14 +3635,22 @@ function applyNavProgress(lat,lng,hdg,idx,estimated){
   const nextPt=routePoints[nextM.begin_shape_index]??routePoints[routePoints.length-1];
   const distToTurn=haversine(lat,lng,nextPt[0],nextPt[1]);
   // Base remaining time + traffic still ahead of us (shrinks as we clear jams)
-  remainingSec=Math.round(routeData.summary.time*(1-Math.min(idx/routePoints.length,1)))
+  // Fraction complete by arc-length (routeCumDist), not vertex index — Valhalla
+  // packs far more vertices around turns than on long straights, so index-fraction
+  // makes the ETA count down unevenly.
+  const _total=routeCumDist.length?routeCumDist[routeCumDist.length-1]:0;
+  const _frac=_total>0?Math.min(routeCumDist[idx]/_total,1):Math.min(idx/routePoints.length,1);
+  remainingSec=Math.round(routeData.summary.time*(1-_frac))
                + trafficDelaySec(routePoints.slice(idx));
   updateNavPanel(distToTurn);
   checkVoice(currentMidx,distToTurn);
   checkProximityAlerts(lat,lng,hdg);
   if(perspective3D&&currentMidx!==lastRefreshedMidx){lastRefreshedMidx=currentMidx;refreshStreetLabels();}
   updateSpeedProfileCursor();
-  if((nextM.type>=4&&nextM.type<=6)&&distToTurn<25){
+  // Only declare arrival on a REAL fix — a dead-reckoned estimate can coast to
+  // the destination during a GPS dropout (tunnel / underground car park) and
+  // falsely announce "you have arrived" a block early.
+  if(!estimated && (nextM.type>=4&&nextM.type<=6) && distToTurn<25){
     triggerArrival();
   }
 }
@@ -3763,7 +3803,10 @@ function updateNavPanel(distToTurn){
   } else navNextWrap.classList.add('hidden');
 
   navETA.textContent=fmtETA(remainingSec);
-  const remDist=remainingSec*(routeData.summary.length*1000/routeData.summary.time);
+  // metres/sec of the planned route; guard time===0 so a degenerate route can't
+  // render "NaNkm".
+  const rate=routeData.summary.time>0?routeData.summary.length*1000/routeData.summary.time:0;
+  const remDist=Math.max(0,remainingSec*rate);
   navRemaining.textContent=`${fmtDist(remDist)} · ${fmtTime(remainingSec)}`;
 
   const lim=getSpeedLimit();
@@ -4437,6 +4480,13 @@ function triggerArrival(){
   [navInst,navFooter,alertBar].forEach(el=>el.classList.add('hidden'));
   releaseWakeLock();
   accelReset();
+  // Arrived — tear down the live loops now (endNav also does this, but only after
+  // the score modal is dismissed). Otherwise GPS watch + the 20s report/camera
+  // poll + dead-reckon/watchdog timers keep running and draining battery/data
+  // while the arrival overlay sits open.
+  stopNavRefresh(); stopDeadReckon(); stopGpsWatchdog();
+  if(watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; }
+  if(_mRaf!=null){ cancelAnimationFrame(_mRaf); _mRaf=null; }
 }
 
 /* ═══════════════════════════════════════════════

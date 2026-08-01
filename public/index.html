@@ -1099,7 +1099,7 @@
       const ageS = age < 60 ? `${age}m ago` : `${Math.round(age / 60)}h ago`;
       new maplibregl.Popup({ offset: 16 })
         .setLngLat(e.features[0].geometry.coordinates)
-        .setHTML(`<strong>🐷 5-0</strong>${p.desc ? `<p style="margin:4px 0">${p.desc}</p>` : ''}<p style="color:#888;font-size:.75rem">${ageS}</p>`)
+        .setHTML(`<strong>🐷 5-0</strong>${p.desc ? `<p style="margin:4px 0">${escHtml(p.desc)}</p>` : ''}<p style="color:#888;font-size:.75rem">${ageS}</p>`)
         .addTo(map);
     });
 
