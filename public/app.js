@@ -33,7 +33,7 @@ function $$(id){return document.getElementById(id);}
    SETTINGS — persisted to localStorage
 ═══════════════════════════════════════════════ */
 const PREF_KEY = 'radar_prefs';
-const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'voyager', lighting:'auto', styleOverride:false, avoidTolls:true, accelTimer:false, accelRange:'0-100', saver:false };
+const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'voyager', lighting:'auto', styleOverride:false, avoidTolls:true, accelTimer:false, accelRange:'0-100', saver:false, icons:{} };
 const prefs = { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}') };
 const savePrefs = () => localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
 
@@ -492,11 +492,12 @@ function clearMarkers(arr){ arr.forEach(m=>m.remove()); arr.length=0; }
 // so an unchanged report keeps its existing DOM node instead of being rebuilt.
 const reportMarkerById=new Map();
 function clearReportMarkers(){ for(const e of reportMarkerById.values()) e.marker.remove(); reportMarkerById.clear(); }
-const REPORT_LABELS={police:'🐷 5-0',speed_trap:'📷 Speed trap',accident:'💥 Crash',hazard:'💀 Hazard',traffic:'🚗 Traffic',closure:'🚧 Closure',roadwork:'👷 Roadwork',weather:'🌧️ Weather',blocked_lane:'🦺 Blocked lane'};
+const REPORT_NAME={police:'5-0',speed_trap:'Speed trap',accident:'Crash',hazard:'Hazard',traffic:'Traffic',closure:'Closure',roadwork:'Roadwork',weather:'Weather',blocked_lane:'Blocked lane'};
 // Popup HTML for a report — recomputed each time so the "Xm ago" age and vote
-// counts are always current (not frozen at marker-creation time).
+// counts are always current (not frozen at marker-creation time), and the emoji
+// reflects any user icon override.
 function reportPopupHtml(r){
-  const label=REPORT_LABELS[r.type]??r.type;
+  const label=`${iconEmoji(r.type)} ${REPORT_NAME[r.type]??r.type}`;
   const age=Math.round((Date.now()-r.created_at)/60000);
   const ageStr=age<60?`${age}m ago`:`${Math.round(age/60)}h ago`;
   return `<strong>${label}</strong>${r.description?`<p>${escHtml(r.description)}</p>`:''}<p>${ageStr} · ✅ ${r.confirms} 👎 ${r.denies}</p><div class="popup-actions"><button class="popup-confirm" onclick="vote('${r.id}','confirm')">✅ Still there</button><button class="popup-deny" onclick="vote('${r.id}','deny')">👎 Gone</button></div>`;
@@ -612,6 +613,38 @@ const ICONS = {
   weather:       svgIcon('weather'),
   blocked_lane:  svgIcon('blocked_lane'),
 };
+
+/* ── User-customisable marker emojis ──────────────────────────────────────────
+   Users can override any report/camera type's marker with an emoji of their
+   choice (Settings → Marker icons). prefs.icons[type] holds the override; empty
+   falls back to the built-in SVG / default emoji. */
+const DEFAULT_ICON_EMOJI = {
+  police:'🐷', speed_trap:'📷', accident:'💥', hazard:'💀', traffic:'🚗',
+  closure:'🚧', roadwork:'👷', weather:'🌧️', blocked_lane:'🦺',
+  speed:'📷', red_light:'🚦', average_speed:'🎯', bus_lane:'🚌',
+};
+// Report/camera types the user can re-skin, in display order.
+const ICON_EDIT_LIST = [
+  {type:'police',      name:'Police'},
+  {type:'speed_trap',  name:'Speed trap'},
+  {type:'accident',    name:'Crash'},
+  {type:'hazard',      name:'Hazard'},
+  {type:'traffic',     name:'Traffic'},
+  {type:'closure',     name:'Closure'},
+  {type:'roadwork',    name:'Roadwork'},
+  {type:'weather',     name:'Weather'},
+  {type:'blocked_lane',name:'Blocked lane'},
+  {type:'speed',       name:'Speed camera'},
+  {type:'red_light',   name:'Red-light camera'},
+];
+const iconOverride = type => (prefs.icons && prefs.icons[type]) || '';
+const iconEmoji = type => iconOverride(type) || DEFAULT_ICON_EMOJI[type] || '📍';
+// Marker factory: a user override → emoji tile; otherwise the built-in SVG icon.
+function iconFor(type, fallback){
+  const o=iconOverride(type);
+  if(o) return makeEmojiIcon(o);
+  return ICONS[type] ?? ICONS[fallback] ?? ICONS.hazard;
+}
 
 /* ═══════════════════════════════════════════════
    AUDIO — Web Audio API chimes (no files needed)
@@ -1145,7 +1178,7 @@ async function loadReports(){
         }
         existing.marker.remove(); reportMarkerById.delete(id); // type changed → rebuild
       }
-      const icon=ICONS[r.type]??ICONS.hazard;
+      const icon=iconFor(r.type,'hazard');
       const entry={marker:null,sig,type:r.type,r};
       const popup=new maplibregl.Popup({offset:24,maxWidth:'260px'}).setHTML(reportPopupHtml(r));
       popup.on('open',()=>popup.setHTML(reportPopupHtml(entry.r))); // always-current age/counts
@@ -1290,7 +1323,7 @@ async function loadCameras(){
     for(const cam of data){
       if(cam.type==='speed'&&!visibleLayers.speed) continue;
       if((cam.type==='red_light'||cam.type==='average_speed'||cam.type==='bus_lane')&&!visibleLayers.red_light) continue;
-      const icon=ICONS[cam.type]??ICONS.speed;
+      const icon=iconFor(cam.type,'speed');
       const label={speed:'📷 Speed camera',red_light:'🔴 Red light camera',average_speed:'📡 Avg speed',bus_lane:'🚌 Bus lane camera'}[cam.type]??cam.type;
       const popupHtml=`<strong>${label}</strong>${cam.road?`<p>📍 ${escHtml(cam.road)}</p>`:''} ${cam.speed_limit?`<p>⚡ ${cam.speed_limit} km/h zone</p>`:''} ${cam.state?`<p>📌 ${cam.state}</p>`:''}<p style="color:#555;font-size:.7rem">Source: ${cam.source.toUpperCase()}</p>`;
       const popup=new maplibregl.Popup({offset:24,maxWidth:'260px'}).setHTML(popupHtml);
@@ -1494,6 +1527,10 @@ function reportPos(){
 }
 function openQuickReport(){
   clearTimeout(_qrTimer);
+  // Reflect any user icon overrides on the buttons.
+  quickReportEl.querySelectorAll('.qr-btn:not(.qr-more)').forEach(b=>{
+    const em=b.querySelector('.qr-emoji'); if(em) em.textContent=iconEmoji(b.dataset.type);
+  });
   quickReportEl.classList.remove('hidden');
   _qrTimer=setTimeout(closeQuickReport,6000); // don't linger if the driver ignores it
 }
@@ -1575,6 +1612,32 @@ function applySaverMode(){
   }
 }
 setTimeout(applySaverMode, 0); // apply persisted pref after top-level eval (navState is declared later)
+
+/* ── Settings → Marker icons: let users re-skin report/camera markers ── */
+function refreshMarkerIcons(){ try{ clearReportMarkers(); loadReports(); clearMarkers(cameraMarkers); loadCameras(); }catch(_){} }
+function renderIconSettings(){
+  const box=$$('icon-settings'); if(!box) return;
+  box.innerHTML=ICON_EDIT_LIST.map(({type,name})=>`
+    <div class="icon-row" data-type="${type}">
+      <span class="icon-cur">${iconEmoji(type)}</span>
+      <span class="icon-name">${name}</span>
+      <input class="icon-inp" data-type="${type}" value="${escHtml(iconOverride(type))}" placeholder="${DEFAULT_ICON_EMOJI[type]||'📍'}" maxlength="6" aria-label="Emoji for ${name}">
+    </div>`).join('');
+  box.querySelectorAll('.icon-inp').forEach(inp=>{
+    inp.addEventListener('input',()=>{
+      const type=inp.dataset.type, v=inp.value.trim();
+      if(!prefs.icons) prefs.icons={};
+      if(v) prefs.icons[type]=v; else delete prefs.icons[type];
+      savePrefs();
+      const cur=inp.closest('.icon-row')?.querySelector('.icon-cur'); if(cur) cur.textContent=iconEmoji(type);
+    });
+    inp.addEventListener('change',refreshMarkerIcons); // rebuild markers once the edit is committed
+  });
+}
+$$('icons-reset')?.addEventListener('click',()=>{
+  prefs.icons={}; savePrefs(); renderIconSettings(); refreshMarkerIcons(); showToast('Marker icons reset');
+});
+renderIconSettings();
 
 // Acceleration timer toggle + range picker
 (()=>{
