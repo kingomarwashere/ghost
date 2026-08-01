@@ -2026,8 +2026,10 @@ body.previewing #rec-fab { display: none; }
 
 /* ── Route cams — live traffic cameras on your route (nav only) ── */
 #route-cams-btn {
+  /* Sits ABOVE the speedometer (#nav-speed-float, bottom 160px, ~115px tall) —
+     both used to share the bottom-left corner and overlapped during nav. */
   position: fixed; z-index: 1002; left: 14px;
-  bottom: calc(150px + env(safe-area-inset-bottom));
+  bottom: calc(300px + env(safe-area-inset-bottom));
   width: 52px; height: 52px; border-radius: 15px;
   background: linear-gradient(145deg,#12233a,#0a1626); border: 1.5px solid #22d3ee;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
