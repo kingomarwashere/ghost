@@ -1274,8 +1274,13 @@ function scheduleFetch(){
   clearTimeout(fetchTmr);
   // Normally debounce, BUT during nav the motion loop's per-frame jumpTo floods
   // moveend and would reset the debounce forever — starving camera/report loads.
-  // Force a refresh if it's been >1.5s so cameras keep appearing as you drive.
-  if(performance.now()-_lastFetchAt > 1500) doFetch();
+  // So force a periodic refresh. During nav that force fires on every animation
+  // frame, so keep the interval generous (6s, not 1.5s): reports/cameras barely
+  // change second-to-second, the 8km look-ahead corridor already covers what's
+  // coming, and the 20s nav poll backs it up. 1.5s meant ~4 API calls every 1.5s
+  // for the whole drive (~160 req/min) — mostly redundant data + battery.
+  const forceMs = navState==='navigating' ? 6000 : 1500;
+  if(performance.now()-_lastFetchAt > forceMs) doFetch();
   else fetchTmr=setTimeout(doFetch, 300);
 }
 map.on('moveend',scheduleFetch);map.on('zoomend',scheduleFetch);
