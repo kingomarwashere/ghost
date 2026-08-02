@@ -1133,6 +1133,33 @@ function placeSub(r) { return r.sub || r.display_name?.split(',').slice(1,3).joi
 ═══════════════════════════════════════════════ */
 let visibleLayers={police:true,speed:true,red_light:true}, fetchTmr=null;
 
+/* ── De-clutter when zoomed out during nav ────────────────────────────────────
+   Once the user zooms out past ROUTE_ONLY_ZOOM while navigating, the viewport
+   covers a whole city and every camera/hazard in it would clutter the map. So we
+   render only what's relevant to the trip: markers on/near the route, plus police
+   ("pigs") near the driver. Zooming back in shows everything again. */
+const ROUTE_ONLY_ZOOM = 14, ROUTE_NEAR_M = 450, PIG_NEAR_M = 3000;
+function routeOnlyMode(){ return navState==='navigating' && routePoints.length>0 && map.getZoom() < ROUTE_ONLY_ZOOM; }
+function nearRoute(lat,lng,maxM){
+  const n=routePoints.length; if(!n) return true;
+  const total=routeCumDist.length?routeCumDist[n-1]:0;
+  const avg=total>0?total/n:30;
+  const step=Math.max(1,Math.floor((maxM*0.5)/avg)); // sample ≤ maxM/2 apart so nothing within maxM is missed
+  for(let i=0;i<n;i+=step){ if(haversine(lat,lng,routePoints[i][0],routePoints[i][1])<maxM) return true; }
+  return haversine(lat,lng,routePoints[n-1][0],routePoints[n-1][1])<maxM; // always test the destination
+}
+function nearDriver(lat,lng,maxM){
+  const g=(navState==='navigating'&&prevPos)?prevPos:(userMarker?userMarker.getLngLat():null);
+  if(!g) return true;
+  return haversine(lat,lng,g.lat,g.lng)<maxM;
+}
+// True if a report/camera should be shown given the current de-clutter mode.
+function showAtCurrentZoom(type,lat,lng){
+  if(!routeOnlyMode()) return true;
+  if(type==='police') return nearDriver(lat,lng,PIG_NEAR_M) || nearRoute(lat,lng,ROUTE_NEAR_M);
+  return nearRoute(lat,lng,ROUTE_NEAR_M);
+}
+
 async function loadReports(){
   // Zoom guard keeps the idle map uncluttered, but during nav we ALWAYS want
   // reports (incl. pigs) loaded regardless of zoom — otherwise a low preview
@@ -1155,6 +1182,7 @@ async function loadReports(){
       // speed_trap uses speed layer filter; police/all others use police filter
       if(r.type==='speed_trap'&&!visibleLayers.speed) continue;
       if(r.type!=='speed_trap'&&!visibleLayers.police) continue;
+      if(!showAtCurrentZoom(r.type,r.lat,r.lng)) continue; // zoomed-out nav: on-route + nearby pigs only
       desired.set(String(r.id), r);
     }
     // Drop markers that are gone or now filtered out.
@@ -1323,6 +1351,7 @@ async function loadCameras(){
     for(const cam of data){
       if(cam.type==='speed'&&!visibleLayers.speed) continue;
       if((cam.type==='red_light'||cam.type==='average_speed'||cam.type==='bus_lane')&&!visibleLayers.red_light) continue;
+      if(routeOnlyMode() && !nearRoute(cam.lat,cam.lng,ROUTE_NEAR_M)) continue; // zoomed-out nav: route cameras only
       const icon=iconFor(cam.type,'speed');
       const label={speed:'📷 Speed camera',red_light:'🔴 Red light camera',average_speed:'📡 Avg speed',bus_lane:'🚌 Bus lane camera'}[cam.type]??cam.type;
       const popupHtml=`<strong>${label}</strong>${cam.road?`<p>📍 ${escHtml(cam.road)}</p>`:''} ${cam.speed_limit?`<p>⚡ ${cam.speed_limit} km/h zone</p>`:''} ${cam.state?`<p>📌 ${cam.state}</p>`:''}<p style="color:#555;font-size:.7rem">Source: ${cam.source.toUpperCase()}</p>`;

@@ -808,17 +808,29 @@
     }
   }
 
+  let _camRouteOnly = false;
   function setCamLayerData() {
     if (!map.getSource('traffic-cams')) return;
+    // Zoomed out mid-nav: show only the live cams on/near the route, not every
+    // camera in a city-wide viewport. (routeOnlyMode/nearRoute are app.js globals.)
+    const routeOnly = typeof routeOnlyMode === 'function' && routeOnlyMode();
+    _camRouteOnly = routeOnly;
+    const list = routeOnly ? cams.filter(c => nearRoute(c.lat, c.lng, 450)) : cams;
     map.getSource('traffic-cams').setData({
       type: 'FeatureCollection',
-      features: cams.map(c => ({
+      features: list.map(c => ({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [c.lng, c.lat] },
         properties: { id: c.id, title: c.title, file: c.file },
       })),
     });
   }
+  // Re-filter the live cams when zoom crosses the route-only threshold (cheap —
+  // only re-renders on an actual state flip, not on every jumpTo-driven zoomend).
+  map.on('zoomend', () => {
+    const ro = typeof routeOnlyMode === 'function' && routeOnlyMode();
+    if (ro !== _camRouteOnly) setCamLayerData();
+  });
 
   function setCamLayerVisibility(visible) {
     if (!map.getLayer('traffic-cams-circle')) return;
