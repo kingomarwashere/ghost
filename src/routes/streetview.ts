@@ -1,0 +1,65 @@
+import { Hono } from 'hono';
+import type { Env } from '../types';
+
+// Street-level photo for an address. Tries Mapillary (free, crowdsourced) for the
+// closest image; if there's none (patchy AU-suburb coverage) or no token, falls
+// back to an aerial/satellite tile so there's ALWAYS an image. Edge-cached ~24h.
+
+const streetview = new Hono<{ Bindings: Env }>();
+
+// Pick the Mapillary image whose point is closest to (lat,lng). Pure — testable.
+export function pickNearest(images: any[], lat: number, lng: number): string | null {
+  let best: any = null, bestD = Infinity;
+  for (const im of images || []) {
+    const g = im?.geometry?.coordinates; // [lng, lat]
+    if (!g) continue;
+    const dLat = g[1] - lat, dLng = (g[0] - lng) * Math.cos(lat * Math.PI / 180);
+    const d = dLat * dLat + dLng * dLng;
+    if (d < bestD) { bestD = d; best = im; }
+  }
+  return best?.thumb_1024_url || best?.thumb_256_url || null;
+}
+
+// Esri World Imagery aerial JPEG centred on the point (~180m box). No key needed.
+function satelliteUrl(lat: number, lng: number): string {
+  const dLat = 0.0009, dLng = 0.0009 / Math.cos(lat * Math.PI / 180);
+  const bbox = `${lng - dLng},${lat - dLat},${lng + dLng},${lat + dLat}`;
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=3857&size=640,400&format=jpg&f=image`;
+}
+
+streetview.get('/', async (c) => {
+  const lat = parseFloat(c.req.query('lat') ?? '');
+  const lng = parseFloat(c.req.query('lng') ?? '');
+  if (isNaN(lat) || isNaN(lng)) return c.json({ error: 'lat/lng required' }, 400);
+
+  const rLat = lat.toFixed(4), rLng = lng.toFixed(4); // ~11m cache grid
+  const key = new Request(`https://ghost.cache/streetview?v=1&lat=${rLat}&lng=${rLng}`);
+  // @ts-ignore — Workers Cache API
+  const cache = caches.default;
+  const hit = await cache.match(key);
+  if (hit) return hit;
+
+  let out: { type: 'street' | 'sat'; url: string } = { type: 'sat', url: satelliteUrl(lat, lng) };
+
+  const token = c.env.MAPILLARY_TOKEN;
+  if (token) {
+    // ~70m box around the point.
+    const dLat = 70 / 111320, dLng = 70 / (111320 * Math.cos(lat * Math.PI / 180));
+    const bbox = `${lng - dLng},${lat - dLat},${lng + dLng},${lat + dLat}`;
+    const url = `https://graph.mapillary.com/images?fields=id,thumb_1024_url,thumb_256_url,geometry&bbox=${bbox}&limit=8&access_token=${token}`;
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(6000), cf: { cacheTtl: 86400, cacheEverything: true } } as any);
+      if (r.ok) {
+        const j = await r.json().catch(() => null) as any;
+        const pic = pickNearest(j?.data ?? [], lat, lng);
+        if (pic) out = { type: 'street', url: pic };
+      }
+    } catch { /* fall through to satellite */ }
+  }
+
+  const res = c.json(out, 200, { 'Cache-Control': 'public, max-age=86400' });
+  c.executionCtx.waitUntil(cache.put(key, res.clone()));
+  return res;
+});
+
+export default streetview;

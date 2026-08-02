@@ -33,7 +33,7 @@ function $$(id){return document.getElementById(id);}
    SETTINGS — persisted to localStorage
 ═══════════════════════════════════════════════ */
 const PREF_KEY = 'radar_prefs';
-const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'voyager', lighting:'auto', styleOverride:false, avoidTolls:true, accelTimer:false, accelRange:'0-100', saver:false, icons:{} };
+const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'voyager', lighting:'auto', styleOverride:false, avoidTolls:true, accelTimer:false, accelRange:'0-100', saver:false, icons:{}, fuelType:'U91' };
 const prefs = { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}') };
 const savePrefs = () => localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
 
@@ -2135,9 +2135,10 @@ function openPlanner(){
   _syncPlannerH();
   // Do NOT auto-focus — keyboard should only open on explicit tap of the input field
   showSuggestions();
+  refreshFriends(); // pull the synced People list (re-renders when it lands)
 }
 function closePlanner(){
-  _settingShortcut=null; // cancel any pending Home/Work pin
+  _settingShortcut=null; _settingFriend=false; // cancel any pending pin
   // Dismiss keyboard before animating out
   fromInput.blur(); toInput.blur();
   topbar.classList.remove('hidden');
@@ -2156,6 +2157,51 @@ function setActiveField(f){
 }
 
 /* ── Suggestions (recents + favs + near-me chips) ─── */
+/* ── Fuel panel: servos near you with live NSW prices ── */
+const FUEL_TYPES=[['U91','Unleaded'],['E10','E10'],['P95','95'],['P98','98'],['DL','Diesel']];
+function fuelTypeBarHtml(sel){
+  return `<div id="fuel-type-bar">`+FUEL_TYPES.map(([k,l])=>`<button class="fuel-type-chip${k===sel?' active':''}" data-ft="${k}">${l}</button>`).join('')+`</div>`;
+}
+function bindFuelTypeBar(){
+  searchResultsEl.querySelectorAll('.fuel-type-chip').forEach(b=>b.addEventListener('click',()=>{
+    prefs.fuelType=b.dataset.ft; savePrefs(); showFuelPanel();
+  }));
+}
+function fuelRow(s,cheapest){
+  const name=(s.brand && !String(s.name).toLowerCase().includes(String(s.brand).toLowerCase())) ? `${s.brand} ${s.name}` : (s.name||'Servo');
+  const price = s.price!=null
+    ? `<span class="fuel-price${s.price===cheapest?' cheapest':''}">${(+s.price).toFixed(1)}<small>c</small></span>`
+    : `<span class="fuel-price none">—</span>`;
+  return `<div class="search-result fuel-result" data-lat="${s.lat}" data-lng="${s.lng}" data-name="${escHtml(name)}" data-sub="${escHtml(fmtDist(s.dist))}">
+    <span class="result-emoji">⛽</span>
+    <span class="result-body"><strong>${escHtml(name)}</strong><span>${fmtDist(s.dist)}</span></span>
+    ${price}
+  </div>`;
+}
+async function showFuelPanel(){
+  const gps=userMarker?userMarker.getLngLat():null;
+  const lat=gps?.lat??map.getCenter().lat, lng=gps?.lng??map.getCenter().lng;
+  const ft=prefs.fuelType||'U91';
+  searchResultsEl.innerHTML=fuelTypeBarHtml(ft)+`<div class="no-results srch-spin">Finding fuel…</div>`;
+  bindFuelTypeBar();
+  // Priced NSW stations + OSM servos (for locations FuelCheck doesn't price, and
+  // as the everywhere-fallback) in parallel.
+  const [priced, servos] = await Promise.all([
+    fetch(`/api/fuel?lat=${lat}&lng=${lng}&fueltype=${ft}`).then(r=>r.ok?r.json():{stations:[]}).catch(()=>({stations:[]})),
+    overpassSearch('[amenity=fuel]','⛽',lat,lng,8000).catch(()=>[]),
+  ]);
+  const stations=(priced.stations||[]).slice();
+  for(const sv of servos){ // add OSM servos not already covered by a priced station
+    if(!stations.some(s=>haversine(s.lat,s.lng,sv.lat,sv.lng)<130))
+      stations.push({brand:'',name:sv.name,lat:sv.lat,lng:sv.lng,price:null,dist:Math.round(haversine(lat,lng,sv.lat,sv.lng))});
+  }
+  if(!stations.length){ searchResultsEl.innerHTML=fuelTypeBarHtml(ft)+`<div class="no-results">No servos found nearby</div>`; bindFuelTypeBar(); return; }
+  stations.sort((a,b)=>(a.price==null?1:0)-(b.price==null?1:0) || (a.price??9e9)-(b.price??9e9) || a.dist-b.dist);
+  const cheapest=stations.find(s=>s.price!=null)?.price;
+  searchResultsEl.innerHTML=fuelTypeBarHtml(ft)+stations.slice(0,25).map(s=>fuelRow(s,cheapest)).join('');
+  bindFuelTypeBar(); bindResultClicks();
+}
+
 // Home / Work pinned shortcuts row for the planner.
 function homeWorkHtml(){
   const chip=(slot,ico,label)=>{
@@ -2181,6 +2227,42 @@ function bindHomeWork(){
     });
   });
 }
+
+/* ── Friends' addresses (synced to account) ── */
+const FRIENDS_CACHE='radar_friends_cache';
+let _friends=(()=>{ try{ return JSON.parse(localStorage.getItem(FRIENDS_CACHE)||'[]'); }catch{ return []; } })();
+let _settingFriend=false;
+function _cacheFriends(){ try{ localStorage.setItem(FRIENDS_CACHE,JSON.stringify(_friends)); }catch{} }
+async function refreshFriends(){
+  if(!authToken()){ _friends=[]; _cacheFriends(); return; }
+  try{ const r=await authFetch('/api/places'); if(r.ok){ _friends=await r.json(); _cacheFriends(); if(navState==='searching' && !toInput.value.trim()) showSuggestions(); } }catch(_){}
+}
+function peopleHtml(){
+  const chips=_friends.map(f=>
+    `<button class="hw-chip friend-chip" data-id="${f.id}"><span class="hw-ico">${f.emoji||'👤'}</span><span class="hw-name">${escHtml(f.name)}</span><span class="hw-edit" data-del="${f.id}" title="Remove">✕</span></button>`).join('');
+  const add=`<button class="hw-chip hw-unset friend-add"><span class="hw-ico">➕</span><span class="hw-name">Add person</span></button>`;
+  return `<div id="people-row"><div class="people-label">👥 People</div><div class="people-chips">${chips}${add}</div></div>`;
+}
+function bindPeople(){
+  searchResultsEl.querySelectorAll('.friend-chip').forEach(chip=>{
+    chip.addEventListener('click',async e=>{
+      if(e.target.dataset?.del){ e.stopPropagation(); await deleteFriend(e.target.dataset.del); return; }
+      const f=_friends.find(x=>String(x.id)===chip.dataset.id);
+      if(f) selectPlace({name:f.name,sub:f.sub,lat:f.lat,lng:f.lng});
+    });
+  });
+  const add=searchResultsEl.querySelector('.friend-add');
+  if(add) add.addEventListener('click',()=>{
+    if(!authToken()){ showToast('Log in to save people'); openAccountModal(); return; }
+    _settingFriend=true;
+    showToast('Search & pick your friend’s address 📍',3200);
+    setActiveField('to'); toInput.focus(); showSuggestions();
+  });
+}
+async function deleteFriend(id){
+  _friends=_friends.filter(f=>String(f.id)!==String(id)); _cacheFriends(); showSuggestions();
+  try{ await authFetch('/api/places/'+id,{method:'DELETE'}); }catch(_){}
+}
 function showSuggestions(filterQ=''){
   const favs=getFavs(), recents=getRecent();
   const ql=filterQ.toLowerCase();
@@ -2199,6 +2281,7 @@ function showSuggestions(filterQ=''){
   const gps=userMarker?userMarker.getLngLat():null;
   let html='';
   html+=homeWorkHtml();
+  html+=peopleHtml();
   html+=`<div id="nearme-chips">
     <button class="nearme-chip" data-q="petrol">⛽ Petrol</button>
     <button class="nearme-chip" data-q="food">🍔 Food</button>
@@ -2220,9 +2303,11 @@ function showSuggestions(filterQ=''){
   searchResultsEl.innerHTML=html;
   bindResultClicks();
   bindHomeWork();
+  bindPeople();
   searchResultsEl.querySelectorAll('.nearme-chip').forEach(chip=>{
     chip.addEventListener('click',async()=>{
       const q=chip.dataset.q;
+      if(q==='petrol'){ showFuelPanel(); return; } // price-aware fuel panel
       const gpsPos=userMarker?userMarker.getLngLat():null;
       const lat=gpsPos?.lat??map.getCenter().lat, lng=gpsPos?.lng??map.getCenter().lng;
       searchResultsEl.innerHTML=`<div class="no-results">Searching nearby…</div>`;
@@ -2423,12 +2508,26 @@ function bindResultClicks(){
   });
 }
 
-function selectPlace(p){
+async function selectPlace(p){
   // If the user is pinning a Home/Work shortcut, capture this place instead of routing.
   if(_settingShortcut){
     const slot=_settingShortcut; _settingShortcut=null;
     setShortcut(slot,p);
     showToast(`${slot==='home'?'🏠 Home':'💼 Work'} saved`);
+    showSuggestions();
+    return;
+  }
+  // If the user is adding a friend, name + save this address (synced) instead of routing.
+  if(_settingFriend){
+    _settingFriend=false;
+    const nm=(window.prompt('Name this person (e.g. Mum, Alex):','')||'').trim();
+    if(!nm){ showSuggestions(); return; }
+    const body={kind:'friend',name:nm,sub:p.sub||p.name,lat:p.lat,lng:p.lng,emoji:'👤'};
+    try{
+      const r=await authFetch('/api/places',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(r.ok){ const {id}=await r.json(); _friends.unshift({id,...body,created_at:Date.now()}); _cacheFriends(); showToast(`👤 ${nm} saved`); }
+      else showToast('Could not save');
+    }catch(_){ showToast('Could not save'); }
     showSuggestions();
     return;
   }
@@ -2594,9 +2693,29 @@ function applySelectedRoute(){
   renderDirections();
   renderRouteChips();
   renderSpeedProfile();
+  loadDestPhoto(routePoints[routePoints.length-1]); // street/aerial photo of the destination
   previewBar.classList.remove('hidden');
   // Start in peek so the route polyline is fully visible
   setSheetState('peek');
+}
+
+// Fetch + show a photo of the destination in the preview sheet (Mapillary street
+// view, or a satellite fallback so there's always an image). Uses the same
+// load-into-hidden-Image pattern as the route-cam thumbnails.
+let _destPhotoReq=0;
+async function loadDestPhoto(dest){
+  const wrap=$$('dest-photo'), img=$$('dest-photo-img'), badge=$$('dest-photo-badge');
+  if(!wrap||!img||!dest) return;
+  wrap.classList.add('hidden'); badge.classList.add('hidden');
+  const myReq=++_destPhotoReq;
+  try{
+    const meta=await fetch(`/api/streetview?lat=${dest[0]}&lng=${dest[1]}`).then(r=>r.ok?r.json():null);
+    if(myReq!==_destPhotoReq || !meta?.url) return;
+    const fresh=new Image();
+    fresh.onload=()=>{ if(myReq!==_destPhotoReq) return; img.src=fresh.src; wrap.classList.remove('hidden'); badge.classList.toggle('hidden', meta.type!=='sat'); };
+    fresh.onerror=()=>{};
+    fresh.src=meta.url;
+  }catch(_){}
 }
 
 function renderRouteChips(){

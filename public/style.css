@@ -1013,6 +1013,41 @@ body.navigating #compass-widget { top: calc(env(safe-area-inset-top, 0px) + 250p
 body.navigating #toast { top: calc(178px + env(safe-area-inset-top)); bottom: auto; }
 
 /* ── Near-me chips ───────────────────────────────── */
+/* ── People (friends' addresses) ── */
+#people-row { padding: 4px 10px 0; }
+#people-row .people-label { font-size: .72rem; font-weight: 700; color: #94a3b8; padding: 4px 2px; }
+#people-row .people-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.friend-chip { flex: 0 0 auto !important; max-width: 190px; }
+.friend-chip.friend-add { color: #94a3b8; }
+
+/* ── Fuel panel ── */
+#fuel-type-bar { display: flex; gap: 6px; padding: 8px 10px; overflow-x: auto; }
+.fuel-type-chip {
+  flex: 0 0 auto; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  background: rgba(255,255,255,.06); border: 1px solid var(--border); color: var(--text);
+  font-size: .78rem; font-weight: 700;
+}
+.fuel-type-chip.active { background: var(--accent); border-color: var(--accent); color: #06202b; }
+.fuel-result .fuel-price {
+  flex-shrink: 0; font-weight: 800; font-size: 1rem; color: #e2e8f0; margin-left: 8px;
+}
+.fuel-result .fuel-price small { font-size: .62rem; font-weight: 700; opacity: .7; }
+.fuel-result .fuel-price.cheapest { color: #4ade80; }
+.fuel-result .fuel-price.none { color: #64748b; }
+
+/* ── Destination photo (preview sheet) ── */
+#dest-photo {
+  position: relative; width: 100%; height: 130px; margin: 0 0 10px;
+  border-radius: 12px; overflow: hidden; background: #0f172a;
+}
+#dest-photo.hidden { display: none; }
+#dest-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#dest-photo-badge {
+  position: absolute; top: 8px; left: 8px; padding: 3px 9px; border-radius: 999px;
+  background: rgba(0,0,0,.62); color: #cbd5e1; font-size: .68rem; font-weight: 700;
+}
+#dest-photo-badge.hidden { display: none; }
+
 /* ── Resume-trip prompt (post-reload) ── */
 #resume-trip {
   position: fixed; left: 12px; right: 12px; z-index: 1600;

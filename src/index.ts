@@ -13,6 +13,9 @@ import adminApi from './routes/admin-api';
 import race from './routes/race';
 import { parseAddress, mapPhoton, mapNominatim, dedupe } from './geocode';
 import speedlimits from './routes/speedlimits';
+import streetview from './routes/streetview';
+import fuel from './routes/fuel';
+import places from './routes/places';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -38,6 +41,9 @@ app.route('/api/auth', auth);
 app.route('/api/admin', adminApi);
 app.route('/api/race', race);
 app.route('/api/speed-limits', speedlimits);
+app.route('/api/streetview', streetview);
+app.route('/api/fuel', fuel);
+app.route('/api/places', places);
 
 app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
 
