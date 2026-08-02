@@ -391,11 +391,7 @@
       </div>
     </div>
 
-    <details id="icon-settings-wrap">
-      <summary><span class="settings-section-label" style="margin:0">🎨 Marker icons</span><span class="icon-hint">tap to customise</span></summary>
-      <div id="icon-settings"></div>
-      <button id="icons-reset" type="button">↺ Reset to defaults</button>
-    </details>
+    <button id="open-icons-btn" type="button">🎨 Icons &amp; emojis</button>
 
     <button id="open-daily-btn" style="position:relative;width:100%;margin-top:16px;padding:14px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.4);border-radius:12px;color:#4ade80;font-weight:800;font-size:.95rem;cursor:pointer;font-family:inherit">🎯 Daily Challenges <span id="daily-streak-chip" class="hidden"></span><span id="daily-badge" class="daily-badge">0/3</span></button>
     <button id="open-replays-btn" style="width:100%;margin-top:10px;padding:14px;background:rgba(236,72,153,.12);border:1px solid rgba(236,72,153,.4);border-radius:12px;color:#f472b6;font-weight:800;font-size:.95rem;cursor:pointer;font-family:inherit">🎬 My Replays</button>
@@ -712,6 +708,25 @@
   <div id="mly-canvas"></div>
   <button id="mly-close" aria-label="Close">✕</button>
   <div id="mly-loading">Loading street view…</div>
+</div>
+
+<!-- ── Icons & emojis customiser ── -->
+<div id="icons-modal" class="hidden">
+  <div class="im-bg"></div>
+  <div class="im-card">
+    <div class="im-head"><span>🎨 Icons &amp; emojis</span><button id="im-close" aria-label="Close">✕</button></div>
+    <p class="im-sub">Tap any icon to change it.</p>
+    <div id="im-list"></div>
+    <button id="im-reset" type="button">↺ Reset all to defaults</button>
+  </div>
+</div>
+<div id="emoji-picker" class="hidden">
+  <div class="ep-head"><span id="ep-title">Emoji</span><button id="ep-close" aria-label="Done">Done</button></div>
+  <div id="ep-grid"></div>
+  <div class="ep-foot">
+    <input id="ep-input" type="text" placeholder="or type / paste any emoji" maxlength="8">
+    <button id="ep-default" type="button">↺ Default</button>
+  </div>
 </div>
 
 <!-- ── Request a car ── -->

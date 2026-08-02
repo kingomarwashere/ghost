@@ -614,29 +614,40 @@ const ICONS = {
   blocked_lane:  svgIcon('blocked_lane'),
 };
 
-/* ── User-customisable marker emojis ──────────────────────────────────────────
-   Users can override any report/camera type's marker with an emoji of their
-   choice (Settings → Marker icons). prefs.icons[type] holds the override; empty
-   falls back to the built-in SVG / default emoji. */
+/* ── User-customisable emojis ─────────────────────────────────────────────────
+   Users can re-skin ANY of the app's emoji surfaces (map markers, report
+   buttons, search shortcuts, nav) from Settings → Icons & emojis.
+   prefs.icons[key] holds the override; empty falls back to the default below. */
 const DEFAULT_ICON_EMOJI = {
+  // map markers + report buttons (report categories reuse these keys)
   police:'🐷', speed_trap:'📷', accident:'💥', hazard:'💀', traffic:'🚗',
   closure:'🚧', roadwork:'👷', weather:'🌧️', blocked_lane:'🦺',
   speed:'📷', red_light:'🚦', average_speed:'🎯', bus_lane:'🚌',
+  // near-me search shortcuts
+  'chip:petrol':'⛽', 'chip:food':'🍔', 'chip:hospital':'🏥', 'chip:parking':'🅿️',
+  'chip:cafe':'☕', 'chip:supermarket':'🛒', 'chip:pharmacy':'💊', 'chip:atm':'🏧',
+  // navigation
+  'nav:pin':'📍',
 };
-// Report/camera types the user can re-skin, in display order.
-const ICON_EDIT_LIST = [
-  {type:'police',      name:'Police'},
-  {type:'speed_trap',  name:'Speed trap'},
-  {type:'accident',    name:'Crash'},
-  {type:'hazard',      name:'Hazard'},
-  {type:'traffic',     name:'Traffic'},
-  {type:'closure',     name:'Closure'},
-  {type:'roadwork',    name:'Roadwork'},
-  {type:'weather',     name:'Weather'},
-  {type:'blocked_lane',name:'Blocked lane'},
-  {type:'speed',       name:'Speed camera'},
-  {type:'red_light',   name:'Red-light camera'},
+// Everything the user can re-skin, grouped for the settings picker.
+const ICON_GROUPS = [
+  { group:'Map markers & report buttons', items:[
+    {key:'police',name:'Police'}, {key:'speed_trap',name:'Speed trap'}, {key:'accident',name:'Crash'},
+    {key:'hazard',name:'Hazard'}, {key:'traffic',name:'Traffic'}, {key:'closure',name:'Closure'},
+    {key:'roadwork',name:'Roadwork'}, {key:'weather',name:'Weather'}, {key:'blocked_lane',name:'Blocked lane'},
+    {key:'speed',name:'Speed camera'}, {key:'red_light',name:'Red-light camera'},
+  ]},
+  { group:'Search shortcuts', items:[
+    {key:'chip:petrol',name:'Petrol'}, {key:'chip:food',name:'Food'}, {key:'chip:hospital',name:'Hospital'},
+    {key:'chip:parking',name:'Parking'}, {key:'chip:cafe',name:'Coffee'}, {key:'chip:supermarket',name:'Supermarket'},
+    {key:'chip:pharmacy',name:'Pharmacy'}, {key:'chip:atm',name:'ATM'},
+  ]},
+  { group:'Navigation', items:[
+    {key:'nav:pin',name:'Destination pin'},
+  ]},
 ];
+// Curated palette for one-tap picking (users can also type any emoji).
+const EMOJI_PALETTE = ['🐷','👮','🚓','🚨','📷','📸','🎥','📹','💥','🔥','⚠️','🚧','💀','☠️','🛑','🚫','🌧️','🌫️','❄️','💨','🌊','⛈️','🚗','🏎️','🚙','🚕','🏍️','🚚','🚌','🦺','👷','🚦','⛽','🔋','🍔','🍕','🍟','☕','🍺','🏥','💊','🅿️','🏧','🛒','🏦','🏠','💼','📍','🏁','🎯','⭐','🔴','🟢','👻','🚀'];
 const iconOverride = type => (prefs.icons && prefs.icons[type]) || '';
 const iconEmoji = type => iconOverride(type) || DEFAULT_ICON_EMOJI[type] || '📍';
 // Marker factory: a user override → emoji tile; otherwise the built-in SVG icon.
@@ -1486,6 +1497,12 @@ function openReportSheet(){
   else { pendingLat=c.lat; pendingLng=c.lng; }
   rptStep1.classList.remove('hidden');
   rptStep2.classList.add('hidden');
+  // Reflect any user emoji overrides on the category tiles (police is an SVG by
+  // default — only swap it to an emoji if the user actually set one).
+  document.querySelectorAll('#rpt-categories .rpt-cat').forEach(btn=>{
+    const ov=iconOverride(btn.dataset.cat), ic=btn.querySelector('.rpt-icon');
+    if(ov && ic) ic.textContent=ov;
+  });
   reportSheet.classList.remove('hidden');
 }
 function closeReportSheet(){ reportSheet.classList.add('hidden'); selCat=null; selSubKey=null; }
@@ -1642,31 +1659,56 @@ function applySaverMode(){
 }
 setTimeout(applySaverMode, 0); // apply persisted pref after top-level eval (navState is declared later)
 
-/* ── Settings → Marker icons: let users re-skin report/camera markers ── */
+/* ── Settings → Icons & emojis: re-skin every emoji surface ── */
 function refreshMarkerIcons(){ try{ clearReportMarkers(); loadReports(); clearMarkers(cameraMarkers); loadCameras(); }catch(_){} }
-function renderIconSettings(){
-  const box=$$('icon-settings'); if(!box) return;
-  box.innerHTML=ICON_EDIT_LIST.map(({type,name})=>`
-    <div class="icon-row" data-type="${type}">
-      <span class="icon-cur">${iconEmoji(type)}</span>
-      <span class="icon-name">${name}</span>
-      <input class="icon-inp" data-type="${type}" value="${escHtml(iconOverride(type))}" placeholder="${DEFAULT_ICON_EMOJI[type]||'📍'}" maxlength="6" aria-label="Emoji for ${name}">
-    </div>`).join('');
-  box.querySelectorAll('.icon-inp').forEach(inp=>{
-    inp.addEventListener('input',()=>{
-      const type=inp.dataset.type, v=inp.value.trim();
-      if(!prefs.icons) prefs.icons={};
-      if(v) prefs.icons[type]=v; else delete prefs.icons[type];
-      savePrefs();
-      const cur=inp.closest('.icon-row')?.querySelector('.icon-cur'); if(cur) cur.textContent=iconEmoji(type);
-    });
-    inp.addEventListener('change',refreshMarkerIcons); // rebuild markers once the edit is committed
+// Apply a change everywhere it shows: markers, planner chips, quick-report, dest pin.
+function applyIconChange(){
+  refreshMarkerIcons();
+  if(navState==='searching' && !toInput.value.trim()) showSuggestions(); // refresh near-me chips
+  const dp=destMarker?.getElement?.()?.querySelector?.('.dest-pin'); if(dp) dp.textContent=iconEmoji('nav:pin');
+}
+function setIcon(key, emoji){
+  if(!prefs.icons) prefs.icons={};
+  const v=(emoji||'').trim();
+  if(v) prefs.icons[key]=v; else delete prefs.icons[key];
+  savePrefs();
+  applyIconChange();
+}
+function renderIconsModal(){
+  const box=$$('im-list'); if(!box) return;
+  box.innerHTML=ICON_GROUPS.map(g=>`
+    <div class="im-group-label">${g.group}</div>
+    ${g.items.map(it=>`
+      <div class="im-row" data-key="${it.key}">
+        <button class="im-cur" type="button" aria-label="Change ${it.name}">${iconEmoji(it.key)}</button>
+        <span class="im-name">${it.name}</span>
+        ${iconOverride(it.key)?`<button class="im-reset-one" type="button" title="Reset">↺</button>`:''}
+      </div>`).join('')}
+  `).join('');
+  // Row tap → open the shared picker for that key.
+  box.querySelectorAll('.im-row').forEach(row=>{
+    row.querySelector('.im-cur')?.addEventListener('click',()=>openEmojiPicker(row.dataset.key));
+    row.querySelector('.im-reset-one')?.addEventListener('click',(e)=>{ e.stopPropagation(); setIcon(row.dataset.key,''); renderIconsModal(); });
   });
 }
-$$('icons-reset')?.addEventListener('click',()=>{
-  prefs.icons={}; savePrefs(); renderIconSettings(); refreshMarkerIcons(); showToast('Marker icons reset');
-});
-renderIconSettings();
+let _pickKey=null;
+function openEmojiPicker(key){
+  _pickKey=key;
+  const pk=$$('emoji-picker'); if(!pk) return;
+  const item=ICON_GROUPS.flatMap(g=>g.items).find(i=>i.key===key);
+  $$('ep-title').textContent=item?item.name:'Emoji';
+  $$('ep-input').value=iconOverride(key);
+  $$('ep-grid').innerHTML=EMOJI_PALETTE.map(e=>`<button class="ep-em${e===iconEmoji(key)?' sel':''}" type="button">${e}</button>`).join('');
+  $$('ep-grid').querySelectorAll('.ep-em').forEach(b=>b.addEventListener('click',()=>{ setIcon(key,b.textContent); pk.classList.add('hidden'); renderIconsModal(); }));
+  pk.classList.remove('hidden');
+}
+$$('ep-input')?.addEventListener('input',()=>{ if(_pickKey!=null) setIcon(_pickKey, $$('ep-input').value); });
+$$('ep-close')?.addEventListener('click',()=>{ $$('emoji-picker')?.classList.add('hidden'); renderIconsModal(); });
+$$('ep-default')?.addEventListener('click',()=>{ if(_pickKey!=null){ setIcon(_pickKey,''); $$('ep-input').value=''; $$('emoji-picker')?.classList.add('hidden'); renderIconsModal(); } });
+$$('open-icons-btn')?.addEventListener('click',()=>{ renderIconsModal(); $$('icons-modal')?.classList.remove('hidden'); });
+$$('im-close')?.addEventListener('click',()=>$$('icons-modal')?.classList.add('hidden'));
+$$('icons-modal')?.querySelector('.im-bg')?.addEventListener('click',()=>$$('icons-modal')?.classList.add('hidden'));
+$$('im-reset')?.addEventListener('click',()=>{ prefs.icons={}; savePrefs(); applyIconChange(); renderIconsModal(); showToast('All icons reset'); });
 
 // Acceleration timer toggle + range picker
 (()=>{
@@ -1884,7 +1926,7 @@ async function _openTapPopup(lngLat){
   if(_tapPopup){ _tapPopup.remove(); _tapPopup=null; }
 
   const el=document.createElement('div');
-  el.innerHTML='<span class="dest-pin">📍</span>';
+  el.innerHTML=`<span class="dest-pin">${iconEmoji('nav:pin')}</span>`;
   _tapMarker=new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat(lngLat).addTo(map);
 
   let name='Selected location';
@@ -2284,14 +2326,14 @@ function showSuggestions(filterQ=''){
   html+=homeWorkHtml();
   html+=peopleHtml();
   html+=`<div id="nearme-chips">
-    <button class="nearme-chip" data-q="petrol">⛽ Petrol</button>
-    <button class="nearme-chip" data-q="food">🍔 Food</button>
-    <button class="nearme-chip" data-q="hospital">🏥 Hospital</button>
-    <button class="nearme-chip" data-q="parking">🅿️ Parking</button>
-    <button class="nearme-chip" data-q="cafe">☕ Coffee</button>
-    <button class="nearme-chip" data-q="supermarket">🛒 Supermarket</button>
-    <button class="nearme-chip" data-q="pharmacy">💊 Pharmacy</button>
-    <button class="nearme-chip" data-q="atm">🏧 ATM</button>
+    <button class="nearme-chip" data-q="petrol">${iconEmoji('chip:petrol')} Petrol</button>
+    <button class="nearme-chip" data-q="food">${iconEmoji('chip:food')} Food</button>
+    <button class="nearme-chip" data-q="hospital">${iconEmoji('chip:hospital')} Hospital</button>
+    <button class="nearme-chip" data-q="parking">${iconEmoji('chip:parking')} Parking</button>
+    <button class="nearme-chip" data-q="cafe">${iconEmoji('chip:cafe')} Coffee</button>
+    <button class="nearme-chip" data-q="supermarket">${iconEmoji('chip:supermarket')} Supermarket</button>
+    <button class="nearme-chip" data-q="pharmacy">${iconEmoji('chip:pharmacy')} Pharmacy</button>
+    <button class="nearme-chip" data-q="atm">${iconEmoji('chip:atm')} ATM</button>
   </div>`;
   if(favs.length){
     html+=`<div class="results-section-label">⭐ Saved</div>`;
