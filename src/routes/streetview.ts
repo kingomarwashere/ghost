@@ -46,7 +46,7 @@ streetview.get('/', async (c) => {
     // ~70m box around the point.
     const dLat = 70 / 111320, dLng = 70 / (111320 * Math.cos(lat * Math.PI / 180));
     const bbox = `${lng - dLng},${lat - dLat},${lng + dLng},${lat + dLat}`;
-    const url = `https://graph.mapillary.com/images?fields=id,thumb_1024_url,thumb_256_url,geometry&bbox=${bbox}&limit=8&access_token=${token}`;
+    const url = `https://graph.mapillary.com/images?fields=id,thumb_1024_url,thumb_256_url,geometry&bbox=${bbox}&limit=8&access_token=${encodeURIComponent(token)}`;
     try {
       const r = await fetch(url, { signal: AbortSignal.timeout(6000), cf: { cacheTtl: 86400, cacheEverything: true } } as any);
       if (r.ok) {
