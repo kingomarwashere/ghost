@@ -80,7 +80,7 @@ const MODEL_CFG = {
   'sk-e30.glb':        { normalize: true, sizeMul: 1.05, yaw: 90 },
   // Fleet — batch 4 (Sketchfab, CC-BY) — yaw verified via tools/inspect-car
   'sk-lambo-svj.glb':  { normalize: true, sizeMul: 1.1,  yaw: 0 },
-  'sk-bmw-440i.glb':   { normalize: true, sizeMul: 1.1,  yaw: 0, strip: ['Plane'] },
+  'sk-bmw-m4.glb':      { normalize: true, sizeMul: 1.1,  yaw: 0 },
 };
 const cfgOf = (f) => MODEL_CFG[f] || {};
 
@@ -101,7 +101,7 @@ const modelCache = new Map(); // file -> Promise<THREE.Group>
 // ── Body recolour — only for simple flat-material cars that tint cleanly ─────
 const TINTABLE = new Set(['sedan.glb','sedan-sports.glb','hatchback-sports.glb','suv.glb','suv-luxury.glb','van.glb','race.glb','race-future.glb',
   // realistic cars hand-mapped below (they have a flat-colour paint material that recolours cleanly)
-  'sk-e30.glb','sk-phoenix.glb','sk-londonbus.glb','sk-bmw-440i.glb']);
+  'sk-e30.glb','sk-phoenix.glb','sk-londonbus.glb']);
 // For hand-mapped realistic cars, recolour ONLY this named material (their body paint).
 const TINT_MAT = { 'sk-e30.glb':'BMW_E30_M3_PAINT', 'sk-phoenix.glb':'Phoenix445_Bodymat', 'sk-londonbus.glb':'van_paint_2' };
 let _tint = '';

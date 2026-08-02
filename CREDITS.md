@@ -66,7 +66,7 @@ All CC-BY — same attribution requirement as batch 1.
 | In-app name     | File               | Model                            | Author       |
 |-----------------|--------------------|----------------------------------|--------------|
 | Lamborghini SVJ | sk-lambo-svj.glb   | lamborghini aventador svj        | vloneswrldx  |
-| Big Q           | sk-bmw-440i.glb    | 2021 BMW M4 Competition          | Ricy         |
+| Big Q           | sk-bmw-m4.glb       | 2021 BMW M4 Competition          | Ricy         |
 
 All CC-BY — same attribution requirement as batch 1.
 
