@@ -122,4 +122,26 @@ adminApi.get('/history', async (c) => {
   return c.json({ by_type: rows.results, recent: recent.results });
 });
 
+// GET /api/admin/car-requests?limit= — user car requests (newest first, joined to username)
+adminApi.get('/car-requests', async (c) => {
+  if (!isAuthed(c)) return c.json({ error: 'unauthorized' }, 401);
+  const limit = Math.min(parseInt(c.req.query('limit') ?? '200'), 1000);
+  const rows = await c.env.DB.prepare(`
+    SELECT cr.id, cr.car_name, cr.color, cr.notes, cr.status, cr.created_at, u.username
+    FROM car_requests cr LEFT JOIN users u ON u.id = cr.user_id
+    ORDER BY cr.created_at DESC LIMIT ?
+  `).bind(limit).all();
+  return c.json(rows.results);
+});
+
+// POST /api/admin/car-requests/:id/status  { status } — mark added/rejected/pending
+adminApi.post('/car-requests/:id/status', async (c) => {
+  if (!isAuthed(c)) return c.json({ error: 'unauthorized' }, 401);
+  const status = String((await c.req.json().catch(() => ({})) as any).status ?? '');
+  if (!['pending', 'added', 'rejected'].includes(status)) return c.json({ error: 'bad status' }, 400);
+  await c.env.DB.prepare('UPDATE car_requests SET status = ?, updated_at = ? WHERE id = ?')
+    .bind(status, Date.now(), c.req.param('id')).run();
+  return c.json({ ok: true });
+});
+
 export default adminApi;

@@ -3602,6 +3602,8 @@ function _d3Marker(){ return {html:'<div class="user-arrow car3d-anchor" style="
 
 const CARS=[
   // ── Realistic fleet (Sketchfab, CC-BY — see CREDITS.md) ──────────────────
+  {id:'lambo-svj',  name:'Lamborghini SVJ',emoji:'🏎️', model:'sk-lambo-svj.glb',   fn:_d3Marker, d3:true},
+  {id:'big-q',      name:'Big Q',          emoji:'🚙', model:'sk-bmw-440i.glb',     fn:_d3Marker, d3:true, defaultTint:'#0b1e3d'},
   {id:'ferrari',    name:'Ferrari',        emoji:'🏎️', model:'ferrari.glb',        fn:_d3Marker, d3:true},
   {id:'pony',       name:'GT Sport',       emoji:'🏎️', model:'sk-pony.glb',        fn:_d3Marker, d3:true},
   {id:'f40',        name:'F40 LM',         emoji:'🏎️', model:'sk-f40.glb',         fn:_d3Marker, d3:true},
@@ -3671,10 +3673,22 @@ function getCarFn(){ return currentCar()?.fn ?? _d3Marker; }
 
 function makeUserIcon(gpsHdg=0){ return getCarFn()(gpsHdg); }
 
+// Per-car paint: a saved tint for this car id, else its defaultTint (e.g. Big Q =
+// midnight blue), else none. (The Car3D tint is global, so we set it per selection.)
+function carTintFor(id){
+  const car=CARS.find(c=>c.id===id);
+  const saved=localStorage.getItem('carTint_'+id);
+  return saved!==null ? saved : ((car&&car.defaultTint) || '');
+}
+function applyCarTint(){
+  const c=currentCar();
+  if(c&&c.model&&window.Car3D?.isTintable?.(c.model)) window.Car3D.setTint(carTintFor(c.id));
+  else window.Car3D?.setTint?.(''); // non-tintable → clear so a tint doesn't bleed across cars
+}
 // Push the current selection to the on-map 3D car layer.
 function applyCarSelection(){
   const car=currentCar();
-  if(car&&car.d3){ window.Car3D?.setModel(car.model); window.Car3D?.show(); }
+  if(car&&car.d3){ window.Car3D?.setModel(car.model); applyCarTint(); window.Car3D?.show(); }
   else window.Car3D?.hide();
 }
 
@@ -3690,7 +3704,7 @@ let _showroom=null;
   const SWATCHES=['','#ff0099','#ef4444','#f97316','#fbbf24','#22c55e','#22d3ee','#3b82f6','#a855f7','#f8fafc','#0b0b12'];
   function buildSwatches(){
     if(!colorRow) return;
-    const cur=(localStorage.getItem('carTint')||'');
+    const cur=carTintFor(selectedCar);
     colorRow.innerHTML='';
     SWATCHES.forEach(c=>{
       const b=document.createElement('button');
@@ -3698,6 +3712,7 @@ let _showroom=null;
       b.title=c===''?'Default paint':c;
       if(c===''){ b.textContent='✕'; } else { b.style.background=c; }
       b.addEventListener('click',()=>{
+        localStorage.setItem('carTint_'+selectedCar, c); // per-car tint
         window.Car3D?.setTint(c);
         colorRow.querySelectorAll('.car-swatch').forEach(x=>x.classList.remove('active'));
         b.classList.add('active');
@@ -3716,6 +3731,7 @@ let _showroom=null;
     if(_showroom||!window.Car3D||!canvas) return;
     _showroom=window.Car3D.mountShowroom(canvas);
     const c=currentCar(); if(c&&c.model) _showroom.setModel(c.model);
+    applyCarTint(); // apply the selected car's saved/default paint (e.g. Big Q midnight blue)
     updateColorRow();
   }
   // The module is deferred; retry until it's ready.
@@ -3745,6 +3761,28 @@ let _showroom=null;
       }
     });
     grid.appendChild(btn);
+  });
+})();
+
+/* ── Request a car → /api/car-requests (shows up in admin) ── */
+(()=>{
+  const modal=$$('request-car-modal'), openBtn=$$('request-car-btn');
+  if(!modal||!openBtn) return;
+  const close=()=>modal.classList.add('hidden');
+  const open=()=>{ ['rcm-name','rcm-color','rcm-notes'].forEach(id=>{const el=$$(id); if(el) el.value='';}); modal.classList.remove('hidden'); setTimeout(()=>$$('rcm-name')?.focus(),60); };
+  openBtn.addEventListener('click',open);
+  $$('rcm-close')?.addEventListener('click',close);
+  modal.querySelector('.rcm-bg')?.addEventListener('click',close);
+  $$('rcm-submit')?.addEventListener('click',async()=>{
+    const car_name=($$('rcm-name')?.value||'').trim();
+    if(!car_name){ $$('rcm-name')?.focus(); return; }
+    const btn=$$('rcm-submit'); btn.disabled=true; btn.textContent='Sending…';
+    try{
+      const r=await authFetch('/api/car-requests',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({car_name, color:($$('rcm-color')?.value||'').trim(), notes:($$('rcm-notes')?.value||'').trim()})});
+      if(r.ok){ close(); showToast('🚗 Request sent — thanks!'); } else showToast('Couldn’t send request');
+    }catch{ showToast('No connection — try again'); }
+    finally{ btn.disabled=false; btn.textContent='Send request'; }
   });
 })();
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Radar Admin</title>
+<title>Ghost Admin</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0a0a0f;color:#e0e0e0;min-height:100vh}
@@ -101,7 +101,7 @@ tr:hover td{background:#111}
 
 <!-- Password gate -->
 <div id="gate">
-  <h1>⚠ RADAR ADMIN</h1>
+  <h1>👻 GHOST ADMIN</h1>
   <p>Restricted access</p>
   <div id="pw-wrap">
     <input type="password" id="pw" placeholder="Password" autofocus>
@@ -113,7 +113,7 @@ tr:hover td{background:#111}
 <!-- Dashboard -->
 <div id="dash">
   <header>
-    <h1>⚡ RADAR ADMIN</h1>
+    <h1>👻 GHOST ADMIN</h1>
     <button id="sync-btn" onclick="triggerWazeSync()">↻ Sync Waze</button>
     <span id="last-updated"></span>
   </header>
@@ -136,6 +136,7 @@ tr:hover td{background:#111}
     <div class="tab" data-tab="routes">Routes</div>
     <div class="tab" data-tab="users">Users</div>
     <div class="tab" data-tab="history">History</div>
+    <div class="tab" data-tab="car-requests">Car Requests</div>
   </div>
 
   <div id="tab-waze" class="tab-content active">
@@ -151,6 +152,9 @@ tr:hover td{background:#111}
     <div class="loading">Loading…</div>
   </div>
   <div id="tab-history" class="tab-content">
+    <div class="loading">Loading…</div>
+  </div>
+  <div id="tab-car-requests" class="tab-content">
     <div class="loading">Loading…</div>
   </div>
 </div>
@@ -326,6 +330,28 @@ async function loadHistory() {
     </table></div>`;
 }
 
+async function loadCarRequests() {
+  const data = await api('car-requests?limit=200');
+  const el = document.getElementById('tab-car-requests');
+  if (!data.length) { el.innerHTML = '<div class="no-data">No car requests yet</div>'; return; }
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const badge = s => {
+    const col = s === 'added' ? '1a3d1a;color:#3bff7c' : s === 'rejected' ? '3d1a1a;color:#ff5555' : '1a2a3d;color:#5aa9ff';
+    return `<span class="badge" style="background:#${col}">${s || 'pending'}</span>`;
+  };
+  el.innerHTML = `<div class="tbl-wrap"><table>
+    <thead><tr><th>Car</th><th>Colour</th><th>Notes</th><th>By</th><th>Status</th><th>When</th></tr></thead>
+    <tbody>${data.map(r => `<tr>
+      <td><strong>${esc(r.car_name)}</strong></td>
+      <td>${esc(r.color) || '—'}</td>
+      <td>${esc(r.notes) || '—'}</td>
+      <td>${esc(r.username) || '<span style="color:#666">anon</span>'}</td>
+      <td>${badge(r.status)}</td>
+      <td class="ts">${ts(r.created_at)}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
 async function triggerWazeSync() {
   const btn = document.getElementById('sync-btn');
   btn.textContent = '⏳ Syncing…';
@@ -343,7 +369,7 @@ async function triggerWazeSync() {
 }
 
 async function refresh() {
-  await Promise.allSettled([loadStats(), loadWaze(), loadReports(), loadRoutes(), loadUsers(), loadHistory()]);
+  await Promise.allSettled([loadStats(), loadWaze(), loadReports(), loadRoutes(), loadUsers(), loadHistory(), loadCarRequests()]);
   document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-AU');
 }
 

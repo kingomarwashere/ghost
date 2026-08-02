@@ -406,6 +406,7 @@
     <div id="car-showroom"><canvas id="car-showroom-canvas"></canvas><span id="car-showroom-name"></span></div>
     <div id="car-color-row" class="hidden"></div>
     <div id="car-grid"></div>
+    <button id="request-car-btn" type="button">🚗 Request a car</button>
 
     <div class="settings-section-label" style="margin-top:18px">Units</div>
     <div id="unit-toggle">
@@ -711,6 +712,19 @@
   <div id="mly-canvas"></div>
   <button id="mly-close" aria-label="Close">✕</button>
   <div id="mly-loading">Loading street view…</div>
+</div>
+
+<!-- ── Request a car ── -->
+<div id="request-car-modal" class="hidden">
+  <div class="rcm-bg"></div>
+  <div class="rcm-card">
+    <div class="rcm-head"><span>🚗 Request a car</span><button id="rcm-close" aria-label="Close">✕</button></div>
+    <p class="rcm-sub">Tell us what to add to the fleet.</p>
+    <input id="rcm-name" type="text" placeholder="Car — e.g. Tesla Model S, R34 GTR" maxlength="100">
+    <input id="rcm-color" type="text" placeholder="Colour (optional)" maxlength="40">
+    <textarea id="rcm-notes" placeholder="Anything else? (optional)" rows="2" maxlength="500"></textarea>
+    <button id="rcm-submit">Send request</button>
+  </div>
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>

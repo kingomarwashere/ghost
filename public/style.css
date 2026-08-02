@@ -1023,6 +1023,36 @@ body.navigating #compass-widget { top: calc(env(safe-area-inset-top, 0px) + 250p
 body.navigating #toast { top: calc(178px + env(safe-area-inset-top)); bottom: auto; }
 
 /* ── Near-me chips ───────────────────────────────── */
+/* ── Request a car ── */
+#request-car-btn {
+  width: 100%; margin-top: 10px; padding: 11px; cursor: pointer;
+  background: rgba(255,255,255,.05); border: 1px dashed var(--border); border-radius: 12px;
+  color: #cbd5e1; font-weight: 700; font-size: .88rem; font-family: inherit;
+}
+#request-car-btn:active { background: rgba(255,255,255,.12); }
+#request-car-modal { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+#request-car-modal.hidden { display: none; }
+#request-car-modal .rcm-bg { position: absolute; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(3px); }
+#request-car-modal .rcm-card {
+  position: relative; width: 100%; max-width: 380px;
+  background: #14161f; border: 1px solid rgba(255,255,255,.1); border-radius: 18px;
+  padding: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.7);
+}
+.rcm-head { display: flex; align-items: center; justify-content: space-between; font-size: 1rem; font-weight: 800; color: #f1f5f9; }
+#rcm-close { width: 30px; height: 30px; border-radius: 50%; border: none; cursor: pointer; background: rgba(255,255,255,.08); color: #cbd5e1; }
+.rcm-sub { color: #94a3b8; font-size: .8rem; margin: 4px 0 12px; }
+#request-car-modal input, #request-car-modal textarea {
+  width: 100%; margin-bottom: 10px; padding: 11px 12px; box-sizing: border-box;
+  background: rgba(255,255,255,.06); border: 1px solid var(--border); border-radius: 10px;
+  color: var(--text); font-family: inherit; font-size: .9rem; resize: none;
+}
+#request-car-modal input:focus, #request-car-modal textarea:focus { outline: none; border-color: var(--accent); }
+#rcm-submit {
+  width: 100%; padding: 12px; cursor: pointer; border: none; border-radius: 12px;
+  background: var(--accent); color: #06202b; font-weight: 800; font-size: .95rem; font-family: inherit;
+}
+#rcm-submit:disabled { opacity: .6; }
+
 /* ── People (friends' addresses) ── */
 #people-row { padding: 4px 10px 0; }
 #people-row .people-label { font-size: .72rem; font-weight: 700; color: #94a3b8; padding: 4px 2px; }
