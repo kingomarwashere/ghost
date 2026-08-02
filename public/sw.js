@@ -1,4 +1,4 @@
-const CACHE      = 'radar-v20';
+const CACHE      = 'radar-v21';
 const TILE_CACHE = 'radar-tiles-v1';
 const TILE_MAX   = 500;
 const STATIC = ['/', '/index.html', '/app.js', '/style.css', '/manifest.json', '/icon.svg', '/car3d.js', '/game.js', '/race.js'];

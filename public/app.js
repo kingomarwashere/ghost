@@ -2705,23 +2705,35 @@ async function fetchRouteSpeedLimits(){
   const lats=routePoints.map(p=>p[0]),lngs=routePoints.map(p=>p[1]);
   const s=Math.min(...lats)-0.002,n=Math.max(...lats)+0.002;
   const w=Math.min(...lngs)-0.002,e=Math.max(...lngs)+0.002;
-  // Fetch drivable ways WHETHER OR NOT they carry a maxspeed tag — we fall back to
-  // a class default when maxspeed is absent so the sign shows on nearly every road.
-  // (residential/living_street excluded: huge in cities and low-value for the HUD.)
-  const q=`[out:json][timeout:25];way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified)$"](${s},${w},${n},${e});out tags geom;`;
+  // Prefer the Worker route: retried across Overpass mirrors, edge-cached by bbox,
+  // and includes residential/living_street so urban 50s resolve. Only fall back to
+  // hitting Overpass directly (below) if it errors or returns nothing — and never
+  // wipe a good set on failure.
+  try{
+    const ways=await fetch(`/api/speed-limits?bbox=${s},${w},${n},${e}`).then(r=>r.ok?r.json():null);
+    if(Array.isArray(ways)&&ways.length){ speedLimitWays=ways; return; }
+  }catch(_){}
+  await fetchRouteSpeedLimitsDirect(s,w,n,e);
+}
+// Direct-to-Overpass fallback (also incl. residential now). Builds into a temp and
+// only replaces speedLimitWays if it found something, so a flaky fetch can't blank
+// the sign mid-trip.
+async function fetchRouteSpeedLimitsDirect(s,w,n,e){
+  const q=`[out:json][timeout:25];way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street)$"](${s},${w},${n},${e});out tags geom;`;
   try{
     const resp=await fetch('https://overpass-api.de/api/interpreter',{
       method:'POST',body:'data='+encodeURIComponent(q),
-      headers:{'Content-Type':'application/x-www-form-urlencoded','User-Agent':'radar-app/1.0'}
+      headers:{'Content-Type':'application/x-www-form-urlencoded','User-Agent':'ghost-nav/1.0'}
     });
     const {elements}=await resp.json();
-    speedLimitWays=[];
+    const ways=[];
     for(const el of elements){
       if(!el.geometry?.length) continue;
       const limit=parseMaxspeed(el.tags?.maxspeed) ?? classDefaultSpeed(el.tags?.highway);
-      if(limit) speedLimitWays.push({coords:el.geometry.map(g=>[g.lat,g.lon]),limit});
+      if(limit) ways.push({coords:el.geometry.map(g=>[g.lat,g.lon]),limit});
     }
-  }catch{ speedLimitWays=[]; }
+    if(ways.length) speedLimitWays=ways;
+  }catch(_){ /* keep whatever we had */ }
 }
 
 /* ── School zones ────────────────────────────── */
@@ -3159,6 +3171,7 @@ async function reroute(lat,lng){
     map.getSource('route-traveled')?.setData(emptyFC());
     showToast('Route updated',2000);
     loadNearCameras(); loadNearReports();
+    fetchRouteSpeedLimits(); // new geometry/bbox → refresh speed-limit ways (was never done → stale limits after a reroute)
     // New geometry → refresh which cameras are "on your route".
     try{ computeRouteCams(); updateRouteCamsBtn(); }catch(_){}
   }catch(e){ showToast(e?.name==='TimeoutError'?'Reroute timed out':'Rerouting failed',3000); }
@@ -4068,7 +4081,7 @@ function getSpeedLimit(lat,lng){
         if(d<minD){minD=d;best=way.limit;}
       }
     }
-    if(minD<45) lim=best;
+    if(minD<70) lim=best; // widened from 45m — GPS drift + sparse OSM geometry
   }
   // 3. A nearby speed camera's posted zone.
   if(lim==null && clat!=null && Array.isArray(nearCameras)){
@@ -4077,8 +4090,9 @@ function getSpeedLimit(lat,lng){
     }
   }
   if(lim!=null){ _lastLimit=lim; _lastLimitAtM=_drProgressM; return lim; }
-  // 4. Hold the last known limit through short data gaps (until ~6km past it).
-  if(_lastLimit!=null && (_drProgressM-_lastLimitAtM)<6000) return _lastLimit;
+  // 4. Hold the last known limit through a short data gap only (~1.2km) so a stale
+  //    limit from a road we already turned off can't linger for kilometres.
+  if(_lastLimit!=null && (_drProgressM-_lastLimitAtM)<1200) return _lastLimit;
   return null;
 }
 

@@ -12,6 +12,7 @@ import auth from './routes/auth';
 import adminApi from './routes/admin-api';
 import race from './routes/race';
 import { parseAddress, mapPhoton, mapNominatim, dedupe } from './geocode';
+import speedlimits from './routes/speedlimits';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -36,6 +37,7 @@ app.route('/api/copwatch', copwatch);
 app.route('/api/auth', auth);
 app.route('/api/admin', adminApi);
 app.route('/api/race', race);
+app.route('/api/speed-limits', speedlimits);
 
 app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
 
