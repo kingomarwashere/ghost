@@ -1195,6 +1195,20 @@ body.saver #speed-limit-sign.over-limit { animation: none !important; }
 .hw-chip.hw-unset .hw-name { font-weight: 600; }
 .hw-chip .hw-edit { flex-shrink: 0; color: #64748b; font-size: .85rem; padding: 2px 4px; }
 .hw-chip .hw-edit:active { color: var(--text); }
+/* Saved-contact avatar: tap to upload/replace a photo (📷 badge hints it's editable). */
+.friend-avatar {
+  position: relative; width: 30px; height: 30px; flex-shrink: 0;
+  border-radius: 50%; background: rgba(255,255,255,.08);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.friend-avatar .fa-emoji { font-size: 1.1rem; line-height: 1; }
+.friend-avatar img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; display: block; }
+.friend-avatar .fa-cam {
+  position: absolute; right: -4px; bottom: -4px; font-size: .55rem; line-height: 1;
+  background: #14141c; border-radius: 50%; padding: 2px;
+  box-shadow: 0 0 0 1.5px rgba(255,255,255,.18);
+}
+.friend-avatar:active { filter: brightness(1.25); }
 
 #nearme-chips {
   display: flex; gap: 8px; padding: 8px 10px 4px; flex-wrap: wrap;

@@ -2314,13 +2314,63 @@ async function refreshFriends(){
   if(!authToken()){ _friends=[]; _cacheFriends(); return; }
   try{ const r=await authFetch('/api/places'); if(r.ok){ _friends=await r.json(); _cacheFriends(); if(navState==='searching' && !toInput.value.trim()) showSuggestions(); } }catch(_){}
 }
+function friendAvatarHtml(f){
+  const inner=f.photo
+    ? `<img src="${f.photo}" alt="">`
+    : `<span class="fa-emoji">${f.emoji||'👤'}</span>`;
+  return `<span class="hw-ico friend-avatar${f.photo?' has-photo':''}" data-photo="${f.id}" title="Change photo">${inner}<span class="fa-cam">📷</span></span>`;
+}
 function peopleHtml(){
   const chips=_friends.map(f=>
-    `<button class="hw-chip friend-chip" data-id="${f.id}"><span class="hw-ico">${f.emoji||'👤'}</span><span class="hw-name">${escHtml(f.name)}</span><span class="hw-edit" data-del="${f.id}" title="Remove">✕</span></button>`).join('');
+    `<button class="hw-chip friend-chip" data-id="${f.id}">${friendAvatarHtml(f)}<span class="hw-name">${escHtml(f.name)}</span><span class="hw-edit" data-del="${f.id}" title="Remove">✕</span></button>`).join('');
   const add=`<button class="hw-chip hw-unset friend-add"><span class="hw-ico">➕</span><span class="hw-name">Add person</span></button>`;
   return `<div id="people-row"><div class="people-label">👥 People</div><div class="people-chips">${chips}${add}</div></div>`;
 }
+// Read a picked image → centre-crop to a small square JPEG data URL (kept tiny so
+// it syncs cheaply on the saved_places row).
+function _resizePhoto(file, size=160){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file); const img=new Image();
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      try{
+        const c=document.createElement('canvas'); c.width=c.height=size;
+        const ctx=c.getContext('2d');
+        const s=Math.min(img.width,img.height);
+        ctx.drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,size,size);
+        res(c.toDataURL('image/jpeg',0.82));
+      }catch(e){ rej(e); }
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error('bad image')); };
+    img.src=url;
+  });
+}
+let _friendPhotoInput=null;
+function pickFriendPhoto(id){
+  if(!authToken()){ showToast('Log in to save photos'); return; }
+  if(!_friendPhotoInput){
+    _friendPhotoInput=document.createElement('input');
+    _friendPhotoInput.type='file'; _friendPhotoInput.accept='image/*';
+    _friendPhotoInput.style.display='none'; document.body.appendChild(_friendPhotoInput);
+  }
+  _friendPhotoInput.value='';
+  _friendPhotoInput.onchange=async()=>{
+    const file=_friendPhotoInput.files&&_friendPhotoInput.files[0]; if(!file) return;
+    let dataUrl;
+    try{ dataUrl=await _resizePhoto(file,160); }catch(_){ showToast('Could not read that image'); return; }
+    const f=_friends.find(x=>String(x.id)===String(id)); if(!f) return;
+    f.photo=dataUrl; _cacheFriends(); showSuggestions();
+    try{
+      const r=await authFetch('/api/places/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({photo:dataUrl})});
+      showToast(r&&r.ok?'📸 Photo updated':'Saved on this device');
+    }catch(_){ showToast('Saved on this device'); }
+  };
+  _friendPhotoInput.click();
+}
 function bindPeople(){
+  searchResultsEl.querySelectorAll('.friend-avatar').forEach(av=>{
+    av.addEventListener('click',e=>{ e.stopPropagation(); pickFriendPhoto(av.dataset.photo); });
+  });
   searchResultsEl.querySelectorAll('.friend-chip').forEach(chip=>{
     chip.addEventListener('click',async e=>{
       if(e.target.dataset?.del){ e.stopPropagation(); await deleteFriend(e.target.dataset.del); return; }
