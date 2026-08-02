@@ -413,9 +413,11 @@ function setupMapLayers(){
     map.addSource('heatmap-src',{type:'geojson',data:emptyFC()});
     map.addLayer({id:'heatmap-layer',type:'heatmap',source:'heatmap-src',layout:{visibility:'none'},paint:{
       'heatmap-weight':['coalesce',['get','w'],1],
-      'heatmap-intensity':1.2,
-      'heatmap-color':['interpolate',['linear'],['heatmap-density'],0,'rgba(0,0,255,0)',0.3,'rgba(14,165,233,0.5)',1,'rgba(255,0,153,0.9)'],
-      'heatmap-radius':28,'heatmap-opacity':0.85,
+      // Subtle by default — a faint hint of where reports cluster, not a wash of
+      // colour over the whole map (lower intensity + alpha + overall opacity).
+      'heatmap-intensity':0.8,
+      'heatmap-color':['interpolate',['linear'],['heatmap-density'],0,'rgba(0,0,255,0)',0.3,'rgba(14,165,233,0.28)',1,'rgba(255,0,153,0.55)'],
+      'heatmap-radius':24,'heatmap-opacity':0.4,
     }});
   }
   // 3D building extrusion — only on vector tile styles
@@ -1673,7 +1675,31 @@ function setIcon(key, emoji){
   if(v) prefs.icons[key]=v; else delete prefs.icons[key];
   savePrefs();
   applyIconChange();
+  syncIconsToServer();
 }
+// ── Emoji prefs sync (so they persist in the account, across devices) ──
+let _iconSyncT=null;
+function syncIconsToServer(){
+  if(!authToken()) return; // logged-out users keep them in localStorage only
+  clearTimeout(_iconSyncT);
+  _iconSyncT=setTimeout(()=>{
+    authFetch('/api/prefs',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({icons:prefs.icons||{}})}).catch(()=>{});
+  }, 700);
+}
+async function loadIconsFromServer(){
+  if(!authToken()) return;
+  try{
+    const r=await authFetch('/api/prefs'); if(!r.ok) return;
+    const d=await r.json(); const server=(d&&d.icons&&typeof d.icons==='object')?d.icons:{};
+    if(Object.keys(server).length){ // adopt the account's saved icons
+      prefs.icons=server; savePrefs(); applyIconChange();
+      if(!$$('icons-modal')?.classList.contains('hidden')) renderIconsModal();
+    } else if(prefs.icons && Object.keys(prefs.icons).length){
+      syncIconsToServer(); // first sync — seed the account from existing local prefs
+    }
+  }catch(_){}
+}
+setTimeout(loadIconsFromServer, 1800); // pull the account's icons on load if signed in
 function renderIconsModal(){
   const box=$$('im-list'); if(!box) return;
   box.innerHTML=ICON_GROUPS.map(g=>`
@@ -1708,7 +1734,7 @@ $$('ep-default')?.addEventListener('click',()=>{ if(_pickKey!=null){ setIcon(_pi
 $$('open-icons-btn')?.addEventListener('click',()=>{ renderIconsModal(); $$('icons-modal')?.classList.remove('hidden'); });
 $$('im-close')?.addEventListener('click',()=>$$('icons-modal')?.classList.add('hidden'));
 $$('icons-modal')?.querySelector('.im-bg')?.addEventListener('click',()=>$$('icons-modal')?.classList.add('hidden'));
-$$('im-reset')?.addEventListener('click',()=>{ prefs.icons={}; savePrefs(); applyIconChange(); renderIconsModal(); showToast('All icons reset'); });
+$$('im-reset')?.addEventListener('click',()=>{ prefs.icons={}; savePrefs(); applyIconChange(); renderIconsModal(); syncIconsToServer(); showToast('All icons reset'); });
 
 // Acceleration timer toggle + range picker
 (()=>{
@@ -5417,6 +5443,7 @@ async function submitAuth(){
     if(!r.ok){ err.textContent=d.error||'Something went wrong'; return; }
     localStorage.setItem(TOKEN_KEY,d.token);
     currentUser=d.user; renderAccountUI(); closeAccountModal();
+    loadIconsFromServer(); // pull (or seed) this account's saved emoji prefs
     showToast(`Welcome, ${currentUser.username}! 🎮`,2500);
     if(_pendingBank){ _pendingBank=false;
       const sm=$$('score-modal');

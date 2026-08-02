@@ -17,6 +17,7 @@ import streetview from './routes/streetview';
 import fuel from './routes/fuel';
 import places from './routes/places';
 import carRequests from './routes/car-requests';
+import userPrefs from './routes/prefs';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -46,6 +47,7 @@ app.route('/api/streetview', streetview);
 app.route('/api/fuel', fuel);
 app.route('/api/places', places);
 app.route('/api/car-requests', carRequests);
+app.route('/api/prefs', userPrefs);
 
 app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
 
