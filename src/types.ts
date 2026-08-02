@@ -8,6 +8,7 @@ export interface Env {
   MAPILLARY_TOKEN?: string;
   NSW_FUELCHECK_KEY?: string;
   NSW_FUELCHECK_SECRET?: string;
+  GOOGLE_MAPS_KEY?: string;
 }
 
 export interface User {

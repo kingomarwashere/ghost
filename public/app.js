@@ -2703,11 +2703,11 @@ function applySelectedRoute(){
 // Fetch + show a photo of the destination in the preview sheet (Mapillary street
 // view, or a satellite fallback so there's always an image). Uses the same
 // load-into-hidden-Image pattern as the route-cam thumbnails.
-let _destPhotoReq=0, _destPhotoId=null;
+let _destPhotoReq=0, _destView=null; // _destView: {kind:'google'|'mapillary', pano?/lat?/lng?/id?}
 async function loadDestPhoto(dest){
   const wrap=$$('dest-photo'), img=$$('dest-photo-img'), badge=$$('dest-photo-badge'), look=$$('dest-photo-look');
   if(!wrap||!img||!dest) return;
-  wrap.classList.add('hidden'); badge.classList.add('hidden'); look?.classList.add('hidden'); _destPhotoId=null;
+  wrap.classList.add('hidden'); badge.classList.add('hidden'); look?.classList.add('hidden'); _destView=null;
   const myReq=++_destPhotoReq;
   try{
     const meta=await fetch(`/api/streetview?lat=${dest[0]}&lng=${dest[1]}`).then(r=>r.ok?r.json():null);
@@ -2716,50 +2716,76 @@ async function loadDestPhoto(dest){
     fresh.onload=()=>{
       if(myReq!==_destPhotoReq) return;
       img.src=fresh.src; wrap.classList.remove('hidden');
-      badge.classList.toggle('hidden', meta.type!=='sat');
-      _destPhotoId = meta.type==='street' ? meta.id : null; // only street images are pannable
-      look?.classList.toggle('hidden', !_destPhotoId);
-      wrap.classList.toggle('photo-interactive', !!_destPhotoId);
+      badge.classList.toggle('hidden', meta.type!=='sat'); // 🛰 badge only on aerial fallback
+      // Only real street imagery is pannable (Google pano or Mapillary image).
+      _destView = meta.type==='google' ? {kind:'google', pano:meta.pano, lat:meta.lat, lng:meta.lng}
+                : meta.type==='street' ? {kind:'mapillary', id:meta.id}
+                : null;
+      look?.classList.toggle('hidden', !_destView);
+      wrap.classList.toggle('photo-interactive', !!_destView);
     };
     fresh.onerror=()=>{};
     fresh.src=meta.url;
   }catch(_){}
 }
 
-/* ── Mapillary 360 street-view viewer (tap the destination photo) ── */
-let _mlyLibLoading=null, _mlyViewer=null;
-function loadMapillaryLib(){
-  if(window.mapillary) return Promise.resolve();
-  if(_mlyLibLoading) return _mlyLibLoading;
-  _mlyLibLoading=new Promise((res,rej)=>{
-    const css=document.createElement('link'); css.rel='stylesheet'; css.href='https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.css'; document.head.appendChild(css);
-    const s=document.createElement('script'); s.src='https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.js';
-    s.onload=()=>res(); s.onerror=()=>rej(new Error('mly load failed')); document.head.appendChild(s);
+/* ── Interactive street view (tap destination photo) — Google first, Mapillary fallback ── */
+let _mlyViewer=null, _gsv=null, _libPromise={};
+function _loadScript(src, isMapillary){
+  if(_libPromise[src]) return _libPromise[src];
+  _libPromise[src]=new Promise((res,rej)=>{
+    if(isMapillary){ const css=document.createElement('link'); css.rel='stylesheet'; css.href='https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.css'; document.head.appendChild(css); }
+    const s=document.createElement('script'); s.src=src; s.async=true;
+    s.onload=()=>res(); s.onerror=()=>rej(new Error('load failed: '+src)); document.head.appendChild(s);
   });
-  return _mlyLibLoading;
+  return _libPromise[src];
 }
-async function openMapillaryViewer(imageId){
+function openStreetView(){
+  if(!_destView) return;
+  if(_destView.kind==='google') openGoogleSV(_destView);
+  else openMapillarySV(_destView.id);
+}
+async function openGoogleSV(v){
+  const overlay=$$('mly-viewer'); if(!overlay) return;
+  overlay.classList.remove('hidden'); $$('mly-loading')?.classList.remove('hidden');
+  try{
+    const key=await fetch('/api/streetview/gkey').then(r=>r.json()).then(d=>d.key).catch(()=>'');
+    if(!key) throw 0;
+    if(!window.google?.maps) await _loadScript(`https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly`);
+    _destroyViewers();
+    const canvas=$$('mly-canvas'); canvas.innerHTML='';
+    _gsv=new google.maps.StreetViewPanorama(canvas, {
+      pano: v.pano || undefined,
+      position: v.pano ? undefined : {lat:v.lat,lng:v.lng},
+      pov:{heading:0,pitch:0}, zoom:1,
+      addressControl:false, fullscreenControl:false, motionTracking:false, motionTrackingControl:false, enableCloseButton:false,
+    });
+    $$('mly-loading')?.classList.add('hidden');
+  }catch(_){ closeStreetView(); showToast('Street view unavailable here'); }
+}
+async function openMapillarySV(imageId){
   const overlay=$$('mly-viewer'); if(!overlay||!imageId) return;
   overlay.classList.remove('hidden'); $$('mly-loading')?.classList.remove('hidden');
   try{
     const [_, tok] = await Promise.all([
-      loadMapillaryLib(),
+      _loadScript('https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.js', true),
       fetch('/api/streetview/token').then(r=>r.json()).then(d=>d.token).catch(()=>''),
     ]);
-    if(!tok || !window.mapillary){ throw new Error('no token/lib'); }
-    if(_mlyViewer){ try{ _mlyViewer.remove(); }catch(_){} _mlyViewer=null; }
+    if(!tok || !window.mapillary) throw 0;
+    _destroyViewers();
     const canvas=$$('mly-canvas'); canvas.innerHTML='';
     _mlyViewer=new mapillary.Viewer({ accessToken:tok, container:canvas, imageId });
     _mlyViewer.on('image',()=>$$('mly-loading')?.classList.add('hidden'));
     setTimeout(()=>{ try{ _mlyViewer?.resize(); }catch(_){} },50);
-  }catch(_){ closeMapillaryViewer(); showToast('Street view unavailable here'); }
+  }catch(_){ closeStreetView(); showToast('Street view unavailable here'); }
 }
-function closeMapillaryViewer(){
-  $$('mly-viewer')?.classList.add('hidden');
+function _destroyViewers(){
   if(_mlyViewer){ try{ _mlyViewer.remove(); }catch(_){} _mlyViewer=null; }
+  _gsv=null; // Google panorama is GC'd when its container is cleared
 }
-$$('mly-close')?.addEventListener('click',closeMapillaryViewer);
-$$('dest-photo')?.addEventListener('click',()=>{ if(_destPhotoId) openMapillaryViewer(_destPhotoId); });
+function closeStreetView(){ $$('mly-viewer')?.classList.add('hidden'); const c=$$('mly-canvas'); if(c) c.innerHTML=''; _destroyViewers(); }
+$$('mly-close')?.addEventListener('click',closeStreetView);
+$$('dest-photo')?.addEventListener('click',openStreetView);
 
 function renderRouteChips(){
   const chipsEl=$$('route-chips');
