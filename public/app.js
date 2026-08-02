@@ -558,8 +558,16 @@ const PIG_COP_SVG = (w=30,h=30) => `<svg xmlns="http://www.w3.org/2000/svg" view
   <polygon points="20,34.8 20.4,35.8 21.5,35.8 20.7,36.5 21,37.5 20,36.8 19,37.5 19.3,36.5 18.5,35.8 19.6,35.8" fill="#0a0a2a"/>
 </svg>`;
 
+// Count grapheme clusters so multi-emoji labels (📸🚗) render side-by-side and
+// auto-shrink to fit the tile instead of wrapping onto two lines.
+function _graphemes(s){
+  try{ return [...new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(s)].length; }
+  catch{ return [...String(s)].length; }
+}
 function makeEmojiIcon(emoji, bg='#1e3a5f', size=42){
-  const html=`<div style="width:${size}px;height:${size}px;border-radius:13px;background:${bg};display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.18);cursor:pointer;font-size:24px;line-height:1;user-select:none">${emoji}</div>`;
+  const n=_graphemes(emoji);
+  const fs = n<=1 ? 24 : n===2 ? 17 : Math.max(11, Math.floor(40/n)); // shrink so they fit on one row
+  const html=`<div style="width:${size}px;height:${size}px;border-radius:13px;background:${bg};display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.18);cursor:pointer;font-size:${fs}px;line-height:1;white-space:nowrap;overflow:hidden;user-select:none">${emoji}</div>`;
   return { el:()=>{ const d=document.createElement('div'); d.innerHTML=html; return d.firstChild; } };
 }
 
