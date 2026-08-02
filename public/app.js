@@ -2694,6 +2694,7 @@ function applySelectedRoute(){
   renderDirections();
   renderRouteChips();
   renderSpeedProfile();
+  fetchRouteHazards(); // cameras + police on the route → pins + count on the strip
   loadDestPhoto(routePoints[routePoints.length-1]); // street/aerial photo of the destination
   previewBar.classList.remove('hidden');
   // Start in peek so the route polyline is fully visible
@@ -2836,21 +2837,72 @@ function maneuverLimit(m){
   }
   return minD<70?best:null;
 }
+let _routeHazards=[]; // [{pct, emoji, title, kind:'camera'|'cop'}]
 function renderSpeedProfile(){
   const profileEl=$$('speed-profile');
   const barEl=$$('speed-profile-bar');
   if(!maneuvers.length){profileEl.classList.add('hidden');return;}
   profileEl.classList.remove('hidden');
 
-  const totalDist=maneuvers.reduce((s,m)=>s+(m.length??0),0)||1;
-  barEl.innerHTML=maneuvers.map(m=>{
-    const pct=((m.length??0)/totalDist)*100;
-    const limit=maneuverLimit(m);
-    // Unknown → neutral slate (not a "?"), known → speed colour.
-    const color=limit==null?'#475569':speedColor(limit);
-    const label=(limit!=null && pct>6)?limit:'';
-    return `<div class="sp-seg" style="width:${pct.toFixed(2)}%;background:${color};">${label}</div>`;
-  }).join('');
+  const total=maneuvers.reduce((s,m)=>s+(m.length??0),0)||1;
+  // Colour-by-speed track gradient + a speed-limit SIGN wherever the limit changes.
+  let acc=0; const stops=[]; const signs=[]; let prevLim=-1;
+  for(const m of maneuvers){
+    const startPct=acc/total*100;
+    const lim=maneuverLimit(m);
+    const color=lim==null?'#475569':speedColor(lim);
+    stops.push(`${color} ${startPct.toFixed(2)}%`);
+    acc+=m.length??0;
+    stops.push(`${color} ${(acc/total*100).toFixed(2)}%`);
+    if(lim!=null && lim!==prevLim){ signs.push({pct:startPct, lim}); prevLim=lim; }
+  }
+  const track=`<div class="rs-track" style="background:linear-gradient(90deg,${stops.join(',')})"></div>`;
+  const signHtml=signs.map(s=>`<div class="rs-sign" style="left:${Math.max(2,Math.min(98,s.pct)).toFixed(1)}%">${s.lim}</div>`).join('');
+  const hazHtml=_routeHazards.map(h=>`<div class="rs-haz" style="left:${Math.max(1,Math.min(99,h.pct)).toFixed(1)}%" title="${h.title}">${h.emoji}</div>`).join('');
+  barEl.innerHTML=track+hazHtml+signHtml;
+
+  // Count row.
+  const cams=_routeHazards.filter(h=>h.kind==='camera').length;
+  const cops=_routeHazards.filter(h=>h.kind==='cop').length;
+  const cnt=$$('rs-count');
+  if(cnt){
+    if(!cams && !cops) cnt.innerHTML=`<span class="rc-item rc-none">No cameras or police reported on this route</span>`;
+    else cnt.innerHTML=
+      (cams?`<span class="rc-item">📷 ${cams} camera${cams>1?'s':''}</span>`:'')+
+      (cops?`<span class="rc-item">${iconEmoji('police')} ${cops} police</span>`:'');
+  }
+}
+
+// Find cameras + police reports that sit ON the route (within ~130m) and place
+// them on the strip by their distance-along-route. Fetched at preview.
+let _hazReq=0;
+async function fetchRouteHazards(){
+  _routeHazards=[]; const myReq=++_hazReq;
+  if(!routePoints.length) return;
+  if(routeCumDist.length!==routePoints.length) buildRouteCumDist(); // arc-length for positioning (not built until nav start)
+  const lats=routePoints.map(p=>p[0]),lngs=routePoints.map(p=>p[1]);
+  const s=Math.min(...lats)-0.01,n=Math.max(...lats)+0.01,w=Math.min(...lngs)-0.01,e=Math.max(...lngs)+0.01;
+  const p=new URLSearchParams({swlat:s,swlng:w,nelat:n,nelng:e});
+  try{
+    const [cams,reps]=await Promise.all([
+      fetch(`/api/cameras?${p}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`/api/reports?${p}`).then(r=>r.ok?r.json():[]).catch(()=>[]),
+    ]);
+    if(myReq!==_hazReq) return;
+    const total=routeCumDist.length?routeCumDist[routeCumDist.length-1]:0;
+    const posOf=(lat,lng)=>{ // nearest route vertex → {near metres, pct along route}
+      let minD=Infinity,bi=0;
+      for(let i=0;i<routePoints.length;i++){ const d=haversine(lat,lng,routePoints[i][0],routePoints[i][1]); if(d<minD){minD=d;bi=i;} }
+      return {near:minD, pct: total>0?(routeCumDist[bi]/total*100):0};
+    };
+    const out=[];
+    for(const c of (Array.isArray(cams)?cams:[])){ const q=posOf(c.lat,c.lng); if(q.near<130) out.push({pct:q.pct, emoji:iconEmoji(c.type||'speed'), title:'Camera', kind:'camera'}); }
+    for(const r of (Array.isArray(reps)?reps:[])){ if(r.type!=='police'&&r.type!=='speed_trap') continue; const q=posOf(r.lat,r.lng); if(q.near<130) out.push({pct:q.pct, emoji:iconEmoji(r.type), title:r.type==='police'?'Police':'Speed trap', kind:'cop'}); }
+    out.sort((a,b)=>a.pct-b.pct);
+    // Thin out pins that would overlap (<2.5% apart, same kind).
+    _routeHazards=out.filter((h,i)=> i===0 || h.kind!==out[i-1].kind || (h.pct-out[i-1].pct)>2.5);
+    if(!$$('speed-profile')?.classList.contains('hidden')) renderSpeedProfile();
+  }catch(_){}
 }
 
 function updateSpeedProfileCursor(){
@@ -3011,16 +3063,32 @@ function clearRoute(){
 
 /* ── Share route ─────────────────────────────── */
 $$('share-route-btn').addEventListener('click',async()=>{
-  const from=fromPlace??(userMarker?{lat:userMarker.getLngLat().lat,lng:userMarker.getLngLat().lng,name:'My Location'}:null);
-  if(!from||!toPlace) return;
-  const url=`https://radar.theradicalparty.com/#r/${from.lat},${from.lng},${encodeURIComponent(from.name)}/${toPlace.lat},${toPlace.lng},${encodeURIComponent(toPlace.name)}`;
+  if(!toPlace) return;
+  // Robust origin: explicit start → GPS → route start. (Was returning silently
+  // with no start point, so the button did nothing.)
+  const gps=userMarker?userMarker.getLngLat():null;
+  const from = fromPlace
+    ?? (gps ? {lat:gps.lat,lng:gps.lng,name:'My Location'}
+            : (routePoints.length ? {lat:routePoints[0][0],lng:routePoints[0][1],name:'Start'} : null));
+  if(!from) return;
+  const nm=s=>encodeURIComponent(s||'');
+  const url=`https://ghost.theradicalparty.com/#r/${from.lat},${from.lng},${nm(from.name||'Start')}/${toPlace.lat},${toPlace.lng},${nm(toPlace.name||'Destination')}`;
+  // 1) native share sheet
+  if(navigator.share){
+    try{ await navigator.share({title:`Route to ${toPlace.name||'destination'}`,text:'My route via Ghost',url}); return; }
+    catch(e){ if(e&&e.name==='AbortError') return; } // user dismissed — don't also copy
+  }
+  // 2) async clipboard
+  try{ await navigator.clipboard.writeText(url); showToast('🔗 Route link copied'); return; }catch{}
+  // 3) legacy clipboard (in-app browsers)
   try{
-    if(navigator.share){await navigator.share({title:`Route to ${toPlace.name}`,url});return;}
+    const ta=document.createElement('textarea'); ta.value=url;
+    ta.style.cssText='position:fixed;top:-9999px;opacity:0'; document.body.appendChild(ta);
+    ta.select(); const ok=document.execCommand('copy'); document.body.removeChild(ta);
+    if(ok){ showToast('🔗 Route link copied'); return; }
   }catch{}
-  try{
-    await navigator.clipboard.writeText(url);
-    showToast('Link copied!');
-  }catch{showToast('Copy: '+url,6000);}
+  // 4) last resort — show it so they can copy manually
+  prompt('Copy this route link:', url);
 });
 
 /* ── Parse share hash on load ─────────────────── */
