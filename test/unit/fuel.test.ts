@@ -21,10 +21,11 @@ describe('normalizeFuel', () => {
     expect(r.find(s => s.brand === 'BP')?.price).toBe(179.5);
     expect(r.find(s => s.brand === 'Ampol')?.price).toBeNull();
   });
-  it('sorts priced-first, then cheapest', () => {
-    expect(r[0].brand).toBe('BP');    // 179.5 cheapest
-    expect(r[1].brand).toBe('Shell'); // 189.9
-    expect(r[2].price).toBeNull();    // unpriced last
+  it('sorts nearest first', () => {
+    // query point -33.87,151.21: Ampol ~0m, BP ~1.7km, Shell ~2.5km
+    expect(r.map(s => s.brand)).toEqual(['Ampol', 'BP', 'Shell']);
+    expect(r[0].dist).toBeLessThanOrEqual(r[1].dist);
+    expect(r[1].dist).toBeLessThanOrEqual(r[2].dist);
   });
   it('computes distance from the query point', () => {
     expect(r.every(s => typeof s.dist === 'number' && s.dist >= 0)).toBe(true);

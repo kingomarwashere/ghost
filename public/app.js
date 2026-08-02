@@ -2196,8 +2196,9 @@ async function showFuelPanel(){
       stations.push({brand:'',name:sv.name,lat:sv.lat,lng:sv.lng,price:null,dist:Math.round(haversine(lat,lng,sv.lat,sv.lng))});
   }
   if(!stations.length){ searchResultsEl.innerHTML=fuelTypeBarHtml(ft)+`<div class="no-results">No servos found nearby</div>`; bindFuelTypeBar(); return; }
-  stations.sort((a,b)=>(a.price==null?1:0)-(b.price==null?1:0) || (a.price??9e9)-(b.price??9e9) || a.dist-b.dist);
-  const cheapest=stations.find(s=>s.price!=null)?.price;
+  stations.sort((a,b)=>a.dist-b.dist); // closest first → furthest
+  const priceList=stations.filter(s=>s.price!=null).map(s=>s.price);
+  const cheapest=priceList.length?Math.min(...priceList):null; // still flag the actual cheapest, wherever it sits
   searchResultsEl.innerHTML=fuelTypeBarHtml(ft)+stations.slice(0,25).map(s=>fuelRow(s,cheapest)).join('');
   bindFuelTypeBar(); bindResultClicks();
 }

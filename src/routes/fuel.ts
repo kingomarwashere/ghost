@@ -44,8 +44,8 @@ export function normalizeFuel(data: any, fueltype: string, lat: number, lng: num
       dist: Math.round(haversine(lat, lng, la, lo)), updated: pr ? pr.updated : null,
     });
   }
-  // priced first, then cheapest, then nearest
-  return out.sort((a, b) => (a.price == null ? 1 : 0) - (b.price == null ? 1 : 0) || (a.price ?? 9e9) - (b.price ?? 9e9) || a.dist - b.dist);
+  // nearest first (so the truncated top-N keeps the closest servos)
+  return out.sort((a, b) => a.dist - b.dist);
 }
 
 // Cache the OAuth token as a small Response so it survives across requests.
