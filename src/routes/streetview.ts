@@ -37,9 +37,9 @@ streetview.get('/', async (c) => {
   if (isNaN(lat) || isNaN(lng)) return c.json({ error: 'lat/lng required' }, 400);
 
   const rLat = lat.toFixed(4), rLng = lng.toFixed(4); // ~11m cache grid
-  // v2: responses now carry the Mapillary image `id` (needed for the 360 viewer);
-  // bump invalidates pre-`id` cached entries so tappable photos light up.
-  const key = new Request(`https://ghost.cache/streetview?v=2&lat=${rLat}&lng=${rLng}`);
+  // v3: fixes the token-encoding regression that returned aerial everywhere
+  // (v2 cached those broken results).
+  const key = new Request(`https://ghost.cache/streetview?v=3&lat=${rLat}&lng=${rLng}`);
   // @ts-ignore — Workers Cache API
   const cache = caches.default;
   const hit = await cache.match(key);
@@ -49,10 +49,12 @@ streetview.get('/', async (c) => {
 
   const token = c.env.MAPILLARY_TOKEN;
   if (token) {
-    // ~70m box around the point.
-    const dLat = 70 / 111320, dLng = 70 / (111320 * Math.cos(lat * Math.PI / 180));
+    // ~150m box around the point (wider = better hit rate on suburban streets).
+    const dLat = 150 / 111320, dLng = 150 / (111320 * Math.cos(lat * Math.PI / 180));
     const bbox = `${lng - dLng},${lat - dLat},${lng + dLng},${lat + dLat}`;
-    const url = `https://graph.mapillary.com/images?fields=id,thumb_1024_url,thumb_256_url,geometry&bbox=${bbox}&limit=8&access_token=${encodeURIComponent(token)}`;
+    // NOTE: the Mapillary token MUST stay raw — its `|` separators break auth if
+    // URL-encoded (%7C returns zero images).
+    const url = `https://graph.mapillary.com/images?fields=id,thumb_1024_url,thumb_256_url,geometry&bbox=${bbox}&limit=20&access_token=${token}`;
     try {
       const r = await fetch(url, { signal: AbortSignal.timeout(6000), cf: { cacheTtl: 86400, cacheEverything: true } } as any);
       if (r.ok) {
