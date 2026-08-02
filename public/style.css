@@ -1006,25 +1006,38 @@ body.navigating #compass-widget { top: calc(env(safe-area-inset-top, 0px) + 250p
 #rs-count .rc-item.rc-none { color: #64748b; font-weight: 600; }
 /* The route strip: a colour-by-speed track with speed-sign roundels at limit
    changes and camera/police pins at their position along the route. */
-#speed-profile-bar { position: relative; height: 46px; }
+/* Two lanes so pins never collide with the sign roundels: hazard pins ride the
+   top lane, the speed track + sign roundels sit in the lower lane. */
+#speed-profile-bar { position: relative; height: 58px; }
 .rs-track {
-  position: absolute; left: 0; right: 0; top: 62%; height: 6px;
+  position: absolute; left: 0; right: 0; top: 76%; height: 6px;
   transform: translateY(-50%); border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.25);
 }
 .rs-sign {
-  position: absolute; top: 62%; transform: translate(-50%, -50%);
-  width: 30px; height: 30px; border-radius: 50%; z-index: 2;
+  position: absolute; top: 76%; transform: translate(-50%, -50%);
+  width: 28px; height: 28px; border-radius: 50%; z-index: 2;
   background: #fff; border: 3px solid #dc2626; color: #0b0b0b;
-  font-weight: 900; font-size: .74rem; line-height: 1;
+  font-weight: 900; font-size: .72rem; line-height: 1;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 2px 5px rgba(0,0,0,.55);
 }
+/* Hazard/camera pin: a small badge in the upper lane with a stem pointing down
+   to its spot on the track — clearly above the sign roundels, never overlapping. */
 .rs-haz {
   position: absolute; top: 0; transform: translateX(-50%); z-index: 3;
-  font-size: 1rem; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,.7));
+  width: 24px; height: 24px; border-radius: 50%;
+  background: #14141c; border: 1.5px solid rgba(255,255,255,.22);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .82rem; line-height: 1;
+  box-shadow: 0 2px 6px rgba(0,0,0,.55);
+}
+.rs-haz::after {
+  content: ''; position: absolute; top: 100%; left: 50%;
+  width: 2px; height: 8px; transform: translateX(-50%);
+  background: rgba(255,255,255,.22);
 }
 #speed-profile-cursor {
-  position: absolute; top: calc(62% - 12px); width: 3px; height: 24px; z-index: 4;
+  position: absolute; top: calc(76% - 12px); width: 3px; height: 24px; z-index: 4;
   background: rgba(255,255,255,.95); border-radius: 2px;
   pointer-events: none; transition: left .2s;
   box-shadow: 0 0 5px rgba(255,255,255,.6);
