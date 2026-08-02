@@ -8,8 +8,8 @@ const places = new Hono<{ Bindings: Env }>();
 async function userId(c: any): Promise<string | null> {
   const token = c.req.header('Authorization')?.replace('Bearer ', '');
   if (!token) return null;
-  const u = await getUser(c.env.DB, token) as { user_id: string } | null;
-  return u?.user_id ?? null;
+  const u = await getUser(c.env.DB, token) as { id: string } | null;
+  return u?.id ?? null;
 }
 
 places.get('/', async (c) => {
