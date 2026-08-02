@@ -7,8 +7,12 @@ import type { Env } from '../types';
 
 const streetview = new Hono<{ Bindings: Env }>();
 
-// Pick the Mapillary image whose point is closest to (lat,lng). Pure — testable.
-export function pickNearest(images: any[], lat: number, lng: number): string | null {
+// Client token for mapillary-js (the interactive 360 viewer runs in the browser
+// and needs the access token; Mapillary client tokens are meant for browser use).
+streetview.get('/token', (c) => c.json({ token: c.env.MAPILLARY_TOKEN ?? '' }));
+
+// Pick the Mapillary image object whose point is closest to (lat,lng). Pure.
+export function pickNearest(images: any[], lat: number, lng: number): any | null {
   let best: any = null, bestD = Infinity;
   for (const im of images || []) {
     const g = im?.geometry?.coordinates; // [lng, lat]
@@ -17,7 +21,7 @@ export function pickNearest(images: any[], lat: number, lng: number): string | n
     const d = dLat * dLat + dLng * dLng;
     if (d < bestD) { bestD = d; best = im; }
   }
-  return best?.thumb_1024_url || best?.thumb_256_url || null;
+  return best;
 }
 
 // Esri World Imagery aerial JPEG centred on the point (~180m box). No key needed.
@@ -39,7 +43,7 @@ streetview.get('/', async (c) => {
   const hit = await cache.match(key);
   if (hit) return hit;
 
-  let out: { type: 'street' | 'sat'; url: string } = { type: 'sat', url: satelliteUrl(lat, lng) };
+  let out: { type: 'street' | 'sat'; url: string; id?: string } = { type: 'sat', url: satelliteUrl(lat, lng) };
 
   const token = c.env.MAPILLARY_TOKEN;
   if (token) {
@@ -52,7 +56,8 @@ streetview.get('/', async (c) => {
       if (r.ok) {
         const j = await r.json().catch(() => null) as any;
         const pic = pickNearest(j?.data ?? [], lat, lng);
-        if (pic) out = { type: 'street', url: pic };
+        const purl = pic?.thumb_1024_url || pic?.thumb_256_url;
+        if (purl) out = { type: 'street', url: purl, id: pic.id };
       }
     } catch { /* fall through to satellite */ }
   }

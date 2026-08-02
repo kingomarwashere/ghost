@@ -1047,6 +1047,30 @@ body.navigating #toast { top: calc(178px + env(safe-area-inset-top)); bottom: au
   background: rgba(0,0,0,.62); color: #cbd5e1; font-size: .68rem; font-weight: 700;
 }
 #dest-photo-badge.hidden { display: none; }
+#dest-photo.photo-interactive { cursor: pointer; }
+#dest-photo-look {
+  position: absolute; bottom: 8px; right: 8px; padding: 5px 11px; border-radius: 999px;
+  background: rgba(34,211,238,.92); color: #06202b; font-size: .72rem; font-weight: 800;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+}
+#dest-photo-look.hidden { display: none; }
+
+/* ── Mapillary 360 fullscreen viewer ── */
+#mly-viewer {
+  position: fixed; inset: 0; z-index: 4000; background: #000;
+}
+#mly-viewer.hidden { display: none; }
+#mly-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#mly-close {
+  position: absolute; top: calc(env(safe-area-inset-top, 0px) + 12px); right: 14px; z-index: 2;
+  width: 42px; height: 42px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(0,0,0,.6); color: #fff; font-size: 1.2rem; backdrop-filter: blur(6px);
+}
+#mly-loading {
+  position: absolute; top: 50%; left: 0; right: 0; text-align: center; z-index: 1;
+  color: #cbd5e1; font-size: .9rem; pointer-events: none;
+}
+#mly-loading.hidden { display: none; }
 
 /* ── Resume-trip prompt (post-reload) ── */
 #resume-trip {
@@ -1916,7 +1940,10 @@ body.recording #rec-time { display: block; }
 body.recording #rec-fab { border-color: rgba(239,68,68,.7); background: rgba(60,10,10,.92); }
 @keyframes recPulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
 body.navigating #rec-fab { bottom: calc(292px + env(safe-area-inset-bottom)); }
-body.previewing #rec-fab { display: none; }
+body.previewing #rec-fab, body.searching #rec-fab { display: none; }
+/* Cop Watch FAB is bottom-left in idle — hide it while a route preview / search
+   sheet is up so it doesn't overlap the sheet content. */
+body.previewing #cw-fab, body.searching #cw-fab { display: none !important; }
 
 /* Daily button badge + streak chip */
 .daily-badge { position: absolute; right: 12px; top: 50%; transform: translateY(-50%);

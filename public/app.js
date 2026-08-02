@@ -2702,21 +2702,63 @@ function applySelectedRoute(){
 // Fetch + show a photo of the destination in the preview sheet (Mapillary street
 // view, or a satellite fallback so there's always an image). Uses the same
 // load-into-hidden-Image pattern as the route-cam thumbnails.
-let _destPhotoReq=0;
+let _destPhotoReq=0, _destPhotoId=null;
 async function loadDestPhoto(dest){
-  const wrap=$$('dest-photo'), img=$$('dest-photo-img'), badge=$$('dest-photo-badge');
+  const wrap=$$('dest-photo'), img=$$('dest-photo-img'), badge=$$('dest-photo-badge'), look=$$('dest-photo-look');
   if(!wrap||!img||!dest) return;
-  wrap.classList.add('hidden'); badge.classList.add('hidden');
+  wrap.classList.add('hidden'); badge.classList.add('hidden'); look?.classList.add('hidden'); _destPhotoId=null;
   const myReq=++_destPhotoReq;
   try{
     const meta=await fetch(`/api/streetview?lat=${dest[0]}&lng=${dest[1]}`).then(r=>r.ok?r.json():null);
     if(myReq!==_destPhotoReq || !meta?.url) return;
     const fresh=new Image();
-    fresh.onload=()=>{ if(myReq!==_destPhotoReq) return; img.src=fresh.src; wrap.classList.remove('hidden'); badge.classList.toggle('hidden', meta.type!=='sat'); };
+    fresh.onload=()=>{
+      if(myReq!==_destPhotoReq) return;
+      img.src=fresh.src; wrap.classList.remove('hidden');
+      badge.classList.toggle('hidden', meta.type!=='sat');
+      _destPhotoId = meta.type==='street' ? meta.id : null; // only street images are pannable
+      look?.classList.toggle('hidden', !_destPhotoId);
+      wrap.classList.toggle('photo-interactive', !!_destPhotoId);
+    };
     fresh.onerror=()=>{};
     fresh.src=meta.url;
   }catch(_){}
 }
+
+/* ── Mapillary 360 street-view viewer (tap the destination photo) ── */
+let _mlyLibLoading=null, _mlyViewer=null;
+function loadMapillaryLib(){
+  if(window.mapillary) return Promise.resolve();
+  if(_mlyLibLoading) return _mlyLibLoading;
+  _mlyLibLoading=new Promise((res,rej)=>{
+    const css=document.createElement('link'); css.rel='stylesheet'; css.href='https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.css'; document.head.appendChild(css);
+    const s=document.createElement('script'); s.src='https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.js';
+    s.onload=()=>res(); s.onerror=()=>rej(new Error('mly load failed')); document.head.appendChild(s);
+  });
+  return _mlyLibLoading;
+}
+async function openMapillaryViewer(imageId){
+  const overlay=$$('mly-viewer'); if(!overlay||!imageId) return;
+  overlay.classList.remove('hidden'); $$('mly-loading')?.classList.remove('hidden');
+  try{
+    const [_, tok] = await Promise.all([
+      loadMapillaryLib(),
+      fetch('/api/streetview/token').then(r=>r.json()).then(d=>d.token).catch(()=>''),
+    ]);
+    if(!tok || !window.mapillary){ throw new Error('no token/lib'); }
+    if(_mlyViewer){ try{ _mlyViewer.remove(); }catch(_){} _mlyViewer=null; }
+    const canvas=$$('mly-canvas'); canvas.innerHTML='';
+    _mlyViewer=new mapillary.Viewer({ accessToken:tok, container:canvas, imageId });
+    _mlyViewer.on('image',()=>$$('mly-loading')?.classList.add('hidden'));
+    setTimeout(()=>{ try{ _mlyViewer?.resize(); }catch(_){} },50);
+  }catch(_){ closeMapillaryViewer(); showToast('Street view unavailable here'); }
+}
+function closeMapillaryViewer(){
+  $$('mly-viewer')?.classList.add('hidden');
+  if(_mlyViewer){ try{ _mlyViewer.remove(); }catch(_){} _mlyViewer=null; }
+}
+$$('mly-close')?.addEventListener('click',closeMapillaryViewer);
+$$('dest-photo')?.addEventListener('click',()=>{ if(_destPhotoId) openMapillaryViewer(_destPhotoId); });
 
 function renderRouteChips(){
   const chipsEl=$$('route-chips');
@@ -2754,6 +2796,21 @@ function speedColor(limit){
   return '#ef4444';
 }
 
+// Speed limit for a maneuver: prefer Valhalla's own, else match the maneuver's
+// start point to the nearest speed-limit way (our /api/speed-limits data).
+function maneuverLimit(m){
+  if(m.speed_limit && m.speed_limit<200) return m.speed_limit;
+  if(!speedLimitWays.length) return null;
+  const p=routePoints[m.begin_shape_index]; if(!p) return null;
+  let minD=Infinity,best=null;
+  for(const way of speedLimitWays){
+    for(let i=0;i<way.coords.length-1;i++){
+      const d=distToSegmentM(p[0],p[1],way.coords[i],way.coords[i+1]);
+      if(d<minD){minD=d;best=way.limit;}
+    }
+  }
+  return minD<70?best:null;
+}
 function renderSpeedProfile(){
   const profileEl=$$('speed-profile');
   const barEl=$$('speed-profile-bar');
@@ -2763,11 +2820,11 @@ function renderSpeedProfile(){
   const totalDist=maneuvers.reduce((s,m)=>s+(m.length??0),0)||1;
   barEl.innerHTML=maneuvers.map(m=>{
     const pct=((m.length??0)/totalDist)*100;
-    const limit=(m.speed_limit&&m.speed_limit<200)?m.speed_limit:null;
-    const color=speedColor(limit);
-    const showLabel=pct>6;
-    const label=limit??'?';
-    return `<div class="sp-seg" style="width:${pct.toFixed(2)}%;background:${color};">${showLabel?label:''}</div>`;
+    const limit=maneuverLimit(m);
+    // Unknown → neutral slate (not a "?"), known → speed colour.
+    const color=limit==null?'#475569':speedColor(limit);
+    const label=(limit!=null && pct>6)?limit:'';
+    return `<div class="sp-seg" style="width:${pct.toFixed(2)}%;background:${color};">${label}</div>`;
   }).join('');
 }
 
@@ -2830,9 +2887,15 @@ async function fetchRouteSpeedLimits(){
   // wipe a good set on failure.
   try{
     const ways=await fetch(`/api/speed-limits?bbox=${s},${w},${n},${e}`).then(r=>r.ok?r.json():null);
-    if(Array.isArray(ways)&&ways.length){ speedLimitWays=ways; return; }
+    if(Array.isArray(ways)&&ways.length){ speedLimitWays=ways; _onSpeedLimitsLoaded(); return; }
   }catch(_){}
   await fetchRouteSpeedLimitsDirect(s,w,n,e);
+  _onSpeedLimitsLoaded();
+}
+// Once limits land, fill the preview speed-profile (Valhalla rarely provides
+// per-maneuver limits, so it opens grey then colours in).
+function _onSpeedLimitsLoaded(){
+  if(speedLimitWays.length && !$$('speed-profile')?.classList.contains('hidden')) { try{ renderSpeedProfile(); }catch(_){} }
 }
 // Direct-to-Overpass fallback (also incl. residential now). Builds into a temp and
 // only replaces speedLimitWays if it found something, so a flaky fetch can't blank

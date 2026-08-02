@@ -161,7 +161,7 @@
 
   <!-- Scrollable content — hidden in peek state -->
   <div id="sheet-content">
-    <div id="dest-photo" class="hidden"><img id="dest-photo-img" alt="Destination"><span id="dest-photo-badge" class="hidden">🛰 Aerial</span></div>
+    <div id="dest-photo" class="hidden"><img id="dest-photo-img" alt="Destination"><span id="dest-photo-badge" class="hidden">🛰 Aerial</span><span id="dest-photo-look" class="hidden">🔄 Look around</span></div>
     <div id="route-chips" class="hidden"></div>
     <div id="speed-profile" class="hidden">
       <div id="speed-profile-bar"></div>
@@ -704,6 +704,13 @@
 
 <!-- Pigs banner -->
 <div id="pigs-banner" style="display:none"></div>
+
+<!-- ── Mapillary 360 street-view viewer (fullscreen, lazy-loaded) ── -->
+<div id="mly-viewer" class="hidden">
+  <div id="mly-canvas"></div>
+  <button id="mly-close" aria-label="Close">✕</button>
+  <div id="mly-loading">Loading street view…</div>
+</div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://unpkg.com/pmtiles@3.2.1/dist/pmtiles.js"></script>
