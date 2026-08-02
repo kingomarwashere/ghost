@@ -37,7 +37,9 @@ streetview.get('/', async (c) => {
   if (isNaN(lat) || isNaN(lng)) return c.json({ error: 'lat/lng required' }, 400);
 
   const rLat = lat.toFixed(4), rLng = lng.toFixed(4); // ~11m cache grid
-  const key = new Request(`https://ghost.cache/streetview?v=1&lat=${rLat}&lng=${rLng}`);
+  // v2: responses now carry the Mapillary image `id` (needed for the 360 viewer);
+  // bump invalidates pre-`id` cached entries so tappable photos light up.
+  const key = new Request(`https://ghost.cache/streetview?v=2&lat=${rLat}&lng=${rLng}`);
   // @ts-ignore — Workers Cache API
   const cache = caches.default;
   const hit = await cache.match(key);
