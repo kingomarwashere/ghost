@@ -80,7 +80,7 @@ const MODEL_CFG = {
   'sk-e30.glb':        { normalize: true, sizeMul: 1.05, yaw: 90 },
   // Fleet — batch 4 (Sketchfab, CC-BY) — yaw verified via tools/inspect-car
   'sk-lambo-svj.glb':  { normalize: true, sizeMul: 1.1,  yaw: 0 },
-  'sk-bmw-440i.glb':   { normalize: true, sizeMul: 1.1,  yaw: 0 },
+  'sk-bmw-440i.glb':   { normalize: true, sizeMul: 1.1,  yaw: 0, strip: ['Plane'] },
 };
 const cfgOf = (f) => MODEL_CFG[f] || {};
 
@@ -279,6 +279,13 @@ function loadModel(file) {
       promise = new Promise((resolve, reject) => {
         loader.load(MODEL_DIR + file, (gltf) => {
           let out = gltf.scene;
+          // Strip display bases / platforms some Sketchfab models ship with,
+          // BEFORE normalize so they don't inflate the bounding box.
+          if (cfg.strip && cfg.strip.length) {
+            const rm = [];
+            out.traverse((o) => { const nm = o.name || ''; if (cfg.strip.some((s) => nm === s || nm.startsWith(s))) rm.push(o); });
+            rm.forEach((o) => { if (o.parent) o.parent.remove(o); });
+          }
           if (cfg.pitch || cfg.yaw) {
             const g = new THREE.Group();
             g.add(out);
