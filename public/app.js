@@ -2751,16 +2751,14 @@ async function openGoogleSV(v){
   try{
     const key=await fetch('/api/streetview/gkey').then(r=>r.json()).then(d=>d.key).catch(()=>'');
     if(!key) throw 0;
-    if(!window.google?.maps) await _loadScript(`https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly`);
     _destroyViewers();
-    const canvas=$$('mly-canvas'); canvas.innerHTML='';
-    _gsv=new google.maps.StreetViewPanorama(canvas, {
-      pano: v.pano || undefined,
-      position: v.pano ? undefined : {lat:v.lat,lng:v.lng},
-      pov:{heading:0,pitch:0}, zoom:1,
-      addressControl:false, fullscreenControl:false, motionTracking:false, motionTrackingControl:false, enableCloseButton:false,
-    });
-    $$('mly-loading')?.classList.add('hidden');
+    // Google Maps EMBED API — interactive, pannable Street View in an iframe.
+    // Free (unlimited) and needs no JS library. (Referer is sent so the
+    // referrer-restricted key is accepted.)
+    const loc = v.pano ? `pano=${encodeURIComponent(v.pano)}` : `location=${v.lat},${v.lng}`;
+    const canvas=$$('mly-canvas');
+    canvas.innerHTML=`<iframe title="Street view" allow="fullscreen" loading="eager" style="width:100%;height:100%;border:0;display:block" src="https://www.google.com/maps/embed/v1/streetview?key=${key}&${loc}&fov=90"></iframe>`;
+    canvas.querySelector('iframe')?.addEventListener('load',()=>$$('mly-loading')?.classList.add('hidden'));
   }catch(_){ closeStreetView(); showToast('Street view unavailable here'); }
 }
 async function openMapillarySV(imageId){
