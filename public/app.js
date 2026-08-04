@@ -3328,6 +3328,10 @@ function startNav(){
   navFooter.classList.remove('hidden');
   navState='navigating';
   currentMidx=0; lastVoice=-1; offCount=0; alertedIds.clear();
+  // Fresh GPS state for this trip: drop any stale position (so the first fix isn't
+  // diffed against a far-away one) and open a settling window that suppresses the
+  // early coarse-fix teleport → false speed + wanted stars.
+  prevPos=null; _lastGoodSpeedMs=0; _navStartMs=performance.now();
   // Lock in the ORIGINAL traffic-aware ETA at trip start — this is the baseline
   // the arrival roast judges you against, and it never changes during the trip.
   const _startTraffic=trafficDelaySec(routePoints);
@@ -3439,6 +3443,10 @@ function endNav(){
    (1) show a "Searching for GPS…" banner, (2) keep forcing repaints so the
    basemap/route don't stay black if a repaint stalled. */
 let _lastFixMs=0, _gpsWatchdog=null, _gpsLost=false;
+// GPS-settling guards: the first fixes after a watch starts are frequently coarse
+// (network-located, big `accuracy`) and then snap to the true spot — a teleport that
+// otherwise reads as a huge speed (false "wanted" stars) and jumps the map.
+let _navStartMs=0, _lastGoodSpeedMs=0;
 
 /* ── Dead reckoning during GPS/data dropout ─────────────────────────────────
    When fixes stop arriving we keep the nav "alive" by advancing our distance
@@ -3864,7 +3872,7 @@ let _showroom=null;
   let tries=0; const iv=setInterval(()=>{ mount(); if(_showroom||++tries>50) clearInterval(iv); },100);
   mount(); showName();
 
-  CARS.forEach(car=>{
+  function addCarChip(car){
     const btn=document.createElement('button');
     btn.className='car-pick-btn'+(car.id===selectedCar?' active':'');
     btn.dataset.carid=car.id;
@@ -3887,7 +3895,18 @@ let _showroom=null;
       }
     });
     grid.appendChild(btn);
-  });
+  }
+  CARS.forEach(addCarChip);
+
+  // Custom vehicles sent in from other apps (e.g. Chisel "Send to Ghost").
+  fetch('/api/custom-cars').then(r=>r.ok?r.json():[]).then(list=>{
+    (list||[]).forEach(cc=>{
+      if(CARS.some(c=>c.id===cc.id)) return;
+      const car={id:cc.id, name:cc.name, emoji:cc.emoji||'🛠️', model:cc.model, fn:_d3Marker, d3:true, custom:true};
+      CARS.push(car);
+      addCarChip(car);
+    });
+  }).catch(()=>{});
 })();
 
 /* ── Request a car → /api/car-requests (shows up in admin) ── */
@@ -4017,6 +4036,9 @@ function showEvaded(){
 // Main GTA update — star calc always runs; score/popups nav-only
 function updateGta(speedMs, limitKmh, lat, lng){
   if(gta.busted) return;
+  // Don't award wanted stars during the GPS settling window at trip start — early
+  // coarse fixes can momentarily read as huge speed and would flash instant stars.
+  if(navState==='navigating' && (performance.now()-_navStartMs)<3500) return;
   const speedKmh=speedMs*3.6;
   const limit=limitKmh||60;
   const excessKmh=speedKmh-limit;
@@ -4203,16 +4225,28 @@ function renderAccel(state,t,isBest){
 function onGPS(pos){
   _lastFixMs=performance.now();
   if(_gpsLost) setGpsLost(false); // a fix arrived → clear the "searching" state
-  const {latitude:lat,longitude:lng,speed:rawSpd,heading}=pos.coords;
+  const {latitude:lat,longitude:lng,speed:rawSpd,heading,accuracy}=pos.coords;
   localStorage.setItem('radar_lastpos', JSON.stringify({lat,lng}));
+
+  const acc=(typeof accuracy==='number'&&accuracy>0)?accuracy:9999;
+  const settling=(performance.now()-_navStartMs)<3500; // just after nav start
+  // During the settling window, ignore coarse fixes once we already have a marker:
+  // they're the network-located hops that cause the start-of-route "spaz" (map jump
+  // + phantom speed). We keep the last stable spot until a good fix arrives.
+  if(settling && acc>80 && userMarker) return;
 
   // Speed first — needed by heading-freeze logic below
   let speedMs=rawSpd;
   if((speedMs==null||isNaN(speedMs))&&prevPos){
     const dt=(pos.timestamp-prevPos.ts)/1000;
-    if(dt>0) speedMs=haversine(prevPos.lat,prevPos.lng,lat,lng)/dt;
+    if(dt>0.05) speedMs=haversine(prevPos.lat,prevPos.lng,lat,lng)/dt;
   }
   speedMs=speedMs??0;
+  // Teleport clamp: nothing on the road does >64 m/s (~230 km/h). A reading above
+  // that is a GPS glitch/coarse-fix snap, not real motion — fall back to a decayed
+  // last-good speed so it can't spike the speedo or the wanted level.
+  if(speedMs>64){ speedMs=_lastGoodSpeedMs*0.6; }
+  _lastGoodSpeedMs=speedMs;
 
   // Heading: use hardware GPS heading directly when moving (CoreLocation already smooths it).
   // Apply EMA only for the calculated-from-position fallback.

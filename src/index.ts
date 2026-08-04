@@ -17,6 +17,7 @@ import streetview from './routes/streetview';
 import fuel from './routes/fuel';
 import places from './routes/places';
 import carRequests from './routes/car-requests';
+import customCars from './routes/custom-cars';
 import userPrefs from './routes/prefs';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -47,6 +48,7 @@ app.route('/api/streetview', streetview);
 app.route('/api/fuel', fuel);
 app.route('/api/places', places);
 app.route('/api/car-requests', carRequests);
+app.route('/api/custom-cars', customCars);
 app.route('/api/prefs', userPrefs);
 
 app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
@@ -318,6 +320,22 @@ app.get('/tiles/me.pmtiles', async (c) => {
     return new Response(obj.body, { status: 206, headers });
   }
   return new Response(obj.body, { status: 200, headers });
+});
+
+// ── Custom vehicle models (uploaded via /api/custom-cars) served from R2 ──────
+// Sits at /cars3d/custom/<id>.glb so car3d.js loads it exactly like a bundled
+// model (MODEL_DIR + file). No static asset exists here, so the worker handles it.
+app.get('/cars3d/custom/:file', async (c) => {
+  const m = /^([a-z0-9-]+)\.glb$/.exec(c.req.param('file'));
+  if (!m) return c.json({ error: 'bad request' }, 400);
+  const obj = await c.env.PHOTOS.get(`custom-cars/${m[1]}.glb`);
+  if (!obj) return c.json({ error: 'not found' }, 404);
+  const headers = new Headers();
+  obj.writeHttpMetadata(headers);
+  headers.set('Content-Type', 'model/gltf-binary');
+  headers.set('Cache-Control', 'public, max-age=86400');
+  headers.set('Access-Control-Allow-Origin', '*');
+  return new Response(obj.body, { headers });
 });
 
 // Serve static assets for everything else

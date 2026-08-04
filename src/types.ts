@@ -9,6 +9,7 @@ export interface Env {
   NSW_FUELCHECK_KEY?: string;
   NSW_FUELCHECK_SECRET?: string;
   GOOGLE_MAPS_KEY?: string;
+  GHOST_UPLOAD_PASS?: string; // shared password for /api/custom-cars uploads (default 'lickmyghost')
 }
 
 export interface User {

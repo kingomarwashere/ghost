@@ -82,7 +82,9 @@ const MODEL_CFG = {
   'sk-lambo-svj.glb':  { normalize: true, sizeMul: 1.1,  yaw: 0 },
   'sk-bmw-m4.glb':      { normalize: true, sizeMul: 1.1,  yaw: 0 },
 };
-const cfgOf = (f) => MODEL_CFG[f] || {};
+// Custom uploads (custom/<id>.glb, e.g. from Chisel) have no hand-tuned entry —
+// auto-normalize so any-scale mesh fits sensibly on the map.
+const cfgOf = (f) => MODEL_CFG[f] || (f.startsWith('custom/') ? { normalize: true, sizeMul: 1.1, yaw: 0 } : {});
 
 // ── Shared GLTF loader + model cache ────────────────────────────────────────
 const loader = new GLTFLoader();
