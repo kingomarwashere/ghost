@@ -1803,7 +1803,7 @@ body.navigating #cw-fab {
 
 /* ── Traffic camera sheet ───────────────────── */
 #cam-sheet {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 1100;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 1200;
   background: var(--panel-bg, #13131f);
   border-radius: 18px 18px 0 0;
   border-top: 1px solid rgba(255,255,255,.08);
@@ -1848,7 +1848,7 @@ body.navigating #cw-fab {
 
 /* ── Camera grid panel ──────────────────────── */
 #cam-grid-panel {
-  position: fixed; inset: 0; z-index: 1100;
+  position: fixed; inset: 0; z-index: 1200;
   background: #0a0a14; display: flex; flex-direction: column;
 }
 #cam-grid-header {

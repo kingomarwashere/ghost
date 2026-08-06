@@ -730,7 +730,24 @@ function matchRouteIdx(lat,lng){ return GhostCore.matchRouteIdx(routePoints,_las
    routeCumDist[i] = metres travelled along the polyline to reach routePoints[i].
    Rebuilt whenever the active route changes (startNav / reroute). */
 let routeCumDist=[];
-function buildRouteCumDist(){ routeCumDist=GhostCore.buildRouteCumDist(routePoints); }
+let _routeVer=0; // bumped whenever the active route geometry changes (invalidates cam projections)
+function buildRouteCumDist(){ routeCumDist=GhostCore.buildRouteCumDist(routePoints); _routeVer++; }
+// Project a camera onto the current route ONCE per route version (cached on the cam
+// object). Gives its arc-length position along the route (_routeDist) and how far
+// off the road it sits (_perp); _onRoute means it's actually on the path we drive.
+function camRouteInfo(cam){
+  if(cam._rv===_routeVer) return cam;
+  cam._rv=_routeVer;
+  let best=Infinity, bi=0;
+  for(let i=0;i<routePoints.length;i++){
+    const d=haversine(cam.lat,cam.lng,routePoints[i][0],routePoints[i][1]);
+    if(d<best){ best=d; bi=i; }
+  }
+  cam._perp=best;
+  cam._routeDist=(routeCumDist.length>bi)?routeCumDist[bi]:0;
+  cam._onRoute=best<60; // within 60 m of the driven polyline
+  return cam;
+}
 // Ground-truth position → metres along the route (nearest vertex + partial segment)
 function posToProgressM(idx,lat,lng){ return GhostCore.posToProgressM(routePoints,routeCumDist,idx,lat,lng); }
 // Metres along the route → {lat,lng,idx,hdg} by walking the cumulative table
@@ -1344,7 +1361,9 @@ function renderRouteCams(){
     fresh.onload=()=>{ img.src=fresh.src; card.querySelector('.rc-loading')?.remove(); };
     fresh.onerror=()=>{ const l=card.querySelector('.rc-loading'); if(l) l.textContent='⚠️'; };
     fresh.src=window.GhostCams.img(rc.cam.file);
-    card.addEventListener('click',()=> window.GhostCams&&window.GhostCams.open(rc.cam.id));
+    // Opening the single-camera detail sheet: close the route strip first so the
+    // two bottom sheets don't stack/overlap (the detail sheet then owns the band).
+    card.addEventListener('click',()=>{ setRouteCamsOpen(false); window.GhostCams&&window.GhostCams.open(rc.cam.id); });
   });
 }
 function setRouteCamsOpen(open){
@@ -4360,7 +4379,7 @@ function applyNavProgress(lat,lng,hdg,idx,estimated){
                + trafficDelaySec(routePoints.slice(idx));
   updateNavPanel(distToTurn);
   checkVoice(currentMidx,distToTurn);
-  checkProximityAlerts(lat,lng,hdg);
+  checkProximityAlerts(lat,lng,hdg,idx);
   if(perspective3D&&currentMidx!==lastRefreshedMidx){lastRefreshedMidx=currentMidx;refreshStreetLabels();}
   updateSpeedProfileCursor();
   // Only declare arrival on a REAL fix — a dead-reckoned estimate can coast to
@@ -4507,7 +4526,11 @@ function updateRouteStyling(idx){
 function updateNavPanel(distToTurn){
   if(!maneuvers.length)return;
   const nextM=maneuvers[currentMidx+1]??maneuvers[currentMidx];
-  navIconEl.innerHTML=ARROW_SVG[nextM.type]??NAV_SVG.straight;
+  // When the next turn is still far away (>1 km) the turn arrow is misleading —
+  // you drive straight for ages. Show a straight-ahead arrow until you're within
+  // 1 km, then reveal the real maneuver shape.
+  const farTurn = distToTurn!=null && distToTurn>1000 && nextM.type!==4 && nextM.type!==5 && nextM.type!==6;
+  navIconEl.innerHTML = farTurn ? NAV_SVG.straight : (ARROW_SVG[nextM.type]??NAV_SVG.straight);
   navDistEl.textContent=distToTurn!=null?fmtDist(distToTurn):'';
   navStreetEl.textContent=san((nextM.street_names??[]).join(' / ')||nextM.instruction||'');
 
@@ -4762,16 +4785,26 @@ function updateRouteWarn(state){
   _routeWarnRaf=requestAnimationFrame(tick);
 }
 
-function checkProximityAlerts(lat,lng,userHeading){
+function checkProximityAlerts(lat,lng,userHeading,routeIdx){
+  // Are we driving a known route? Then measure hazards by distance AHEAD along the
+  // road, not straight-line — so alerts only fire for cameras actually in front of
+  // us and clear the instant we pass, instead of lingering as we drive away.
+  const routed = navState==='navigating' && routePoints.length>1 && routeCumDist.length===routePoints.length;
+  const userDist = routed ? (routeCumDist[routeIdx??_lastRouteIdx??0]||0) : 0;
+
   // Live-update distance on active alert; dismiss once we've passed the hazard
   if(activeAlert){
     const d=haversine(lat,lng,activeAlert.lat,activeAlert.lng);
-    if(d>activeAlert.dismissDist){
+    // Along-route "ahead" distance when we have it (negative once passed).
+    const ahead = (routed && activeAlert.routeDist!=null) ? (activeAlert.routeDist-userDist) : null;
+    const passed = ahead!=null ? ahead < -30 : false;
+    if(passed || d>activeAlert.dismissDist){
       alertBar.classList.add('hidden');
       activeAlert=null;
     } else {
-      alertDist.textContent=fmtDist(d);
-      alertBar.dataset.urgency = d<150?'critical':d<300?'high':'medium';
+      const shown = ahead!=null ? Math.max(0,ahead) : d;
+      alertDist.textContent=fmtDist(shown);
+      alertBar.dataset.urgency = shown<150?'critical':shown<300?'high':'medium';
     }
   }
 
@@ -4781,8 +4814,23 @@ function checkProximityAlerts(lat,lng,userHeading){
       const camId=String(cam.id);
       const wrap=cameraMarkerEls.get(camId);
 
-      // Direction filter — skip cameras we're not heading toward
-      if(cam.direction!=null&&userHeading!=null){
+      // Gate distance: how far AHEAD the camera is along the route when navigating
+      // (negative = passed); straight-line when free-driving. `gate` drives the
+      // alert staging + dismissal so we only warn for cameras on the road ahead.
+      let gate=d, passed=false;
+      if(routed){
+        const info=camRouteInfo(cam);
+        if(!info._onRoute){
+          // Not on our route (parallel/cross road) — never alert; clear any state.
+          ['far','mid','near'].forEach(k=>alertedIds.delete(`c-${camId}-${k}`));
+          if(wrap) wrap.classList.remove('cam-approaching','cam-mid','cam-critical');
+          continue;
+        }
+        gate=info._routeDist-userDist;
+        passed = gate < -30;
+      } else if(cam.direction!=null&&userHeading!=null){
+        // Free-drive fallback: use the heading/direction filter to skip cameras we
+        // aren't heading toward.
         const diff=Math.abs(((userHeading-cam.direction+180+360)%360)-180);
         if(diff>=90){
           if(d>600){['far','mid','near'].forEach(k=>alertedIds.delete(`c-${camId}-${k}`));}
@@ -4791,7 +4839,13 @@ function checkProximityAlerts(lat,lng,userHeading){
         }
       }
 
-      // Update ripple rings on the marker
+      // Passed it — reset stages once we're clear so a later loop back can re-alert.
+      if(passed){
+        if(gate < -80){ ['far','mid','near'].forEach(k=>alertedIds.delete(`c-${camId}-${k}`)); if(wrap) wrap.classList.remove('cam-approaching','cam-mid','cam-critical'); }
+        continue;
+      }
+
+      // Update ripple rings on the marker (visual proximity — straight-line is fine)
       if(wrap){
         wrap.classList.toggle('cam-approaching', d<400);
         wrap.classList.toggle('cam-mid',         d<200);
@@ -4802,29 +4856,29 @@ function checkProximityAlerts(lat,lng,userHeading){
       const limitStr=cam.speed_limit?` · ${cam.speed_limit} km/h`:'';
       const spokenLimit=cam.speed_limit?`, ${cam.speed_limit} kilometre hour zone`:'';
 
-      if(d<80&&!alertedIds.has(`c-${camId}-near`)){
+      if(gate<80&&!alertedIds.has(`c-${camId}-near`)){
         // Stage 3 — in capture zone
         alertedIds.add(`c-${camId}-near`);
         cameraChimeNear();
         if(prefs.haptic&&navigator.vibrate) navigator.vibrate([300,80,300,80,300]);
-        showAlert({red_light:'🚦',bus_lane:'🚌'}[cam.type]??'📷',`⚠️ ${label}${limitStr} — SLOW DOWN`,fmtDist(d),false,cam.lat,cam.lng,400);
-      } else if(d<200&&!alertedIds.has(`c-${camId}-mid`)){
+        showAlert({red_light:'🚦',bus_lane:'🚌'}[cam.type]??'📷',`⚠️ ${label}${limitStr} — SLOW DOWN`,fmtDist(gate),false,cam.lat,cam.lng,400,cam._routeDist);
+      } else if(gate<200&&!alertedIds.has(`c-${camId}-mid`)){
         // Stage 2 — close approach
         alertedIds.add(`c-${camId}-mid`);
         cameraChimeMid();
         if(prefs.haptic&&navigator.vibrate) navigator.vibrate([200,60,200]);
         speak(`${label}${spokenLimit}`);
-        showAlert({red_light:'🚦',bus_lane:'🚌'}[cam.type]??'📷',`${label}${limitStr}`,fmtDist(d),false,cam.lat,cam.lng,400);
-      } else if(d<400&&!alertedIds.has(`c-${camId}-far`)){
+        showAlert({red_light:'🚦',bus_lane:'🚌'}[cam.type]??'📷',`${label}${limitStr}`,fmtDist(gate),false,cam.lat,cam.lng,400,cam._routeDist);
+      } else if(gate<400&&!alertedIds.has(`c-${camId}-far`)){
         // Stage 1 — early warning
         alertedIds.add(`c-${camId}-far`);
         cameraChimeFar();
         if(prefs.haptic&&navigator.vibrate) navigator.vibrate(120);
-        speak(`${label} ahead${spokenLimit}, in ${Math.round(d/50)*50} metres`);
-        showAlert({red_light:'🚦',bus_lane:'🚌'}[cam.type]??'📷',`${label}${limitStr}`,fmtDist(d),false,cam.lat,cam.lng,400);
+        speak(`${label} ahead${spokenLimit}, in ${Math.round(gate/50)*50} metres`);
+        showAlert({red_light:'🚦',bus_lane:'🚌'}[cam.type]??'📷',`${label}${limitStr}`,fmtDist(gate),false,cam.lat,cam.lng,400,cam._routeDist);
       }
 
-      if(d>600){
+      if(gate>600){
         ['far','mid','near'].forEach(k=>alertedIds.delete(`c-${camId}-${k}`));
         if(wrap) wrap.classList.remove('cam-approaching','cam-mid','cam-critical');
       }
@@ -4859,17 +4913,24 @@ function checkProximityAlerts(lat,lng,userHeading){
     }
   }
 
-  // Drive route flash based on closest approaching camera
+  // Drive route flash based on the closest camera actually ahead on the route.
   if(prefs.cameraAlerts){
     let minD=Infinity;
     for(const cam of nearCameras){
-      const d=haversine(lat,lng,cam.lat,cam.lng);
-      // respect direction filter
-      if(cam.direction!=null&&userHeading!=null){
-        const diff=Math.abs(((userHeading-cam.direction+180+360)%360)-180);
-        if(diff>=90) continue;
+      let g;
+      if(routed){
+        const info=camRouteInfo(cam);
+        if(!info._onRoute) continue;
+        g=info._routeDist-userDist;
+        if(g< -5) continue; // already passed
+      } else {
+        g=haversine(lat,lng,cam.lat,cam.lng);
+        if(cam.direction!=null&&userHeading!=null){
+          const diff=Math.abs(((userHeading-cam.direction+180+360)%360)-180);
+          if(diff>=90) continue;
+        }
       }
-      if(d<400) minD=Math.min(minD,d);
+      if(g<400) minD=Math.min(minD,g);
     }
     updateRouteWarn(minD<80?'near':minD<200?'mid':minD<400?'far':null);
   } else {
@@ -4877,7 +4938,7 @@ function checkProximityAlerts(lat,lng,userHeading){
   }
 }
 
-function showAlert(icon,text,dist,isPolice,hazLat,hazLng,dismissDist){
+function showAlert(icon,text,dist,isPolice,hazLat,hazLng,dismissDist,routeDist){
   alertIcon.textContent=icon;
   alertText.textContent=text;
   alertDist.textContent=dist;
@@ -4885,7 +4946,9 @@ function showAlert(icon,text,dist,isPolice,hazLat,hazLng,dismissDist){
   const instH=navInst.offsetHeight;
   alertBar.style.top=(instH+8)+'px';
   alertBar.classList.remove('hidden');
-  activeAlert=hazLat!=null?{lat:hazLat,lng:hazLng,dismissDist:dismissDist??600}:null;
+  // routeDist (arc-length along route) lets the dismissal clear the bar the moment
+  // we pass the hazard, instead of waiting for straight-line distance to grow.
+  activeAlert=hazLat!=null?{lat:hazLat,lng:hazLng,dismissDist:dismissDist??600,routeDist:routeDist??null}:null;
   clearTimeout(alertHideTimer);
 }
 
