@@ -367,7 +367,10 @@ let _mapReady = false;
 // Re-apply the Middle East tiles whenever the map next goes idle (style fully ready).
 // setupMideastTiles is self-healing: it re-adds its layers if a style swap wiped them.
 map.on('idle', setupMideastTiles);
-map.on('idle', setupAuTiles);   // overlay fast self-hosted AU tiles (region-scoped by bounds)
+// NOTE: setupAuTiles (self-hosted AU tile overlay) is DISABLED. Cloning CartoDB layers
+// onto the au source made AU load BOTH tile sets (slow zoom-out) and interfered with the
+// Israel-free Mideast suppression (Israel resurfaced). A proper version = a full custom
+// style using au.pmtiles + me.pmtiles from R2 with NO CartoDB in AU. See NAV_PLAN.md.
 map.on('style.load', () => {
   setupMapLayers();
   if(prefs.mapStyle==='gta'){ applyGtaColors(); addGtaPoiLayer(); }
