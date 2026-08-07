@@ -575,7 +575,7 @@ heatmapBtn.addEventListener('click',async()=>{
 /* ── Live traffic flow (TomTom, proxied) ──────────────────────────────────────
    Colored-road congestion overlay. OFF by default; toggled via the traffic button.
    Bootstrap source — a crowdsourced GPS-speed layer will grow alongside it. */
-let trafficFlowVisible=false;
+let trafficFlowVisible=true;   // live traffic congestion overlay ON by default
 const trafficBtn=$$('traffic-btn');
 trafficBtn?.addEventListener('click',()=>{
   trafficFlowVisible=!trafficFlowVisible;
