@@ -7,3 +7,4 @@ dist/
 # Stale agent worktrees / local git backups
 .claude/worktrees/
 .git.broken.*
+NAV_PLAN.md

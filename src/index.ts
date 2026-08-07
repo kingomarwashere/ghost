@@ -74,54 +74,59 @@ app.get('/api/geocode', async (c) => {
   return c.json(await resp.json(), 200, { 'Cache-Control': 'public, max-age=3600' });
 });
 
-// ── Unified geocoder: Photon + Nominatim fanned out server-side, merged, and
-//    edge-cached so the browser makes ONE fast request and popular queries are
-//    near-instant globally. Replaces the client fanning out to 3 slow sources. ─
+// ── Unified geocoder: our self-hosted G-NAF (every AU address, authoritative) for
+//    street addresses + Photon for POIs/businesses, fanned out server-side, merged,
+//    and edge-cached. G-NAF supersedes the old Nominatim passes — it's complete
+//    (16M addresses) AND in-country fast, so we dropped the slow public OSM address
+//    lookups entirely. Nominatim stays only as a fallback if G-NAF is unreachable. ─
 const NOM_HEADERS = { 'User-Agent': 'ghost-nav/1.0 (ghost.theradicalparty.com)', 'Accept': 'application/json' };
+const GNAF_URL = 'https://ghost-valhalla.theradicalparty.com/geocode';
 const jsonOrNull = (r: Response) => (r.ok ? r.json() : null);
 
-async function unifiedGeocode(q: string, lat: string, lon: string) {
+async function unifiedGeocode(q: string, lat: string, lon: string, gnafSecret?: string) {
   const near = !!(lat && lon);
-  const parsed = parseAddress(q);
 
   const photonP = new URLSearchParams({ q, limit: '10', lang: 'en', bbox: '113.3,-43.6,153.6,-10.4' });
   if (near) { photonP.set('lat', lat); photonP.set('lon', lon); }
-  const nomP = new URLSearchParams({ q, format: 'jsonv2', countrycodes: 'au', limit: '8', addressdetails: '1', ...(near ? { lat, lon } : {}) });
 
   const fetches: Promise<any>[] = [
+    // POIs / businesses — OSM via Photon (G-NAF has addresses only, not places).
     fetch(`https://photon.komoot.io/api/?${photonP}`, {
-      // @ts-ignore
-      cf: { cacheTtl: 600, cacheEverything: true },
-    }).then(jsonOrNull),
-    fetch(`https://nominatim.openstreetmap.org/search?${nomP}`, {
-      headers: NOM_HEADERS,
       // @ts-ignore
       cf: { cacheTtl: 600, cacheEverything: true },
     }).then(jsonOrNull),
   ];
 
-  // Structured pass: when the user typed a civic address ("83 queen st ashfield"),
-  // ask Nominatim by field (street + city) — free-text mode buries the house
-  // behind POIs, but structured mode returns the exact building reliably.
-  if (parsed.isAddress) {
-    const structP = new URLSearchParams({ format: 'jsonv2', countrycodes: 'au', limit: '8', addressdetails: '1', street: parsed.street });
-    if (parsed.locality) structP.set('city', parsed.locality);
+  // Addresses — our G-NAF geocoder. Returns GeoResult[] already, so it slots straight
+  // into dedupe. Skipped (falls back to Nominatim below) if we have no secret.
+  if (gnafSecret) {
+    const gnafP = new URLSearchParams({ q });
+    if (near) { gnafP.set('lat', lat); gnafP.set('lng', lon); }
     fetches.push(
-      fetch(`https://nominatim.openstreetmap.org/search?${structP}`, {
-        headers: NOM_HEADERS,
+      fetch(`${GNAF_URL}?${gnafP}`, {
+        headers: { 'X-Ghost-Secret': gnafSecret },
         // @ts-ignore
         cf: { cacheTtl: 600, cacheEverything: true },
       }).then(jsonOrNull),
     );
+  } else {
+    // Fallback: public Nominatim for addresses if G-NAF isn't wired up.
+    const nomP = new URLSearchParams({ q, format: 'jsonv2', countrycodes: 'au', limit: '8', addressdetails: '1', ...(near ? { lat, lon } : {}) });
+    fetches.push(
+      fetch(`https://nominatim.openstreetmap.org/search?${nomP}`, {
+        headers: NOM_HEADERS,
+        // @ts-ignore
+        cf: { cacheTtl: 600, cacheEverything: true },
+      }).then((r: Response) => (r.ok ? r.json().then(mapNominatim) : null)),
+    );
   }
 
-  const [photon, nom, struct] = await Promise.allSettled(fetches);
+  const [photon, addr] = await Promise.allSettled(fetches);
   const val = (s: PromiseSettledResult<any>) => (s?.status === 'fulfilled' ? s.value : null);
 
   return dedupe([
-    mapPhoton(val(photon)),
-    mapNominatim(val(nom)),
-    mapNominatim(val(struct)),   // undefined when not an address query → mapped to []
+    val(addr) || [],           // G-NAF (or Nominatim fallback) addresses — authoritative, first
+    mapPhoton(val(photon)),    // POIs / businesses
   ]);
 }
 
@@ -137,13 +142,13 @@ app.get('/api/search', async (c) => {
   const lonB = lon ? String(Math.round(parseFloat(lon) * 10) / 10) : '';
   // Bump `v` whenever the result shape/ranking changes so a deploy invalidates
   // stale edge-cached search results (v3: structured address pass + dedupe/tagging).
-  const cacheKey = new Request(`https://ghost.cache/search?v=3&q=${encodeURIComponent(q.toLowerCase())}&lat=${latB}&lon=${lonB}`);
+  const cacheKey = new Request(`https://ghost.cache/search?v=4&q=${encodeURIComponent(q.toLowerCase())}&lat=${latB}&lon=${lonB}`);
   // @ts-ignore — Workers Cache API
   const cache = caches.default;
   const hit = await cache.match(cacheKey);
   if (hit) return hit;
 
-  const results = await unifiedGeocode(q, lat, lon);
+  const results = await unifiedGeocode(q, lat, lon, c.env.VALHALLA_SECRET);
   const res = c.json(results, 200, { 'Cache-Control': 'public, max-age=600' });
   // Persist a cacheable copy at the edge (10 min) without blocking the response.
   c.executionCtx.waitUntil(cache.put(cacheKey, res.clone()));

@@ -10,6 +10,7 @@ export interface Env {
   NSW_FUELCHECK_SECRET?: string;
   GOOGLE_MAPS_KEY?: string;
   GHOST_UPLOAD_PASS?: string; // shared password for /api/custom-cars uploads (default 'lickmyghost')
+  VALHALLA_SECRET?: string;   // X-Ghost-Secret for the self-hosted Valhalla gateway (ghost-valhalla.theradicalparty.com)
 }
 
 export interface User {
