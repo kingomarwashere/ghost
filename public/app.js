@@ -313,6 +313,31 @@ function setupMideastTiles(){
   });
 }
 
+// ── Self-hosted Australia vector tiles (fast, edge-served) ───────────────────
+// Kills CartoDB tile "popcorn" for AU users. au.pmtiles is OpenMapTiles-schema
+// (same as CartoDB's styles) so we clone every CartoDB vector layer onto our own
+// 'au' source with identical paint/layout — the map keeps its exact look but AU data
+// comes from our box. au.pmtiles' bounds are Australia, so the clones only render in
+// AU; the rest of the world (incl. the Israel-free Mideast tiles) stays on CartoDB.
+// ?v bumps whenever au.pmtiles is rebuilt.
+const AU_PMTILES = 'pmtiles://https://ghost-valhalla.theradicalparty.com/au.pmtiles?v=1';
+function setupAuTiles(){
+  try{
+    if(map.getStyle().layers.some(l => l.id.startsWith('au_'))) return;   // already applied
+    if(!map.getSource('au')) map.addSource('au', { type:'vector', url: AU_PMTILES });
+    map.getStyle().layers.forEach(l => {
+      if(l.id.startsWith('au_') || l.id.startsWith('me_')) return;   // skip our own clones
+      if(!l['source-layer']) return;         // skip background / raster / custom layers
+      if(CUSTOM_LAYERS.has(l.id)) return;     // never clone route/heatmap/etc.
+      const cloneId = 'au_' + l.id;
+      if(map.getLayer(cloneId)) return;
+      const def = JSON.parse(JSON.stringify(l));
+      def.id = cloneId; def.source = 'au';    // same source-layer name, paint, layout, filter
+      try{ map.addLayer(def); }catch(_){}      // append on top → AU renders from our tiles
+    });
+  }catch(_){}
+}
+
 // Raster fallback styles (satellite/terrain) as inline MapLibre style objects
 const RASTER_STYLES = {
   satellite: { version:8, sources:{sat:{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,attribution:'©Esri'}}, layers:[{id:'bg',type:'raster',source:'sat'}] },
@@ -342,6 +367,7 @@ let _mapReady = false;
 // Re-apply the Middle East tiles whenever the map next goes idle (style fully ready).
 // setupMideastTiles is self-healing: it re-adds its layers if a style swap wiped them.
 map.on('idle', setupMideastTiles);
+map.on('idle', setupAuTiles);   // overlay fast self-hosted AU tiles (region-scoped by bounds)
 map.on('style.load', () => {
   setupMapLayers();
   if(prefs.mapStyle==='gta'){ applyGtaColors(); addGtaPoiLayer(); }
