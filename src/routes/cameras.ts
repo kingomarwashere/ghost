@@ -26,7 +26,10 @@ cameras.get('/', async (c) => {
     params.push(type);
   }
 
-  query += ' ORDER BY lat LIMIT 500';
+  // No ORDER BY: `ORDER BY lat` returned the 500 southernmost cameras, so wide views only
+  // ever showed a cluster at the bottom of the map. Natural order gives an even spread
+  // (and is stable across refreshes, unlike RANDOM(), so markers don't flicker).
+  query += ' LIMIT 500';
 
   const rows = await c.env.DB.prepare(query).bind(...params).all<Camera>();
   return c.json(rows.results);

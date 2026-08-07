@@ -43,7 +43,7 @@ const MODEL_CFG = {
   'plane-paper.glb': { normalize: true, sizeMul: 1.3, lift: 22, yaw: 180 },
   // Novelty + realistic
   'food/eggplant.glb':    { normalize: true, sizeMul: 1.35, pitch: -90, yaw: 0 }, // lie flat, tip forward
-  'ferrari.glb':     { normalize: true, sizeMul: 1.3, yaw: 0 },
+  'ferrari.glb':     { normalize: true, sizeMul: 1.3, yaw: 180 }, // model faces backwards → flip
   // Realistic fleet (Sketchfab, CC-BY) — normalized; yaw tuned per model
   'sk-pony.glb':       { normalize: true, sizeMul: 1.1,  yaw: 0 },
   'sk-f40.glb':        { normalize: true, sizeMul: 1.1,  yaw: 0 },
