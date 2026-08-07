@@ -1172,7 +1172,10 @@ function placeSub(r) { return r.sub || r.display_name?.split(',').slice(1,3).joi
 /* ═══════════════════════════════════════════════
    REPORTS + CAMERAS
 ═══════════════════════════════════════════════ */
-let visibleLayers={police:true,speed:true,red_light:true}, fetchTmr=null;
+// Enforcement cameras (speed + red-light) are OFF by default on the idle map — they
+// clutter it and only matter en route, where nav force-shows them near the route.
+// Live traffic cams + reports carry the main map. Users can still toggle these on.
+let visibleLayers={police:true,speed:false,red_light:false}, fetchTmr=null;
 
 /* ── De-clutter when zoomed out during nav ────────────────────────────────────
    Once the user zooms out past ROUTE_ONLY_ZOOM while navigating, the viewport
@@ -1220,9 +1223,10 @@ async function loadReports(){
     // the nav poll).
     const desired=new Map();
     for(const r of data){
-      // speed_trap uses speed layer filter; police/all others use police filter
-      if(r.type==='speed_trap'&&!visibleLayers.speed) continue;
-      if(r.type!=='speed_trap'&&!visibleLayers.police) continue;
+      // All community reports (incl. crowdsourced speed traps) follow the reports
+      // layer — the speed/red-light toggles now control fixed enforcement cameras only,
+      // so speed-trap pins keep showing on the idle map even with cameras hidden.
+      if(!visibleLayers.police) continue;
       if(!showAtCurrentZoom(r.type,r.lat,r.lng)) continue; // zoomed-out nav: on-route + nearby pigs only
       desired.set(String(r.id), r);
     }
@@ -1384,7 +1388,8 @@ $$('route-cams-btn')?.addEventListener('click',()=>{
 $$('route-cams-close')?.addEventListener('click',()=> setRouteCamsOpen(false));
 
 async function loadCameras(){
-  if(map.getZoom()<9 && navState!=='navigating'){clearMarkers(cameraMarkers);return;}
+  const nav = navState==='navigating';
+  if(map.getZoom()<9 && !nav){clearMarkers(cameraMarkers);return;}
   const b=map.getBounds();
   const p=new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});
   try{
@@ -1392,9 +1397,17 @@ async function loadCameras(){
     clearMarkers(cameraMarkers);
     cameraMarkerEls.clear();
     for(const cam of data){
-      if(cam.type==='speed'&&!visibleLayers.speed) continue;
-      if((cam.type==='red_light'||cam.type==='average_speed'||cam.type==='bus_lane')&&!visibleLayers.red_light) continue;
-      if(routeOnlyMode() && !nearRoute(cam.lat,cam.lng,ROUTE_NEAR_M)) continue; // zoomed-out nav: route cameras only
+      const isRed = cam.type==='red_light'||cam.type==='average_speed'||cam.type==='bus_lane';
+      if(nav){
+        // Driving: show enforcement cameras but ONLY near the active route (both zoomed
+        // in and out), regardless of the idle layer toggles — you want camera warnings
+        // ahead. Off-route cameras stay hidden so the route isn't buried.
+        if(!nearRoute(cam.lat,cam.lng,ROUTE_NEAR_M)) continue;
+      }else{
+        // Idle map: enforcement cameras hidden unless the user turned the layer on.
+        if(cam.type==='speed' && !visibleLayers.speed) continue;
+        if(isRed && !visibleLayers.red_light) continue;
+      }
       const icon=iconFor(cam.type,'speed');
       const label={speed:'📷 Speed camera',red_light:'🔴 Red light camera',average_speed:'📡 Avg speed',bus_lane:'🚌 Bus lane camera'}[cam.type]??cam.type;
       const popupHtml=`<strong>${label}</strong>${cam.road?`<p>📍 ${escHtml(cam.road)}</p>`:''} ${cam.speed_limit?`<p>⚡ ${cam.speed_limit} km/h zone</p>`:''} ${cam.state?`<p>📌 ${cam.state}</p>`:''}<p style="color:#555;font-size:.7rem">Source: ${cam.source.toUpperCase()}</p>`;
