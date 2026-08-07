@@ -355,6 +355,9 @@ const map = new maplibregl.Map({
   bearing:0, pitch:0,
   attributionControl:false, maxPitch:85,
   preserveDrawingBuffer:true, // needed for in-app recording (captureStream) + thumbnails
+  // Keep more off-screen/parent tiles cached so zooming OUT (esp. during nav from z19)
+  // shows the already-loaded lower-zoom tiles instantly instead of blank-then-popcorn.
+  maxTileCacheSize: 1000,
 });
 map.addControl(new maplibregl.NavigationControl({showCompass:false}), 'bottom-left');
 // Expose map to the 3D car module (car3d.js, loaded as a deferred ES module)
