@@ -381,8 +381,7 @@ map.on('style.load', () => {
   setupMapLayers();
   if(prefs.mapStyle==='gta'){ applyGtaColors(); addGtaPoiLayer(); }
   else if(prefs.mapStyle==='minecraft'){ applyMinecraftColors(); }
-  else { try{ map.setSky(null); }catch(_){}  // clear Minecraft sky/sun on other themes
-         try{ map.setLight({anchor:'viewport',position:[1.15,210,30],color:'#fff',intensity:0.5}); }catch(_){} }
+  else { try{ map.setLight({anchor:'viewport',position:[1.15,210,30],color:'#fff',intensity:0.5}); }catch(_){} }  // reset Minecraft sun on other themes
   // setupMapLayers re-creates the heatmap layer with visibility:'none' on every
   // style swap — re-apply the on-by-default state so it survives style changes.
   if(heatmapVisible && map.getLayer('heatmap-layer')) map.setLayoutProperty('heatmap-layer','visibility','visible');
@@ -5405,15 +5404,11 @@ function applyMinecraftColors(){
   try{ map.setPaintProperty('3d-buildings','fill-extrusion-vertical-gradient',false); }catch{}
   try{ map.setLayerZoomRange('3d-buildings',15,24); }catch{}
 
-  // ── Minecraft sky + directional sun ──────────────────────────────────────────
-  // A bright blue sky with a hazy horizon (the classic overworld daytime look) shows
-  // when the map is pitched in 3D nav. Directional light gives every voxel block a lit
-  // face and a shadowed face — the single biggest thing that makes extrusions read as
-  // Minecraft blocks rather than flat shapes.
-  try{ map.setSky({
-    'sky-color':'#7ec0ee', 'horizon-color':'#cfe9ff', 'fog-color':'#e8f4ff',
-    'sky-horizon-blend':0.6, 'horizon-fog-blend':0.5, 'fog-ground-blend':0.4,
-  }); }catch(_){}
+  // ── Directional sun on the voxel blocks ──────────────────────────────────────
+  // (No setSky — on this MapLibre version it left a black band at the horizon, and the
+  // nav directions banner covers the top of the screen anyway.) Directional light gives
+  // every building a lit face + a shadowed face, so they read as Minecraft blocks
+  // rather than flat shapes — visible right where you're driving.
   try{ map.setLight({ anchor:'map', position:[1.2, 210, 40], color:'#fffdf0', intensity:0.55 }); }catch(_){}
 }
 
