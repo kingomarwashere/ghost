@@ -365,8 +365,13 @@ app.get('/api/traffic/:z/:x/:y', async (c) => {
   const y = c.req.param('y').replace(/\.png$/, '');
   if (!/^\d+$/.test(z) || !/^\d+$/.test(x) || !/^\d+$/.test(y)) return c.body(null, 400);
   const url = `https://api.tomtom.com/traffic/map/4/tile/flow/relative0/${z}/${x}/${y}.png?key=${key}`;
-  // @ts-ignore — Workers cf fetch options
-  const resp = await fetch(url, { cf: { cacheTtl: 180, cacheEverything: true } });
+  // Send a Referer matching the domain-restricted key (the key is locked to
+  // ghost.theradicalparty.com; a server-side fetch has no browser Referer otherwise → 403).
+  const resp = await fetch(url, {
+    headers: { 'Referer': 'https://ghost.theradicalparty.com/' },
+    // @ts-ignore — Workers cf fetch options
+    cf: { cacheTtl: 180, cacheEverything: true },
+  });
   if (!resp.ok) return c.body(null, resp.status as any);
   const headers = new Headers();
   headers.set('Content-Type', 'image/png');
