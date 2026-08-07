@@ -381,6 +381,8 @@ map.on('style.load', () => {
   setupMapLayers();
   if(prefs.mapStyle==='gta'){ applyGtaColors(); addGtaPoiLayer(); }
   else if(prefs.mapStyle==='minecraft'){ applyMinecraftColors(); }
+  else { try{ map.setSky(null); }catch(_){}  // clear Minecraft sky/sun on other themes
+         try{ map.setLight({anchor:'viewport',position:[1.15,210,30],color:'#fff',intensity:0.5}); }catch(_){} }
   // setupMapLayers re-creates the heatmap layer with visibility:'none' on every
   // style swap — re-apply the on-by-default state so it survives style changes.
   if(heatmapVisible && map.getLayer('heatmap-layer')) map.setLayoutProperty('heatmap-layer','visibility','visible');
@@ -5391,13 +5393,28 @@ function applyMinecraftColors(){
   // flat-shaded cobblestone block, 4–20 m (1–5 blocks) snapped to 4 m steps, and
   // buildings only render from z16 so the distant skyline can't wall off the view.
   const H=['coalesce',['get','render_height'],['get','height'],6];
-  const BLOCK=['max',4,['min',20,['*',4,['ceil',['/',H,4]]]]];
-  p('3d-buildings','fill-extrusion-color',COBBLE);
+  const BLOCK=['max',4,['min',24,['*',4,['ceil',['/',H,4]]]]];
+  // Varied block types by building size — a Minecraft village is built from a MIX of
+  // blocks, not one grey. Small huts = oak planks, bigger = cobblestone, then stone
+  // brick, then deepslate for the tallest. Reads far more "built" than uniform cobble.
+  const BLOCKCOL=['step',H,'#a9743f',6,'#8f8b83',14,'#7a7772',30,'#5f5f5f'];
+  p('3d-buildings','fill-extrusion-color',BLOCKCOL);
   p('3d-buildings','fill-extrusion-height',BLOCK);
   p('3d-buildings','fill-extrusion-base',0);
   p('3d-buildings','fill-extrusion-opacity',1);
   try{ map.setPaintProperty('3d-buildings','fill-extrusion-vertical-gradient',false); }catch{}
-  try{ map.setLayerZoomRange('3d-buildings',16,24); }catch{}
+  try{ map.setLayerZoomRange('3d-buildings',15,24); }catch{}
+
+  // ── Minecraft sky + directional sun ──────────────────────────────────────────
+  // A bright blue sky with a hazy horizon (the classic overworld daytime look) shows
+  // when the map is pitched in 3D nav. Directional light gives every voxel block a lit
+  // face and a shadowed face — the single biggest thing that makes extrusions read as
+  // Minecraft blocks rather than flat shapes.
+  try{ map.setSky({
+    'sky-color':'#7ec0ee', 'horizon-color':'#cfe9ff', 'fog-color':'#e8f4ff',
+    'sky-horizon-blend':0.6, 'horizon-fog-blend':0.5, 'fog-ground-blend':0.4,
+  }); }catch(_){}
+  try{ map.setLight({ anchor:'map', position:[1.2, 210, 40], color:'#fffdf0', intensity:0.55 }); }catch(_){}
 }
 
 function applyGtaColors(){
