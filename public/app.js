@@ -41,8 +41,11 @@ const savePrefs = () => localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
    STORAGE — recent searches & favourites
 ═══════════════════════════════════════════════ */
 const RECENT_KEY = 'radar_recent', FAVS_KEY = 'radar_favs';
-const getRecent = () => JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]');
-const getFavs   = () => JSON.parse(localStorage.getItem(FAVS_KEY)   ?? '[]');
+// Guarded: a corrupt or empty-string localStorage value must never throw — an
+// unguarded JSON.parse here blanked the whole "Where to?" panel (it's the first
+// thing showSuggestions() reads). Note `|| '[]'` (not `??`) so '' also defaults.
+const getRecent = () => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') || []; } catch { return []; } };
+const getFavs   = () => { try { return JSON.parse(localStorage.getItem(FAVS_KEY)   || '[]') || []; } catch { return []; } };
 function addRecent(p) {
   const r = getRecent().filter(x => x.name !== p.name);
   r.unshift(p); localStorage.setItem(RECENT_KEY, JSON.stringify(r.slice(0, 8)));
@@ -2425,9 +2428,11 @@ function showSuggestions(filterQ=''){
     return;
   }
   const gps=userMarker?userMarker.getLngLat():null;
+  // A single failing section must never blank the whole panel — degrade + log instead.
+  const safe=(fn,label)=>{ try{ return fn(); }catch(e){ console.error('[suggestions]',label,e); return ''; } };
   let html='';
-  html+=homeWorkHtml();
-  html+=peopleHtml();
+  html+=safe(homeWorkHtml,'homeWork');
+  html+=safe(peopleHtml,'people');
   html+=`<div id="nearme-chips">
     <button class="nearme-chip" data-q="petrol">${iconEmoji('chip:petrol')} Petrol</button>
     <button class="nearme-chip" data-q="food">${iconEmoji('chip:food')} Food</button>
