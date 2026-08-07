@@ -156,12 +156,15 @@ function autoNightCheck() {
 // CartoDB publish their tile styles as free MapLibre GL JSON — no API key needed.
 // Inside the Middle East region we override these with our own Israel-free vector
 // tiles; see setupMideastTiles().
+// Served by our Worker: CartoDB's GL styles with the vector source swapped to our
+// self-hosted au.pmtiles (edge-served → fast, no CartoDB tile popcorn in AU). Same
+// CartoDB look; only the tile DATA source changes. See /styles/:name in the Worker.
 const VECTOR_STYLES = {
-  dark:    'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-  light:   'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-  voyager: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-  gta:     'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json', // base = dark, then recoloured
-  minecraft:'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',    // base = bright, then blockified
+  dark:    '/styles/dark-matter',
+  light:   '/styles/positron',
+  voyager: '/styles/voyager',
+  gta:     '/styles/dark-matter', // base = dark, then recoloured
+  minecraft:'/styles/voyager',    // base = bright, then blockified
 };
 const RASTER_TILES = {
   satellite: { url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', sub:'', attr:'©Esri' },

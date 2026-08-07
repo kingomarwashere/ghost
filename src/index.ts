@@ -292,8 +292,7 @@ app.get('/api/heatmap', async (c) => {
 // ── Self-hosted Middle East vector tiles (Israel removed) ────────────────────
 // pmtiles.js fetches byte ranges out of a single .pmtiles archive on R2.
 // Reuses the existing PHOTOS bucket under the tiles/ prefix.
-app.get('/tiles/me.pmtiles', async (c) => {
-  const key = 'tiles/me.pmtiles';
+async function servePmtiles(c: any, key: string) {
   const rangeHeader = c.req.header('range');
 
   // Translate a `bytes=start-end` header into an R2Range.
@@ -325,6 +324,34 @@ app.get('/tiles/me.pmtiles', async (c) => {
     return new Response(obj.body, { status: 206, headers });
   }
   return new Response(obj.body, { status: 200, headers });
+}
+// Middle East (Israel-free) tiles + Australia basemap tiles, both from R2 under tiles/.
+app.get('/tiles/me.pmtiles', (c) => servePmtiles(c, 'tiles/me.pmtiles'));
+app.get('/tiles/au.pmtiles', (c) => servePmtiles(c, 'tiles/au.pmtiles'));
+
+// ── Map styles: CartoDB GL styles with the vector SOURCE swapped to our self-hosted
+// au.pmtiles (fast, edge-served) — kills CartoDB tile "popcorn" in Australia while
+// keeping CartoDB's exact styling (same OpenMapTiles schema). Server-side + edge-cached
+// so the browser gets a ready-to-use style. Outside AU the au source has no data (shows
+// the style's background); the Israel-free Mideast overlay is applied client-side.
+const CARTO_STYLES: Record<string, string> = {
+  'dark-matter': 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  'positron':    'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+  'voyager':     'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+};
+app.get('/styles/:name', async (c) => {
+  const name = c.req.param('name');
+  const url = CARTO_STYLES[name];
+  if (!url) return c.json({ error: 'unknown style' }, 404);
+  // @ts-ignore
+  const style: any = await fetch(url, { cf: { cacheTtl: 86400, cacheEverything: true } }).then(r => r.json());
+  const host = new URL(c.req.url).host;
+  for (const k of Object.keys(style.sources || {})) {
+    if (style.sources[k]?.type === 'vector') {
+      style.sources[k] = { type: 'vector', url: `pmtiles://https://${host}/tiles/au.pmtiles?v=1` };
+    }
+  }
+  return c.json(style, 200, { 'Cache-Control': 'public, max-age=86400', 'Access-Control-Allow-Origin': '*' });
 });
 
 // ── TomTom traffic-flow tiles, proxied so the API key stays server-side ───────
