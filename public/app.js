@@ -538,7 +538,8 @@ function reportPopupHtml(r){
 }
 
 /* ── Heatmap ──────────────────────────────── */
-let heatmapVisible=true;  // report heatmap ON by default
+let heatmapVisible=false;  // report heatmap OFF by default — it blobbed up the idle map
+                           // (report density, not traffic). Toggle via the 🔥 button.
 const heatmapBtn=$$('heatmap-btn');
 
 async function loadHeatmap(){
