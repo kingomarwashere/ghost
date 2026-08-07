@@ -327,6 +327,27 @@ app.get('/tiles/me.pmtiles', async (c) => {
   return new Response(obj.body, { status: 200, headers });
 });
 
+// ── TomTom traffic-flow tiles, proxied so the API key stays server-side ───────
+// Browser hits /api/traffic/{z}/{x}/{y}.png; we fetch the TomTom flow tile with the
+// secret key and edge-cache it (~3 min) to stay well within the free 200K tiles/mo.
+// This is the bootstrap congestion source; a crowdsourced GPS layer will grow beside it.
+app.get('/api/traffic/:z/:x/:y', async (c) => {
+  const key = c.env.TOMTOM_API_KEY;
+  if (!key) return c.body(null, 404);
+  const z = c.req.param('z'), x = c.req.param('x');
+  const y = c.req.param('y').replace(/\.png$/, '');
+  if (!/^\d+$/.test(z) || !/^\d+$/.test(x) || !/^\d+$/.test(y)) return c.body(null, 400);
+  const url = `https://api.tomtom.com/traffic/map/4/tile/flow/relative0/${z}/${x}/${y}.png?key=${key}`;
+  // @ts-ignore — Workers cf fetch options
+  const resp = await fetch(url, { cf: { cacheTtl: 180, cacheEverything: true } });
+  if (!resp.ok) return c.body(null, resp.status as any);
+  const headers = new Headers();
+  headers.set('Content-Type', 'image/png');
+  headers.set('Cache-Control', 'public, max-age=180');
+  headers.set('Access-Control-Allow-Origin', '*');
+  return new Response(resp.body, { headers });
+});
+
 // ── Custom vehicle models (uploaded via /api/custom-cars) served from R2 ──────
 // Sits at /cars3d/custom/<id>.glb so car3d.js loads it exactly like a bundled
 // model (MODEL_DIR + file). No static asset exists here, so the worker handles it.

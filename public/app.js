@@ -394,7 +394,7 @@ map.on('style.load', () => {
 });
 
 // Custom layer IDs — never touched by hideNavClutter
-const CUSTOM_LAYERS = new Set(['route-main','route-casing','route-traveled','route-alts','route-traffic','route-warn','heatmap-layer','3d-buildings','gta-poi']);
+const CUSTOM_LAYERS = new Set(['route-main','route-casing','route-traveled','route-alts','route-traffic','route-warn','heatmap-layer','traffic-flow-layer','3d-buildings','gta-poi']);
 
 // Route line widths as zoom-interpolated expressions so the ribbon stays a
 // consistent, readable thickness from overview zoom down to the ~18-20 nav zoom
@@ -451,6 +451,13 @@ function setupMapLayers(){
       'heatmap-color':['interpolate',['linear'],['heatmap-density'],0,'rgba(0,0,255,0)',0.3,'rgba(14,165,233,0.28)',1,'rgba(255,0,153,0.55)'],
       'heatmap-radius':24,'heatmap-opacity':0.4,
     }});
+  }
+  // Traffic flow (TomTom, proxied via /api/traffic so the key stays server-side). A
+  // raster congestion overlay (green→red), placed below labels so text stays readable.
+  if(!map.getSource('traffic-flow')){
+    map.addSource('traffic-flow',{type:'raster',tiles:[location.origin+'/api/traffic/{z}/{x}/{y}.png'],tileSize:256,maxzoom:22,attribution:'Traffic © TomTom'});
+    const firstSym0 = map.getStyle().layers.find(l=>l.type==='symbol')?.id;
+    map.addLayer({id:'traffic-flow-layer',type:'raster',source:'traffic-flow',layout:{visibility:trafficFlowVisible?'visible':'none'},paint:{'raster-opacity':0.75}}, firstSym0);
   }
   // 3D building extrusion — only on vector tile styles
   try{
@@ -557,6 +564,17 @@ heatmapBtn.addEventListener('click',async()=>{
   heatmapBtn.classList.toggle('active',heatmapVisible);
   if(map.getLayer('heatmap-layer')) map.setLayoutProperty('heatmap-layer','visibility',heatmapVisible?'visible':'none');
   if(heatmapVisible) await loadHeatmap();
+});
+
+/* ── Live traffic flow (TomTom, proxied) ──────────────────────────────────────
+   Colored-road congestion overlay. OFF by default; toggled via the traffic button.
+   Bootstrap source — a crowdsourced GPS-speed layer will grow alongside it. */
+let trafficFlowVisible=false;
+const trafficBtn=$$('traffic-btn');
+trafficBtn?.addEventListener('click',()=>{
+  trafficFlowVisible=!trafficFlowVisible;
+  trafficBtn.classList.toggle('active',trafficFlowVisible);
+  if(map.getLayer('traffic-flow-layer')) map.setLayoutProperty('traffic-flow-layer','visibility',trafficFlowVisible?'visible':'none');
 });
 
 /* ═══════════════════════════════════════════════
@@ -1476,7 +1494,7 @@ map.on('moveend',scheduleFetch);map.on('zoomend',scheduleFetch);
 setInterval(loadReports,90_000);
 
 document.querySelectorAll('.filter-btn').forEach(btn=>{
-  if(btn.id==='heatmap-btn') return;
+  if(btn.id==='heatmap-btn'||btn.id==='traffic-btn') return;  // these have their own handlers
   btn.addEventListener('click',()=>{
     const l=btn.dataset.layer; visibleLayers[l]=!visibleLayers[l];
     btn.classList.toggle('active',visibleLayers[l]);loadReports();loadCameras();

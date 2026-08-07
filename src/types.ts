@@ -11,6 +11,7 @@ export interface Env {
   GOOGLE_MAPS_KEY?: string;
   GHOST_UPLOAD_PASS?: string; // shared password for /api/custom-cars uploads (default 'lickmyghost')
   VALHALLA_SECRET?: string;   // X-Ghost-Secret for the self-hosted Valhalla gateway (ghost-valhalla.theradicalparty.com)
+  TOMTOM_API_KEY?: string;    // TomTom Traffic Flow tiles — proxied server-side so the key never ships to the browser
 }
 
 export interface User {
