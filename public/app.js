@@ -165,6 +165,7 @@ const VECTOR_STYLES = {
   voyager: '/styles/voyager',
   gta:     '/styles/dark-matter', // base = dark, then recoloured
   minecraft:'/styles/voyager',    // base = bright, then blockified
+  minorcraft:'/styles/voyager',   // = Minecraft look + full low-res PIXELATION
 };
 const RASTER_TILES = {
   satellite: { url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', sub:'', attr:'©Esri' },
@@ -379,9 +380,10 @@ map.on('idle', setupMideastTiles);
 // style using au.pmtiles + me.pmtiles from R2 with NO CartoDB in AU. See NAV_PLAN.md.
 map.on('style.load', () => {
   setupMapLayers();
-  if(prefs.mapStyle==='gta'){ applyGtaColors(); addGtaPoiLayer(); }
-  else if(prefs.mapStyle==='minecraft'){ applyMinecraftColors(); }
-  else { try{ map.setLight({anchor:'viewport',position:[1.15,210,30],color:'#fff',intensity:0.5}); }catch(_){} }  // reset Minecraft sun on other themes
+  if(prefs.mapStyle==='gta'){ applyGtaColors(); addGtaPoiLayer(); setPixelated(false); }
+  else if(prefs.mapStyle==='minecraft'){ applyMinecraftColors(); setPixelated(false); }
+  else if(prefs.mapStyle==='minorcraft'){ applyMinecraftColors(); setPixelated(true); } // Minecraft + chunky pixels
+  else { resetMcFx(); setPixelated(false); }  // reset Minecraft sun/sky on other themes
   // setupMapLayers re-creates the heatmap layer with visibility:'none' on every
   // style swap — re-apply the on-by-default state so it survives style changes.
   if(heatmapVisible && map.getLayer('heatmap-layer')) map.setLayoutProperty('heatmap-layer','visibility','visible');
@@ -516,14 +518,19 @@ function setTile(style, isAuto=false){
   // Themed styles (gta/minecraft) reuse another style's base URL. A plain
   // setStyle(sameURL) diffs to a no-op and never fires style.load, so the
   // recolour never runs. diff:false forces a full replacement → style.load fires.
-  const themed = style==='gta'||style==='minecraft';
-  const prevThemed = prefs.mapStyle==='gta'||prefs.mapStyle==='minecraft';
+  const THEMES=['gta','minecraft','minorcraft'];
+  const themed = THEMES.includes(style);
+  const prevThemed = THEMES.includes(prefs.mapStyle);
   map.setStyle(s, (themed||prevThemed) ? {diff:false} : undefined); // clean reload entering/leaving a theme
   prefs.mapStyle=style; savePrefs();
   if(!isAuto){ prefs.styleOverride=true; savePrefs(); }
   document.querySelectorAll('.style-btn').forEach(b=>b.classList.toggle('active',b.dataset.style===style));
   if(themed){ // belt & suspenders in case idle settles after style.load
-    map.once('idle',()=>{ if(prefs.mapStyle==='gta'){applyGtaColors();addGtaPoiLayer();} else if(prefs.mapStyle==='minecraft'){applyMinecraftColors();} });
+    map.once('idle',()=>{
+      if(prefs.mapStyle==='gta'){applyGtaColors();addGtaPoiLayer();}
+      else if(prefs.mapStyle==='minecraft'){applyMinecraftColors();setPixelated(false);}
+      else if(prefs.mapStyle==='minorcraft'){applyMinecraftColors();setPixelated(true);}
+    });
   }
 }
 // initial setTile handled by map construction style — just sync UI
@@ -5346,6 +5353,21 @@ function triggerArrival(){
 /* ═══════════════════════════════════════════════
    GTA MAP COLOURS
 ═══════════════════════════════════════════════ */
+// Full low-res pixelation for the "Minorcraft" style — renders the map canvas at a
+// fraction of the resolution and upscales with hard nearest-neighbour pixels, so the
+// whole world looks built from chunky blocks. setPixelRatio keeps interaction correct
+// (MapLibre knows the true ratio); HTML markers stay sharp since they're not on the canvas.
+function setPixelated(on){
+  try{ map.setPixelRatio(on ? 0.3 : (window.devicePixelRatio||1)); }catch(_){}
+  try{ map.getCanvas().style.imageRendering = on ? 'pixelated' : ''; }catch(_){}
+}
+// Undo the Minecraft sky/sun/background when switching to a non-Minecraft theme.
+function resetMcFx(){
+  try{ map.setLight({anchor:'viewport',position:[1.15,210,30],color:'#fff',intensity:0.5}); }catch(_){}
+  try{ map.setSky(null); }catch(_){}
+  try{ map.getContainer().style.background=''; }catch(_){}
+}
+
 function applyMinecraftColors(){
   // Repaint the bright voyager base into a Minecraft overworld palette.
   const p=(layer,prop,val)=>{try{if(map.getLayer(layer)) map.setPaintProperty(layer,prop,val);}catch{}};
@@ -5404,11 +5426,16 @@ function applyMinecraftColors(){
   try{ map.setPaintProperty('3d-buildings','fill-extrusion-vertical-gradient',false); }catch{}
   try{ map.setLayerZoomRange('3d-buildings',15,24); }catch{}
 
-  // ── Directional sun on the voxel blocks ──────────────────────────────────────
-  // (No setSky — on this MapLibre version it left a black band at the horizon, and the
-  // nav directions banner covers the top of the screen anyway.) Directional light gives
-  // every building a lit face + a shadowed face, so they read as Minecraft blocks
-  // rather than flat shapes — visible right where you're driving.
+  // ── Minecraft sky + directional sun ──────────────────────────────────────────
+  // Bright blue sky + hazy horizon (overworld daytime). The black band we saw before was
+  // a transparent seam at the horizon showing the (black) page behind the canvas — so we
+  // also paint the map CONTAINER sky-blue, which fills that seam with sky instead of black.
+  try{ map.setSky({
+    'sky-color':'#7ec0ee', 'horizon-color':'#cfe9ff', 'fog-color':'#e8f4ff',
+    'sky-horizon-blend':0.6, 'horizon-fog-blend':0.5, 'fog-ground-blend':0.4,
+  }); }catch(_){}
+  try{ map.getContainer().style.background='#9fd0f5'; }catch(_){}
+  // Directional sun: every voxel building gets a lit face + a shadowed face → reads blocky.
   try{ map.setLight({ anchor:'map', position:[1.2, 210, 40], color:'#fffdf0', intensity:0.55 }); }catch(_){}
 }
 
