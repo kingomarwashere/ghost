@@ -404,14 +404,15 @@ app.post('/api/route-traffic', async (c) => {
       // @ts-ignore
       const r = await fetch(url, { headers: { Referer: 'https://ghost.theradicalparty.com/' }, cf: { cacheTtl: 120, cacheEverything: true } });
       if (!r.ok) return null;
-      return (await r.json())?.flowSegmentData ?? null;
+      const j: any = await r.json();
+      return j?.flowSegmentData ?? null;
     } catch { return null; }
   }));
 
   const portion = freeFlowTime / N;                          // each probe ≈ 1/N of the drive
   let delaySec = 0;
   const congested: any[] = [];
-  flows.forEach((d, i) => {
+  flows.forEach((d: any, i: number) => {
     if (!d) return;
     const [lat, lng] = samples[i];
     if (d.roadClosure) { congested.push({ lat, lng, sev: 'heavy', closure: true }); return; }

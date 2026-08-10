@@ -8,3 +8,4 @@ dist/
 .claude/worktrees/
 .git.broken.*
 NAV_PLAN.md
+/tiles/
