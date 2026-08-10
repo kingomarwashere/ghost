@@ -160,23 +160,33 @@ tr:hover td{background:#111}
 </div>
 
 <script>
-const PASS = 'boob';
+// The admin key is entered by the user and remembered in localStorage — NEVER hardcoded
+// here (this file is served publicly). The server validates it; a wrong key just 401s.
+let PASS = localStorage.getItem('ghost_admin_key') || '';
 let authed = false;
 
 // Gate
 document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') attempt(); });
 document.getElementById('pw-btn').addEventListener('click', attempt);
 
-function attempt() {
-  if (document.getElementById('pw').value === PASS) {
-    authed = true;
-    document.getElementById('gate').style.display = 'none';
-    document.getElementById('dash').style.display = 'block';
-    init();
-  } else {
-    document.getElementById('pw-err').style.display = 'block';
-    document.getElementById('pw').value = '';
-  }
+function _enter() {
+  authed = true;
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('dash').style.display = 'block';
+  init();
+}
+async function attempt() {
+  const pw = document.getElementById('pw').value.trim();
+  if (!pw) return;
+  // Validate against the server — no secret is baked into this page.
+  const r = await fetch('/api/admin/feed?source=all&limit=1', { headers: { 'x-admin-key': pw } }).catch(() => null);
+  if (r && r.ok) { PASS = pw; localStorage.setItem('ghost_admin_key', pw); _enter(); }
+  else { document.getElementById('pw-err').style.display = 'block'; document.getElementById('pw').value = ''; }
+}
+// Auto-login if a previously-saved key still works.
+if (PASS) {
+  fetch('/api/admin/feed?source=all&limit=1', { headers: { 'x-admin-key': PASS } })
+    .then(r => { if (r.ok) _enter(); }).catch(() => {});
 }
 
 // Tabs

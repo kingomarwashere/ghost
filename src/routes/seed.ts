@@ -176,7 +176,21 @@ seed.post('/nsw-replace', async (c) => {
     ).bind(nanoid(), x.lat, x.lng, x.type || 'speed', x.description ?? x.road ?? null, x.state ?? 'NSW', x.road ?? null, x.speed_limit ?? null, x.external_id ?? null, now));
     try { await c.env.DB.batch(stmts); inserted += stmts.length; } catch { /* skip bad chunk */ }
   }
-  return c.json({ replaced: 'gov', inserted });
+  // Dedup: drop OSM cameras that duplicate an authoritative gov camera (same-ish type, <70m).
+  const gov = (((await c.env.DB.prepare("SELECT lat,lng,type FROM cameras WHERE source='gov'").all()).results) ?? []) as any[];
+  const osm = (((await c.env.DB.prepare("SELECT id,lat,lng,type FROM cameras WHERE source='osm'").all()).results) ?? []) as any[];
+  const dupes: string[] = [];
+  for (const o of osm) {
+    const oSpeed = o.type === 'speed' || o.type === 'average_speed';
+    for (const g of gov) {
+      const gSpeed = g.type === 'speed' || g.type === 'average_speed';
+      if (oSpeed === gSpeed && haversineM(o.lat, o.lng, g.lat, g.lng) < 70) { dupes.push(o.id); break; }
+    }
+  }
+  for (let i = 0; i < dupes.length; i += 50) {
+    await c.env.DB.batch(dupes.slice(i, i + 50).map(id => c.env.DB.prepare('DELETE FROM cameras WHERE id=?').bind(id)));
+  }
+  return c.json({ replaced: 'gov', inserted, deduped_osm: dupes.length });
 });
 
 function haversineM(aLat: number, aLng: number, bLat: number, bLng: number): number {
