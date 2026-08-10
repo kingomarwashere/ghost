@@ -1367,6 +1367,8 @@ function startNavRefresh(){
   _navRefresh=setInterval(()=>{
     if(navState!=='navigating') return;
     loadReports(); loadCameras(); loadNearReports(); loadNearCameras();
+    // Refresh live TomTom traffic at a slow cadence (not every tick — keeps API use low).
+    if(Date.now()-_lastTrafficRefresh>150000){ _lastTrafficRefresh=Date.now(); refreshRouteTraffic(); }
     try{ window.GhostPigs?.refresh?.(); }catch(_){} // keep statewide pigs current
     updateRouteCamsBtn();
     if(!$$('route-cams-sheet')?.classList.contains('hidden')) renderRouteCams(); // refresh live thumbs
@@ -2894,7 +2896,9 @@ function applySelectedRoute(){
   const lngs=routePoints.map(p=>p[1]),lats=routePoints.map(p=>p[0]);
   map.fitBounds([[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]],{padding:80});
 
-  const td=routeData.summary.length, tt=routeData.summary.time + trafficDelaySec(routePoints);
+  tomtomRouteDelay=0;  // clear last route's delay; refreshRouteTraffic() refetches for this one
+  const td=routeData.summary.length, tt=routeData.summary.time + routeTrafficSec(routePoints,1);
+  refreshRouteTraffic();  // fetch live TomTom traffic → updates ETA + route colouring when it lands
   previewDist.textContent=fmtDist(td*1000);
   previewTime.textContent=fmtTime(tt);
   if(previewETA) previewETA.textContent=`ETA ${fmtETA(tt)}`;
@@ -3433,8 +3437,9 @@ function startNav(){
   prevPos=null; _lastGoodSpeedMs=0; _navStartMs=performance.now();
   // Lock in the ORIGINAL traffic-aware ETA at trip start — this is the baseline
   // the arrival roast judges you against, and it never changes during the trip.
-  const _startTraffic=trafficDelaySec(routePoints);
+  const _startTraffic=routeTrafficSec(routePoints,1);
   remainingSec=routeData.summary.time+_startTraffic;
+  refreshRouteTraffic();  // pull live TomTom traffic for this trip
   _plannedArriveMs=Date.now()+remainingSec*1000;
   arrivedFlag=false; headingUpMode=true;
 
@@ -3679,6 +3684,7 @@ async function reroute(lat,lng){
     map.getSource('route-traveled')?.setData(emptyFC());
     showToast('Route updated',2000);
     loadNearCameras(); loadNearReports();
+    tomtomRouteDelay=0; _lastTrafficRefresh=0; refreshRouteTraffic(); // new geometry → fresh live traffic
     fetchRouteSpeedLimits(); // new geometry/bbox → refresh speed-limit ways (was never done → stale limits after a reroute)
     // New geometry → refresh which cameras are "on your route".
     try{ computeRouteCams(); updateRouteCamsBtn(); }catch(_){}
@@ -4456,7 +4462,7 @@ function applyNavProgress(lat,lng,hdg,idx,estimated){
   const _total=routeCumDist.length?routeCumDist[routeCumDist.length-1]:0;
   const _frac=_total>0?Math.min(routeCumDist[idx]/_total,1):Math.min(idx/routePoints.length,1);
   remainingSec=Math.round(routeData.summary.time*(1-_frac))
-               + trafficDelaySec(routePoints.slice(idx));
+               + routeTrafficSec(routePoints.slice(idx), 1-_frac);
   updateNavPanel(distToTurn);
   checkVoice(currentMidx,distToTurn);
   checkProximityAlerts(lat,lng,hdg,idx);
@@ -4483,6 +4489,9 @@ let _lastRouteIdx=0; // track last GPS route index so style swaps don't reset th
 const TRAFFIC_SEV = {accident:'heavy', closure:'heavy', blocked_lane:'heavy', traffic:'slow', roadwork:'slow'};
 let lastReports=[];              // most recent reports fetched for the viewport
 let liveCongestion=[];           // {lat,lng,sev,ts} from own-speed detection
+let tomtomCongestion=[];         // {lat,lng,sev,ts} from TomTom flow sampled along the route
+let tomtomRouteDelay=0;          // whole-route live traffic delay (sec) from TomTom
+let _lastTrafficRefresh=0;       // throttle for periodic traffic refresh during nav
 const CONGESTION_TTL=10*60*1000; // live congestion expires after 10 min
 
 function addLiveCongestion(lat,lng,sev){
@@ -4496,8 +4505,42 @@ function addLiveCongestion(lat,lng,sev){
 function congestionSources(){
   const now=Date.now();
   liveCongestion=liveCongestion.filter(c=>now-c.ts<CONGESTION_TTL);
+  tomtomCongestion=tomtomCongestion.filter(c=>now-c.ts<CONGESTION_TTL);
   const rep=lastReports.filter(r=>TRAFFIC_SEV[r.type]).map(r=>({lat:r.lat,lng:r.lng,sev:TRAFFIC_SEV[r.type]}));
-  return rep.concat(liveCongestion);
+  return rep.concat(liveCongestion, tomtomCongestion);
+}
+
+// Pull live TomTom traffic for the current route → whole-route delay + congested points.
+// Feeds both the ETA (tomtomRouteDelay) and the route congestion overlay (via
+// congestionSources). Cheap + edge-cached server-side; safe to call on a timer.
+async function refreshRouteTraffic(){
+  try{
+    if(!routePoints || routePoints.length<2) return;
+    const r=await fetch('/api/route-traffic',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({points:routePoints, time:routeData?.summary?.time||0})});
+    if(!r.ok) return;
+    const d=await r.json(); const now=Date.now();
+    tomtomRouteDelay=Math.max(0, Math.round(d.delaySec||0));
+    tomtomCongestion=(d.congested||[]).map(c=>({lat:c.lat,lng:c.lng,sev:c.sev||'slow',ts:now}));
+    // Repaint the route's congestion colouring and refresh the shown ETA.
+    updateTrafficOverlay(navState==='navigating'?routePoints.slice(Math.max(0,_lastRouteIdx||0)):routePoints);
+    refreshPreviewEta();   // harmless if the preview panel is hidden
+  }catch(_){}
+}
+
+// Traffic seconds to add to a (possibly partial) route's ETA. Prefer the live TomTom
+// whole-route delay (scaled to the remaining fraction); fall back to the own-speed +
+// reports estimate, taking whichever is worse so a local jam TomTom missed still counts.
+function routeTrafficSec(points, frac){
+  const scaled = tomtomRouteDelay * (typeof frac==='number' ? Math.max(0,Math.min(1,frac)) : 1);
+  return Math.round(Math.max(scaled, trafficDelaySec(points)));
+}
+// Re-render the route-preview time/ETA once live traffic has arrived.
+function refreshPreviewEta(){
+  if(!routeData) return;
+  const tt=routeData.summary.time + routeTrafficSec(routePoints,1);
+  try{ if(previewTime) previewTime.textContent=fmtTime(tt); }catch(_){}
+  try{ if(previewETA) previewETA.textContent=`ETA ${fmtETA(tt)}`; }catch(_){}
 }
 
 // Extra seconds to add to a route's ETA for the traffic sitting on it.

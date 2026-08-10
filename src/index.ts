@@ -380,6 +380,51 @@ app.get('/api/traffic/:z/:x/:y', async (c) => {
   return new Response(resp.body, { headers });
 });
 
+// ── Traffic-aware ETA: sample TomTom Flow Segment Data along a Valhalla route and
+// return the live traffic delay + congested points. Keeps routing self-hosted (Valhalla)
+// while making the ETA + route choice reflect real congestion. Flow lookups are edge-
+// cached (~2 min) by coarse coordinate so re-plans / overlapping routes reuse them.
+app.post('/api/route-traffic', async (c) => {
+  const key = c.env.TOMTOM_API_KEY;
+  const body: any = await c.req.json().catch(() => null);
+  const pts: [number, number][] = body?.points || [];      // [lat,lng] along the route
+  const freeFlowTime: number = Number(body?.time) || 0;    // Valhalla free-flow seconds
+  if (!key || pts.length < 2) return c.json({ delaySec: 0, congested: [] });
+
+  // Sample evenly — ~1 probe per stretch, capped so cost stays bounded.
+  const N = Math.min(12, Math.max(4, Math.round(pts.length / 40)));
+  const samples: [number, number][] = [];
+  const step = (pts.length - 1) / (N - 1);
+  for (let i = 0; i < N; i++) samples.push(pts[Math.round(i * step)]);
+
+  const flows = await Promise.all(samples.map(async ([lat, lng]) => {
+    const p = `${lat.toFixed(3)},${lng.toFixed(3)}`;       // ~110 m cache bucket
+    const url = `https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/10/json?point=${p}&key=${key}`;
+    try {
+      // @ts-ignore
+      const r = await fetch(url, { headers: { Referer: 'https://ghost.theradicalparty.com/' }, cf: { cacheTtl: 120, cacheEverything: true } });
+      if (!r.ok) return null;
+      return (await r.json())?.flowSegmentData ?? null;
+    } catch { return null; }
+  }));
+
+  const portion = freeFlowTime / N;                          // each probe ≈ 1/N of the drive
+  let delaySec = 0;
+  const congested: any[] = [];
+  flows.forEach((d, i) => {
+    if (!d) return;
+    const [lat, lng] = samples[i];
+    if (d.roadClosure) { congested.push({ lat, lng, sev: 'heavy', closure: true }); return; }
+    const cur = Number(d.currentSpeed), free = Number(d.freeFlowSpeed);
+    if (!cur || !free) return;
+    const ratio = free / Math.max(1, cur);                   // >1 → slower than free-flow
+    if (ratio > 1.05) delaySec += portion * (ratio - 1);
+    if (cur < free * 0.5) congested.push({ lat, lng, sev: 'heavy' });
+    else if (cur < free * 0.8) congested.push({ lat, lng, sev: 'slow' });
+  });
+  return c.json({ delaySec: Math.round(delaySec), congested });
+});
+
 // ── Custom vehicle models (uploaded via /api/custom-cars) served from R2 ──────
 // Sits at /cars3d/custom/<id>.glb so car3d.js loads it exactly like a bundled
 // model (MODEL_DIR + file). No static asset exists here, so the worker handles it.
