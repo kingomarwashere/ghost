@@ -67,6 +67,7 @@ All CC-BY — same attribution requirement as batch 1.
 |-----------------|--------------------|----------------------------------|--------------|
 | Lamborghini SVJ | sk-lambo-svj.glb   | lamborghini aventador svj        | vloneswrldx  |
 | Big Q           | sk-bmw-m4.glb       | 2021 BMW M4 Competition          | Ricy         |
+| AMG E63 S (Matte)| sk-amg-e63.glb    | Mercedes-AMG E 63 S (W213)       | Mona x Supercars (@Car2022) |
 
 All CC-BY — same attribution requirement as batch 1.
 

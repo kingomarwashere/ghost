@@ -2937,7 +2937,7 @@ function applySelectedRoute(){
 // Fetch + show a photo of the destination in the preview sheet (Mapillary street
 // view, or a satellite fallback so there's always an image). Uses the same
 // load-into-hidden-Image pattern as the route-cam thumbnails.
-let _destPhotoReq=0, _destView=null; // _destView: {kind:'google'|'mapillary', pano?/lat?/lng?/id?}
+let _destPhotoReq=0, _destView=null; // _destView: {kind:'google', pano, lat, lng} or null
 async function loadDestPhoto(dest){
   const wrap=$$('dest-photo'), img=$$('dest-photo-img'), badge=$$('dest-photo-badge'), look=$$('dest-photo-look');
   if(!wrap||!img||!dest) return;
@@ -2951,10 +2951,8 @@ async function loadDestPhoto(dest){
       if(myReq!==_destPhotoReq) return;
       img.src=fresh.src; wrap.classList.remove('hidden');
       badge.classList.toggle('hidden', meta.type!=='sat'); // 🛰 badge only on aerial fallback
-      // Only real street imagery is pannable (Google pano or Mapillary image).
-      _destView = meta.type==='google' ? {kind:'google', pano:meta.pano, lat:meta.lat, lng:meta.lng}
-                : meta.type==='street' ? {kind:'mapillary', id:meta.id}
-                : null;
+      // Only a Google Street View pano is pannable (the satellite fallback isn't).
+      _destView = meta.type==='google' ? {kind:'google', pano:meta.pano, lat:meta.lat, lng:meta.lng} : null;
       look?.classList.toggle('hidden', !_destView);
       wrap.classList.toggle('photo-interactive', !!_destView);
     };
@@ -2963,21 +2961,10 @@ async function loadDestPhoto(dest){
   }catch(_){}
 }
 
-/* ── Interactive street view (tap destination photo) — Google first, Mapillary fallback ── */
-let _mlyViewer=null, _gsv=null, _libPromise={};
-function _loadScript(src, isMapillary){
-  if(_libPromise[src]) return _libPromise[src];
-  _libPromise[src]=new Promise((res,rej)=>{
-    if(isMapillary){ const css=document.createElement('link'); css.rel='stylesheet'; css.href='https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.css'; document.head.appendChild(css); }
-    const s=document.createElement('script'); s.src=src; s.async=true;
-    s.onload=()=>res(); s.onerror=()=>rej(new Error('load failed: '+src)); document.head.appendChild(s);
-  });
-  return _libPromise[src];
-}
+/* ── Interactive street view (tap destination photo) — Google Street View ── */
+let _gsv=null;
 function openStreetView(){
-  if(!_destView) return;
-  if(_destView.kind==='google') openGoogleSV(_destView);
-  else openMapillarySV(_destView.id);
+  if(_destView && _destView.kind==='google') openGoogleSV(_destView);
 }
 async function openGoogleSV(v){
   const overlay=$$('mly-viewer'); if(!overlay) return;
@@ -2995,26 +2982,7 @@ async function openGoogleSV(v){
     canvas.querySelector('iframe')?.addEventListener('load',()=>$$('mly-loading')?.classList.add('hidden'));
   }catch(_){ closeStreetView(); showToast('Street view unavailable here'); }
 }
-async function openMapillarySV(imageId){
-  const overlay=$$('mly-viewer'); if(!overlay||!imageId) return;
-  overlay.classList.remove('hidden'); $$('mly-loading')?.classList.remove('hidden');
-  try{
-    const [_, tok] = await Promise.all([
-      _loadScript('https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.js', true),
-      fetch('/api/streetview/token').then(r=>r.json()).then(d=>d.token).catch(()=>''),
-    ]);
-    if(!tok || !window.mapillary) throw 0;
-    _destroyViewers();
-    const canvas=$$('mly-canvas'); canvas.innerHTML='';
-    _mlyViewer=new mapillary.Viewer({ accessToken:tok, container:canvas, imageId });
-    _mlyViewer.on('image',()=>$$('mly-loading')?.classList.add('hidden'));
-    setTimeout(()=>{ try{ _mlyViewer?.resize(); }catch(_){} },50);
-  }catch(_){ closeStreetView(); showToast('Street view unavailable here'); }
-}
-function _destroyViewers(){
-  if(_mlyViewer){ try{ _mlyViewer.remove(); }catch(_){} _mlyViewer=null; }
-  _gsv=null; // Google panorama is GC'd when its container is cleared
-}
+function _destroyViewers(){ _gsv=null; } // Google iframe is GC'd when its container is cleared
 function closeStreetView(){ $$('mly-viewer')?.classList.add('hidden'); const c=$$('mly-canvas'); if(c) c.innerHTML=''; _destroyViewers(); }
 $$('mly-close')?.addEventListener('click',closeStreetView);
 $$('dest-photo')?.addEventListener('click',openStreetView);
@@ -3257,6 +3225,7 @@ function isSchoolHours(){
 /* ── Render directions ──────────────────────── */
 function renderDirections(){
   let cumDist=0;
+  const {sev}=maneuverCongestion();   // per-step live traffic severity
   directionsList.innerHTML=maneuvers.map((m,i)=>{
     const d=cumDist; cumDist+=(m.length??0)*1000;
     const streets=san((m.street_names??[]).join(' / ')||m.instruction?.split('.')[0]||'—');
@@ -3265,10 +3234,12 @@ function renderDirections(){
     const isLast=m.type>=4&&m.type<=6;
     // Only show instruction if it adds info beyond the street name
     const showInstr=instr&&!instr.toLowerCase().startsWith(streets.toLowerCase().slice(0,10));
+    const jam=sev[i]===2?' <span style="color:#ef4444;font-size:.72rem;font-weight:600">🚗 heavy</span>'
+             :sev[i]===1?' <span style="color:#f59e0b;font-size:.72rem;font-weight:600">🚗 slow</span>':'';
     return `<div class="dir-step${isLast?' dir-arrive':''}">
       <span class="dir-arrow">${ARROW[m.type]??'↑'}</span>
       <div class="dir-info">
-        <span class="dir-street">${escHtml(streets)}</span>
+        <span class="dir-street">${escHtml(streets)}${jam}</span>
         ${showInstr?`<span class="dir-instr">${escHtml(instr)}</span>`:''}
       </div>
       ${speedStr?`<span class="dir-speed">${speedStr}</span>`:''}
@@ -3849,6 +3820,7 @@ function _d3Marker(){ return {html:'<div class="user-arrow car3d-anchor" style="
 
 const CARS=[
   // ── Realistic fleet (Sketchfab, CC-BY — see CREDITS.md) ──────────────────
+  {id:'amg-e63',    name:'AMG E63 S (Matte)',emoji:'🖤', model:'sk-amg-e63.glb',    fn:_d3Marker, d3:true},
   {id:'lambo-svj',  name:'Lamborghini SVJ',emoji:'🏎️', model:'sk-lambo-svj.glb',   fn:_d3Marker, d3:true},
   {id:'big-q',      name:'Big Q',          emoji:'🚙', model:'sk-bmw-m4.glb',     fn:_d3Marker, d3:true},
   {id:'ferrari',    name:'Ferrari',        emoji:'🏎️', model:'ferrari.glb',        fn:_d3Marker, d3:true},
@@ -4550,6 +4522,38 @@ function refreshPreviewEta(){
   const tt=routeData.summary.time + routeTrafficSec(routePoints,1);
   try{ if(previewTime) previewTime.textContent=fmtTime(tt); }catch(_){}
   try{ if(previewETA) previewETA.textContent=`ETA ${fmtETA(tt)}`; }catch(_){}
+  // Update the "where's the traffic" line + step badges once live traffic lands.
+  if(navState!=='navigating'){ try{ renderTrafficSummary(); }catch(_){} try{ renderDirections(); }catch(_){} }
+}
+
+// Map TomTom congestion points onto the route's maneuvers → per-maneuver severity
+// (0 none / 1 slow / 2 heavy) + the congested road names, for the drawer + step badges.
+function maneuverCongestion(){
+  const sev=maneuvers.map(()=>0); const roads=[];
+  if(!tomtomCongestion.length || !maneuvers.length || !routePoints.length) return {sev, roads};
+  const seenRoad=new Set();
+  for(const c of tomtomCongestion){
+    let best=Infinity, bi=0;
+    for(let i=0;i<routePoints.length;i++){ const dd=haversine(c.lat,c.lng,routePoints[i][0],routePoints[i][1]); if(dd<best){best=dd;bi=i;} }
+    if(best>250) continue;                         // this congestion isn't on our route
+    let mi=0;
+    for(let j=0;j<maneuvers.length;j++){ if((maneuvers[j].begin_shape_index??0)<=bi) mi=j; else break; }
+    sev[mi]=Math.max(sev[mi], c.sev==='heavy'?2:1);
+    const nm=(maneuvers[mi].street_names||[])[0];
+    if(nm && !seenRoad.has(nm)){ seenRoad.add(nm); roads.push(nm); }
+  }
+  return {sev, roads};
+}
+// Traffic line in the route drawer: total delay + which roads are slow.
+function renderTrafficSummary(){
+  const el=$$('preview-traffic'); if(!el) return;
+  const {roads}=maneuverCongestion();
+  const delay=tomtomRouteDelay||0;
+  if(delay<60 && !roads.length){ el.classList.add('hidden'); el.textContent=''; return; }
+  const where=roads.length ? ' · '+roads.slice(0,2).map(escHtml).join(', ')+(roads.length>2?' +more':'') : '';
+  const mins=delay>=60 ? `+${Math.round(delay/60)} min` : 'slow';
+  el.innerHTML=`<span style="color:#f59e0b;font-weight:600">🚦 ${mins} in traffic</span><span style="color:#999">${where}</span>`;
+  el.classList.remove('hidden');
 }
 
 // Fetch live traffic for EVERY alternate, then auto-select the one that's actually

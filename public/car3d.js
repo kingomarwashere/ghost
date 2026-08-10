@@ -81,6 +81,9 @@ const MODEL_CFG = {
   // Fleet — batch 4 (Sketchfab, CC-BY) — yaw verified via tools/inspect-car
   'sk-lambo-svj.glb':  { normalize: true, sizeMul: 1.1,  yaw: 0 },
   'sk-bmw-m4.glb':      { normalize: true, sizeMul: 1.1,  yaw: 0 },
+  // Fulfilled car request: AMG E63 S (W213), murdered-out MATTE black (materials baked
+  // black + matte in the GLB; `matte` flag keeps applyMats from re-glossing it).
+  'sk-amg-e63.glb':    { normalize: true, sizeMul: 1.1,  yaw: 0, matte: true },
 };
 // Custom uploads (custom/<id>.glb, e.g. from Chisel) have no hand-tuned entry —
 // auto-normalize so any-scale mesh fits sensibly on the map.
@@ -231,15 +234,20 @@ function addFaceSprite(group, kind) {
   group.add(mesh);
 }
 
-// Reflective materials on every mesh.
-function applyMats(obj) {
+// Reflective materials on every mesh. `matte` (per-model) keeps the GLB's baked matte
+// finish instead of forcing gloss — used by the murdered-out AMG E63.
+function applyMats(obj, matte) {
   obj.traverse((o) => {
     if (!o.isMesh || !o.material) return;
     o.castShadow = false; o.receiveShadow = false;
     const m = o.material;
-    if ('metalness' in m) m.metalness = Math.max(m.metalness ?? 0, 0.3);
-    if ('roughness' in m) m.roughness = Math.min(m.roughness ?? 1, 0.5);
-    m.envMapIntensity = 1.2;
+    if (matte) {
+      m.envMapIntensity = 0.25;   // tame reflections; keep the baked matte roughness/metalness
+    } else {
+      if ('metalness' in m) m.metalness = Math.max(m.metalness ?? 0, 0.3);
+      if ('roughness' in m) m.roughness = Math.min(m.roughness ?? 1, 0.5);
+      m.envMapIntensity = 1.2;
+    }
   });
 }
 // Scale an object so its footprint (or height) == target, centre x/z, sit on ground.
@@ -299,7 +307,7 @@ function loadModel(file) {
             const ref = cfg.normMode || 'foot';
             out = fitObj(out, CANON * (cfg.sizeMul || 1), ref === 'height' ? 'height' : 'foot');
           }
-          applyMats(out);
+          applyMats(out, cfg.matte);
           resolve(out);
         }, undefined, reject);
       });
