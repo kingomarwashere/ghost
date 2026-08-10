@@ -83,7 +83,7 @@ const MODEL_CFG = {
   'sk-bmw-m4.glb':      { normalize: true, sizeMul: 1.1,  yaw: 0 },
   // Fulfilled car request: AMG E63 S (W213), murdered-out MATTE black (materials baked
   // black + matte in the GLB; `matte` flag keeps applyMats from re-glossing it).
-  'sk-amg-e63.glb':    { normalize: true, sizeMul: 1.1,  yaw: 0, matte: true },
+  'sk-amg-e63-matte.glb': { normalize: true, sizeMul: 1.1, yaw: 0, matte: true },
 };
 // Custom uploads (custom/<id>.glb, e.g. from Chisel) have no hand-tuned entry —
 // auto-normalize so any-scale mesh fits sensibly on the map.
@@ -242,7 +242,7 @@ function applyMats(obj, matte) {
     o.castShadow = false; o.receiveShadow = false;
     const m = o.material;
     if (matte) {
-      m.envMapIntensity = 0.25;   // tame reflections; keep the baked matte roughness/metalness
+      m.envMapIntensity = 0.6;   // enough env reflection to reveal the matte body's form
     } else {
       if ('metalness' in m) m.metalness = Math.max(m.metalness ?? 0, 0.3);
       if ('roughness' in m) m.roughness = Math.min(m.roughness ?? 1, 0.5);
