@@ -2854,6 +2854,7 @@ async function calcRoute(fromLat,fromLng,toLat,toLng){
     selectedRouteIdx=0;
     showRouteLoading(false);
     applySelectedRoute();
+    if(allRoutes.length>1) rankRoutesByTraffic();  // auto-pick the fastest route in live traffic
     fetchSchoolZones();
     fetchRouteSpeedLimits();
   }catch(e){ if(myReq!==_routeReq) return; routeFail(e?.name==='TimeoutError'?'Routing timed out — try again.':'Routing error — check your connection.'); }
@@ -2896,9 +2897,12 @@ function applySelectedRoute(){
   const lngs=routePoints.map(p=>p[1]),lats=routePoints.map(p=>p[0]);
   map.fitBounds([[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]],{padding:80});
 
-  tomtomRouteDelay=0;  // clear last route's delay; refreshRouteTraffic() refetches for this one
+  // Reuse this route's traffic if ranking already fetched it (chip-click / auto-switch);
+  // otherwise (single route) fetch it now. Multi-route plans get it via rankRoutesByTraffic.
+  tomtomRouteDelay = (routeData._ttDelay!=null) ? routeData._ttDelay : 0;
+  if(routeData._ttCongested){ const _now=Date.now(); tomtomCongestion=routeData._ttCongested.map(c=>({lat:c.lat,lng:c.lng,sev:c.sev||'slow',ts:_now})); }
   const td=routeData.summary.length, tt=routeData.summary.time + routeTrafficSec(routePoints,1);
-  refreshRouteTraffic();  // fetch live TomTom traffic → updates ETA + route colouring when it lands
+  if(routeData._ttDelay==null && allRoutes.length<=1) refreshRouteTraffic();
   previewDist.textContent=fmtDist(td*1000);
   previewTime.textContent=fmtTime(tt);
   if(previewETA) previewETA.textContent=`ETA ${fmtETA(tt)}`;
@@ -3020,16 +3024,20 @@ function renderRouteChips(){
   if(allRoutes.length<=1){chipsEl.classList.add('hidden');return;}
   chipsEl.classList.remove('hidden');
 
-  const times=allRoutes.map(t=>t.summary.time);
+  // Rank by traffic-adjusted time (free-flow + live TomTom delay) once we have it.
+  const adj=t=>t.summary.time+(t._ttDelay||0);
+  const times=allRoutes.map(adj);
   const dists=allRoutes.map(t=>t.summary.length);
   const minTime=Math.min(...times);
   const minDist=Math.min(...dists);
 
   chipsEl.innerHTML=allRoutes.map((trip,i)=>{
     let label='Alt';
-    if(trip.summary.time===minTime) label='Fastest';
+    if(adj(trip)===minTime) label='Fastest';
     else if(trip.summary.length===minDist) label='Shortest';
-    const sub=`${fmtDist(trip.summary.length*1000)} · ${fmtTime(trip.summary.time)}`;
+    const delay=trip._ttDelay||0;
+    const badge=delay>60?` <span style="color:#f59e0b">+${Math.round(delay/60)}m</span>`:'';
+    const sub=`${fmtDist(trip.summary.length*1000)} · ${fmtTime(adj(trip))}${badge}`;
     return `<button class="route-chip${i===selectedRouteIdx?' selected':''}" data-idx="${i}">${label}<br><small>${sub}</small></button>`;
   }).join('');
 
@@ -4492,6 +4500,7 @@ let liveCongestion=[];           // {lat,lng,sev,ts} from own-speed detection
 let tomtomCongestion=[];         // {lat,lng,sev,ts} from TomTom flow sampled along the route
 let tomtomRouteDelay=0;          // whole-route live traffic delay (sec) from TomTom
 let _lastTrafficRefresh=0;       // throttle for periodic traffic refresh during nav
+let _rankGen=0;                  // guards traffic-ranking against a newer route plan
 const CONGESTION_TTL=10*60*1000; // live congestion expires after 10 min
 
 function addLiveCongestion(lat,lng,sev){
@@ -4541,6 +4550,34 @@ function refreshPreviewEta(){
   const tt=routeData.summary.time + routeTrafficSec(routePoints,1);
   try{ if(previewTime) previewTime.textContent=fmtTime(tt); }catch(_){}
   try{ if(previewETA) previewETA.textContent=`ETA ${fmtETA(tt)}`; }catch(_){}
+}
+
+// Fetch live traffic for EVERY alternate, then auto-select the one that's actually
+// fastest in current traffic (not just free-flow) and repaint the chips with real times.
+async function rankRoutesByTraffic(){
+  const gen=++_rankGen;
+  const routes=allRoutes;
+  try{
+    const results=await Promise.all(routes.map(async trip=>{
+      try{
+        const r=await fetch('/api/route-traffic',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({points:decodePolyline6(trip.legs[0].shape), time:trip.summary.time})});
+        return r.ok ? await r.json() : {delaySec:0,congested:[]};
+      }catch(_){ return {delaySec:0,congested:[]}; }
+    }));
+    if(gen!==_rankGen || allRoutes!==routes) return;   // a newer plan superseded this one
+    results.forEach((d,i)=>{ if(routes[i]){ routes[i]._ttDelay=Math.max(0,Math.round(d.delaySec||0)); routes[i]._ttCongested=d.congested||[]; } });
+    // Fastest = lowest free-flow + live delay.
+    let best=0, bestT=Infinity;
+    routes.forEach((t,i)=>{ const adj=t.summary.time+(t._ttDelay||0); if(adj<bestT){bestT=adj;best=i;} });
+    const switched = best!==selectedRouteIdx;
+    selectedRouteIdx=best;
+    const sel=allRoutes[selectedRouteIdx]; const now=Date.now();
+    tomtomRouteDelay=sel._ttDelay||0;
+    tomtomCongestion=(sel._ttCongested||[]).map(c=>({lat:c.lat,lng:c.lng,sev:c.sev||'slow',ts:now}));
+    if(switched){ applySelectedRoute(); showToast('🚦 Switched to the fastest route in traffic',2800); }
+    else { updateTrafficOverlay(navState==='navigating'?routePoints.slice(Math.max(0,_lastRouteIdx||0)):routePoints); refreshPreviewEta(); renderRouteChips(); }
+  }catch(_){}
 }
 
 // Extra seconds to add to a route's ETA for the traffic sitting on it.
