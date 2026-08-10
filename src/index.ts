@@ -419,10 +419,15 @@ app.post('/api/route-traffic', async (c) => {
     const cur = Number(d.currentSpeed), free = Number(d.freeFlowSpeed);
     if (!cur || !free) return;
     const ratio = free / Math.max(1, cur);                   // >1 → slower than free-flow
-    if (ratio > 1.05) delaySec += portion * (ratio - 1);
+    // Only trust the delay when TomTom is reasonably confident (a point probe can land on
+    // a slow local road that isn't representative of the whole leg).
+    if (ratio > 1.05 && Number(d.confidence) >= 0.5) delaySec += portion * (ratio - 1);
     if (cur < free * 0.5) congested.push({ lat, lng, sev: 'heavy' });
     else if (cur < free * 0.8) congested.push({ lat, lng, sev: 'slow' });
   });
+  // Cap the delay so a few bad probes can't triple the ETA — traffic rarely more than
+  // doubles a trip; anything past +150% of free-flow is almost certainly sampling noise.
+  delaySec = Math.min(delaySec, freeFlowTime * 1.5);
   return c.json({ delaySec: Math.round(delaySec), congested });
 });
 
