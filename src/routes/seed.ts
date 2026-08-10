@@ -156,4 +156,54 @@ seed.post('/gov', async (c) => {
   return c.json({ source: 'gov', totalInserted, results });
 });
 
+// POST /api/admin/seed/nsw-replace — replace ALL gov-source cameras with a fresh
+// authoritative set. Body: { cameras: [{lat,lng,type,road,speed_limit,state,external_id}] }.
+// The TfNSW CloudFront host blocks Cloudflare egress, so a VM cron fetches the official
+// CSVs, parses them, and posts the rows here (Worker owns the D1 write).
+seed.post('/nsw-replace', async (c) => {
+  const body: any = await c.req.json().catch(() => null);
+  const cams: any[] = Array.isArray(body?.cameras) ? body.cameras : [];
+  if (!cams.length) return c.json({ error: 'no cameras' }, 400);
+  await c.env.DB.prepare("DELETE FROM cameras WHERE source='gov'").run();
+  const now = Date.now();
+  let inserted = 0;
+  for (let i = 0; i < cams.length; i += 50) {
+    const chunk = cams.slice(i, i + 50).filter((x: any) => typeof x.lat === 'number' && typeof x.lng === 'number');
+    if (!chunk.length) continue;
+    const stmts = chunk.map((x: any) => c.env.DB.prepare(
+      `INSERT OR IGNORE INTO cameras (id,lat,lng,type,source,description,state,road,speed_limit,external_id,created_at)
+       VALUES (?,?,?,?,'gov',?,?,?,?,?,?)`
+    ).bind(nanoid(), x.lat, x.lng, x.type || 'speed', x.description ?? x.road ?? null, x.state ?? 'NSW', x.road ?? null, x.speed_limit ?? null, x.external_id ?? null, now));
+    try { await c.env.DB.batch(stmts); inserted += stmts.length; } catch { /* skip bad chunk */ }
+  }
+  return c.json({ replaced: 'gov', inserted });
+});
+
+function haversineM(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371000, toR = (x: number) => x * Math.PI / 180;
+  const dLat = toR(bLat - aLat), dLng = toR(bLng - aLng);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toR(aLat)) * Math.cos(toR(bLat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+// POST /api/admin/seed/prune-monitoring?m=60 — delete OSM enforcement cameras sitting on a
+// live TRAFFIC-MONITORING webcam (LiveTraffic feed) — i.e. a crowdsourced mistag of a
+// monitoring CCTV as a speed camera (the reported bug). Gov cameras are never pruned.
+seed.post('/prune-monitoring', async (c) => {
+  const resp = await fetch('https://www.livetraffic.com/datajson/all-feeds-web.json', { headers: { 'User-Agent': 'ghost/1.0' } });
+  if (!resp.ok) return c.json({ error: 'webcam feed error' }, 502);
+  const all = await resp.json() as any[];
+  const webcams = all.filter((f: any) => f.eventCategory === 'liveCams').map((f: any) => ({ lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] }));
+  const rows = ((await c.env.DB.prepare("SELECT id,lat,lng FROM cameras WHERE source='osm'").all()).results ?? []) as any[];
+  const R = Math.max(20, Math.min(200, Number(c.req.query('m') || '60')));
+  const del: string[] = [];
+  for (const cam of rows) {
+    for (const w of webcams) { if (haversineM(cam.lat, cam.lng, w.lat, w.lng) < R) { del.push(cam.id); break; } }
+  }
+  for (let i = 0; i < del.length; i += 50) {
+    await c.env.DB.batch(del.slice(i, i + 50).map(id => c.env.DB.prepare('DELETE FROM cameras WHERE id=?').bind(id)));
+  }
+  return c.json({ webcams: webcams.length, osm_scanned: rows.length, pruned: del.length, radius_m: R });
+});
+
 export default seed;
