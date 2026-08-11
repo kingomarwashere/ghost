@@ -431,12 +431,32 @@ function mountShowroom(canvas) {
 
   let raf = null, dragging = false, lastX = 0, spin = true, yaw = 0, token = 0;
   let _lastW = 0, _lastH = 0;
+  let framed = null; // { size:Vector3, cy:number } of the current model — for re-framing
 
   function resize() {
     const w = canvas.clientWidth || 300, h = canvas.clientHeight || 200;
     _lastW = w; _lastH = h;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    frameCamera(); // the panel is often wide+short (or starts hidden) — re-fit on every resize
+  }
+
+  // Aspect-aware fit: place the camera so the model fills the viewport in BOTH
+  // axes (max of the horizontal/vertical fit distances) and sits vertically
+  // centred. Without this a wide, short preview leaves the car tiny and floating.
+  function frameCamera() {
+    if (!framed) return;
+    const { size, cy } = framed;
+    const vFOV = camera.fov * Math.PI / 180;
+    const aspect = Math.max(camera.aspect || 1, 0.1);
+    const hFOV = 2 * Math.atan(Math.tan(vFOV / 2) * aspect);
+    const halfW = 0.5 * Math.hypot(size.x, size.z);   // horizontal footprint radius
+    const halfH = 0.5 * size.y + 0.25 * size.z;       // body height + roof/depth from the 3/4 tilt
+    const dist = Math.max(halfH / Math.tan(vFOV / 2), halfW / Math.tan(hFOV / 2)) * 1.15;
+    const dir = new THREE.Vector3(0.62, 0.42, 0.85).normalize().multiplyScalar(dist);
+    camera.position.set(dir.x, dir.y + cy, dir.z);
+    camera.lookAt(0, cy, 0);
     camera.updateProjectionMatrix();
   }
 
@@ -451,11 +471,8 @@ function mountShowroom(canvas) {
       const size = box.getSize(new THREE.Vector3());
       const ctr = box.getCenter(new THREE.Vector3());
       m.position.x -= ctr.x; m.position.z -= ctr.z; // centre horizontally
-      const r = Math.max(size.x, size.y, size.z) || 2.5;
-      const d = r * 1.9;
-      camera.position.set(d * 0.62, d * 0.42, d * 0.85);
-      camera.lookAt(0, size.y * 0.35, 0);
-      camera.updateProjectionMatrix();
+      framed = { size, cy: ctr.y };
+      frameCamera();
     });
   }
 
