@@ -106,9 +106,11 @@ const modelCache = new Map(); // file -> Promise<THREE.Group>
 // ── Body recolour — only for simple flat-material cars that tint cleanly ─────
 const TINTABLE = new Set(['sedan.glb','sedan-sports.glb','hatchback-sports.glb','suv.glb','suv-luxury.glb','van.glb','race.glb','race-future.glb',
   // realistic cars hand-mapped below (they have a flat-colour paint material that recolours cleanly)
-  'sk-e30.glb','sk-phoenix.glb','sk-londonbus.glb']);
+  'sk-e30.glb','sk-phoenix.glb','sk-londonbus.glb','sk-bmw-m4.glb']);
 // For hand-mapped realistic cars, recolour ONLY this named material (their body paint).
-const TINT_MAT = { 'sk-e30.glb':'BMW_E30_M3_PAINT', 'sk-phoenix.glb':'Phoenix445_Bodymat', 'sk-londonbus.glb':'van_paint_2' };
+// sk-bmw-m4: Material_692 is the solid glossy body paint — used ONLY by the Body +
+// Door meshes, so tinting it leaves headlights/glass/grille/wheels/carbon-roof intact.
+const TINT_MAT = { 'sk-e30.glb':'BMW_E30_M3_PAINT', 'sk-phoenix.glb':'Phoenix445_Bodymat', 'sk-londonbus.glb':'van_paint_2', 'sk-bmw-m4.glb':'Material_692' };
 let _tint = '';
 try{ _tint = localStorage.getItem('carTint') || ''; }catch(_){}
 function _tintTargets(root, file){

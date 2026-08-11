@@ -3822,7 +3822,7 @@ const CARS=[
   // ── Realistic fleet (Sketchfab, CC-BY — see CREDITS.md) ──────────────────
   {id:'amg-e63',    name:'AMG E63 S (Matte)',emoji:'🖤', model:'sk-amg-e63-matte.glb', fn:_d3Marker, d3:true},
   {id:'lambo-svj',  name:'Lamborghini SVJ',emoji:'🏎️', model:'sk-lambo-svj.glb',   fn:_d3Marker, d3:true},
-  {id:'big-q',      name:'Big Q',          emoji:'🚙', model:'sk-bmw-m4.glb',     fn:_d3Marker, d3:true},
+  {id:'big-q',      name:'Big Q',          emoji:'🚙', model:'sk-bmw-m4.glb',     fn:_d3Marker, d3:true, defaultTint:'#191970'},
   {id:'ferrari',    name:'Ferrari',        emoji:'🏎️', model:'ferrari.glb',        fn:_d3Marker, d3:true},
   {id:'pony',       name:'GT Sport',       emoji:'🏎️', model:'sk-pony.glb',        fn:_d3Marker, d3:true},
   {id:'f40',        name:'F40 LM',         emoji:'🏎️', model:'sk-f40.glb',         fn:_d3Marker, d3:true},
