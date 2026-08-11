@@ -5,7 +5,6 @@ export interface Env {
   ADMIN_KEY: string;
   TFNSW_API_KEY?: string;
   OPENWEB_NINJA_KEY: string;
-  MAPILLARY_TOKEN?: string;
   NSW_FUELCHECK_KEY?: string;
   NSW_FUELCHECK_SECRET?: string;
   GOOGLE_MAPS_KEY?: string;

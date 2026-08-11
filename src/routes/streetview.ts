@@ -1,31 +1,15 @@
 import { Hono } from 'hono';
 import type { Env } from '../types';
 
-// Street-level photo for an address. Tries Mapillary (free, crowdsourced) for the
-// closest image; if there's none (patchy AU-suburb coverage) or no token, falls
-// back to an aerial/satellite tile so there's ALWAYS an image. Edge-cached ~24h.
+// Street-level photo for an address: Google Street View (best coverage + true 360).
+// If there's no pano at the spot, falls back to an aerial/satellite tile so there's
+// ALWAYS an image. Edge-cached ~24h.
 
 const streetview = new Hono<{ Bindings: Env }>();
 
-// Client token for mapillary-js (the interactive 360 viewer runs in the browser
-// and needs the access token; Mapillary client tokens are meant for browser use).
-streetview.get('/token', (c) => c.json({ token: c.env.MAPILLARY_TOKEN ?? '' }));
-// Google Maps JS API key for the interactive Street View panorama (must be
+// Google Maps API key for the interactive Street View panorama (must be
 // referrer-restricted to the app's domains — it is exposed in the browser).
 streetview.get('/gkey', (c) => c.json({ key: c.env.GOOGLE_MAPS_KEY ?? '' }));
-
-// Pick the Mapillary image object whose point is closest to (lat,lng). Pure.
-export function pickNearest(images: any[], lat: number, lng: number): any | null {
-  let best: any = null, bestD = Infinity;
-  for (const im of images || []) {
-    const g = im?.geometry?.coordinates; // [lng, lat]
-    if (!g) continue;
-    const dLat = g[1] - lat, dLng = (g[0] - lng) * Math.cos(lat * Math.PI / 180);
-    const d = dLat * dLat + dLng * dLng;
-    if (d < bestD) { bestD = d; best = im; }
-  }
-  return best;
-}
 
 // Esri World Imagery aerial JPEG centred on the point (~180m box). No key needed.
 function satelliteUrl(lat: number, lng: number): string {
@@ -41,13 +25,13 @@ streetview.get('/', async (c) => {
 
   const rLat = lat.toFixed(4), rLng = lng.toFixed(4); // ~11m cache grid
   // v4: Google Street View is now primary (responses gain type:'google' + pano).
-  const key = new Request(`https://ghost.cache/streetview?v=4&lat=${rLat}&lng=${rLng}`);
+  const key = new Request(`https://ghost.cache/streetview?v=5&lat=${rLat}&lng=${rLng}`);
   // @ts-ignore — Workers Cache API
   const cache = caches.default;
   const hit = await cache.match(key);
   if (hit) return hit;
 
-  let out: { type: 'google' | 'street' | 'sat'; url: string; id?: string; pano?: string; lat?: number; lng?: number } = { type: 'sat', url: satelliteUrl(lat, lng) };
+  let out: { type: 'google' | 'sat'; url: string; pano?: string; lat?: number; lng?: number } = { type: 'sat', url: satelliteUrl(lat, lng) };
 
   // 1. Google Street View (best coverage + true 360) — free metadata check first,
   //    so we only claim "google" when a pano actually exists at this spot.
@@ -65,26 +49,7 @@ streetview.get('/', async (c) => {
     } catch { /* fall through */ }
   }
 
-  // 2. Mapillary fallback (only if Google had nothing).
-  const token = c.env.MAPILLARY_TOKEN;
-  if (out.type === 'sat' && token) {
-    // ~150m box around the point (wider = better hit rate on suburban streets).
-    const dLat = 150 / 111320, dLng = 150 / (111320 * Math.cos(lat * Math.PI / 180));
-    const bbox = `${lng - dLng},${lat - dLat},${lng + dLng},${lat + dLat}`;
-    // NOTE: the Mapillary token MUST stay raw — its `|` separators break auth if
-    // URL-encoded (%7C returns zero images).
-    const url = `https://graph.mapillary.com/images?fields=id,thumb_1024_url,thumb_256_url,geometry&bbox=${bbox}&limit=20&access_token=${token}`;
-    try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(6000), cf: { cacheTtl: 86400, cacheEverything: true } } as any);
-      if (r.ok) {
-        const j = await r.json().catch(() => null) as any;
-        const pic = pickNearest(j?.data ?? [], lat, lng);
-        const purl = pic?.thumb_1024_url || pic?.thumb_256_url;
-        if (purl) out = { type: 'street', url: purl, id: pic.id };
-      }
-    } catch { /* fall through to satellite */ }
-  }
-
+  // No Google pano here → the satellite fallback set above stands.
   const res = c.json(out, 200, { 'Cache-Control': 'public, max-age=86400' });
   c.executionCtx.waitUntil(cache.put(key, res.clone()));
   return res;
