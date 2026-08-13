@@ -1499,9 +1499,21 @@ let _aircraftTimer=null;
 
 function planeTag(p){
   const o=p.operator||'';
-  if(/victoria/i.test(o)) return 'POLAIR VIC';
-  if(/nsw/i.test(o))      return 'POLAIR NSW';
+  if(/victoria/i.test(o))         return 'POLAIR VIC';
+  if(/nsw/i.test(o))              return 'POLAIR NSW';
+  if(/qgair/i.test(o))            return 'QGAIR';
+  if(/\bqld\b|queensland/i.test(o))return 'POLAIR QLD';
+  if(/\bwa\b|western/i.test(o))   return 'POLAIR WA';
+  if(/sapol|south australia/i.test(o)) return 'POLAIR SA';
+  if(/\bnt\b|northern/i.test(o))  return 'POLAIR NT';
+  if(/federal/i.test(o))          return 'AFP';
   return 'POLAIR';
+}
+// Compact altitude·speed line under the marker. Kept tiny to avoid cluttering a
+// busy sky; full detail is in the tap popup.
+function planeLabelText(p){
+  const a=p.alt!=null?`${p.alt.toLocaleString()}ft`:'gnd';
+  return p.gs!=null?`${a}·${p.gs}kt`:a;
 }
 function aircraftEl(p){
   const wrap=document.createElement('div');
@@ -1512,7 +1524,11 @@ function aircraftEl(p){
   inner.innerHTML=p.police?HELI_SVG:PLANE_SVG;
   wrap.appendChild(inner);
   if(p.police){ const t=document.createElement('span'); t.className='plane-tag'; t.textContent=planeTag(p); wrap.appendChild(t); }
-  return {wrap,inner};
+  const label=document.createElement('span');
+  label.className='plane-label';
+  label.textContent=planeLabelText(p);
+  wrap.appendChild(label);
+  return {wrap,inner,label};
 }
 function planePopupHtml(p){
   const title=p.police?(p.operator||'Police aircraft'):(p.flight||p.reg||'Aircraft');
@@ -1551,14 +1567,15 @@ async function loadAircraft(){
       if(ex && ex.police===!!p.police){
         ex.p=p; ex.marker.setLngLat([p.lng,p.lat]);
         ex.inner.style.transform=`rotate(${p.track}deg)`;
+        ex.label.textContent=planeLabelText(p);
         ex.marker.getPopup()?.setHTML(planePopupHtml(p));
         continue;
       }
       if(ex){ ex.marker.remove(); aircraftMarkers.delete(hex); } // police state flipped → rebuild icon
-      const {wrap,inner}=aircraftEl(p);
+      const {wrap,inner,label}=aircraftEl(p);
       const popup=new maplibregl.Popup({offset:16,maxWidth:'240px'}).setHTML(planePopupHtml(p));
       const marker=new maplibregl.Marker({element:wrap,anchor:'center'}).setLngLat([p.lng,p.lat]).setPopup(popup).addTo(map);
-      aircraftMarkers.set(hex,{marker,inner,police:!!p.police,p});
+      aircraftMarkers.set(hex,{marker,inner,label,police:!!p.police,p});
     }
   }catch{}
 }

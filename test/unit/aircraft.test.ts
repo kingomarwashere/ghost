@@ -25,6 +25,15 @@ describe('tagPolice', () => {
     expect(tagPolice({ hex: 'def456', flight: 'POLAIR21 ' }).police).toBe(true);
   });
 
+  it('tags the expanded multi-state allow-list with correct operators', () => {
+    expect(tagPolice({ hex: '7caedf' }).operator).toMatch(/QLD Police/);   // VH-8TT
+    expect(tagPolice({ hex: '7c7180' }).operator).toMatch(/WA Police/);    // VH-WPE
+    expect(tagPolice({ hex: '7c2496' }).operator).toMatch(/SAPOL/);        // VH-HIG
+    expect(tagPolice({ hex: '7c79fd' }).operator).toMatch(/NT Police/);    // VH-YDR
+    expect(tagPolice({ hex: '7cb08f' }).operator).toMatch(/Federal/);      // VH-85T
+    expect(tagPolice({ hex: '7c151d' }).operator).toMatch(/QGAir/);        // VH-EGF
+  });
+
   it('does NOT tag an ordinary airliner', () => {
     const t = tagPolice({ hex: '7c6db2', r: 'VH-VKA', flight: 'QFA123', t: 'B738' });
     expect(t.police).toBe(false);

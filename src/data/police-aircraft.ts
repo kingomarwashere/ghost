@@ -12,10 +12,54 @@ export interface PoliceAircraft {
   operator: string;  // human-readable operator
 }
 
+// Hexes verified via hexdb.io reg↔hex lookups; ownership confirmed on the CASA
+// register (mirrored at 16right.com). `type` is documentation only — live feeds
+// supply the real type at render time. reg-only aircraft (hex unconfirmed) are
+// intentionally omitted rather than guessed; the rego/callsign heuristics below
+// catch those live.
 export const POLICE_HEX: Record<string, PoliceAircraft> = {
-  '7c4ced': { reg: 'VH-PHB', type: 'AS50', operator: 'NSW Police (PolAir)' },
-  '7c4ef2': { reg: 'VH-PVO', type: 'AW139', operator: 'Victoria Police Air Wing' },
-  '7c4ef5': { reg: 'VH-PVR', type: 'AW139', operator: 'Victoria Police Air Wing' },
+  // NSW Police — Aviation Command / "PolAir" (helis VH-PH_, Caravans VH-D_V)
+  '7c4ced': { reg: 'VH-PHB', type: 'B429', operator: 'NSW Police (PolAir)' },
+  '7c4d02': { reg: 'VH-PHW', type: 'B429', operator: 'NSW Police (PolAir)' },
+  '7c4cf8': { reg: 'VH-PHM', type: 'B429', operator: 'NSW Police (PolAir)' },
+  '7c4d05': { reg: 'VH-PHZ', type: 'B412', operator: 'NSW Police (PolAir)' },
+  '7c4e49': { reg: 'VH-PQZ', type: 'B412', operator: 'NSW Police (PolAir)' },
+  '7c1239': { reg: 'VH-DVV', type: 'C208', operator: 'NSW Police (PolAir)' },
+  '7c0ff9': { reg: 'VH-DFV', type: 'C208', operator: 'NSW Police (PolAir)' },
+  '7c1185': { reg: 'VH-DQV', type: 'C208', operator: 'NSW Police (PolAir)' },
+  // Victoria Police — Air Wing (VH-PV_, callsigns POL30–35)
+  '7c4ef2': { reg: 'VH-PVO', type: 'A139', operator: 'Victoria Police Air Wing' },
+  '7c4ef5': { reg: 'VH-PVR', type: 'A139', operator: 'Victoria Police Air Wing' },
+  '7c4ef4': { reg: 'VH-PVQ', type: 'A139', operator: 'Victoria Police Air Wing' },
+  '7c4ee8': { reg: 'VH-PVE', type: 'B350', operator: 'Victoria Police Air Wing' },
+  // Queensland Police — Air Operations (fixed-wing surveillance)
+  '7caedf': { reg: 'VH-8TT', type: 'B350', operator: 'QLD Police Air Operations' },
+  '7cae3f': { reg: 'VH-8PD', type: 'B350', operator: 'QLD Police Air Operations' },
+  '7cae40': { reg: 'VH-8PE', type: 'B350', operator: 'QLD Police Air Operations' },
+  '7cae41': { reg: 'VH-8PF', type: 'B350', operator: 'QLD Police Air Operations' },
+  '7c4e47': { reg: 'VH-PQX', type: 'C208', operator: 'QLD Police Air Operations' },
+  '7c4e8d': { reg: 'VH-PSV', type: 'C208', operator: 'QLD Police Air Operations' },
+  '7c5c08': { reg: 'VH-SGQ', type: 'B350', operator: 'QLD Police Air Operations' },
+  // QGAir Rescue (QLD state SAR under the QPS Aviation Capability Group)
+  '7c151d': { reg: 'VH-EGF', type: 'A139', operator: 'QGAir Rescue (QLD)' },
+  '7c1522': { reg: 'VH-EGK', type: 'A139', operator: 'QGAir Rescue (QLD)' },
+  '7c16cf': { reg: 'VH-ESH', type: 'A139', operator: 'QGAir Rescue (QLD)' },
+  '7c16e1': { reg: 'VH-ESZ', type: 'A139', operator: 'QGAir Rescue (QLD)' },
+  '7c17cd': { reg: 'VH-EZJ', type: 'A139', operator: 'QGAir Rescue (QLD)' },
+  // Western Australia Police — Air Wing (VH-WP_ Pilatus, VH-VQ_/VH-VLA)
+  '7c7180': { reg: 'VH-WPE', type: 'PC12', operator: 'WA Police Air Wing' },
+  '7c718c': { reg: 'VH-WPQ', type: 'PC12', operator: 'WA Police Air Wing' },
+  '7c7194': { reg: 'VH-WPY', type: 'PC12', operator: 'WA Police Air Wing' },
+  '7c6bdc': { reg: 'VH-VLA', type: 'C208', operator: 'WA Police Air Wing' },
+  '7c6ca7': { reg: 'VH-VQX', type: 'EC45', operator: 'WA Police Air Wing' },
+  '7c6ca8': { reg: 'VH-VQY', type: 'EC45', operator: 'WA Police Air Wing' },
+  // South Australia Police (SAPOL)
+  '7c2496': { reg: 'VH-HIG', type: 'PC12', operator: 'SA Police (SAPOL)' },
+  // Northern Territory Police — Air Wing
+  '7c79fd': { reg: 'VH-YDR', type: 'PC12', operator: 'NT Police Air Wing' },
+  // Australian Federal Police (AFP)
+  '7cb08f': { reg: 'VH-85T', type: 'B350', operator: 'Australian Federal Police' },
+  '7c1563': { reg: 'VH-EID', type: 'B350', operator: 'Australian Federal Police' },
 };
 
 // Raw aircraft object as returned by the airplanes.live / adsb.lol v2 API (the
