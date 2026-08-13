@@ -1092,6 +1092,53 @@ body.navigating #compass-widget { top: calc(env(safe-area-inset-top, 0px) + 250p
    messages like "Route updated" don't cover the street-name pill / speedometer. */
 body.navigating #toast { top: calc(178px + env(safe-area-inset-top)); bottom: auto; }
 
+/* ── Find My Car ──────────────────────────────── */
+.parked-marker { position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.parked-marker .parked-pulse {
+  position: absolute; bottom: 3px; left: 50%; width: 28px; height: 11px; border-radius: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(255,45,85,.55), transparent 70%);
+  animation: park-pulse 2.2s ease-in-out infinite;
+}
+.parked-marker .parked-car { width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; font-size: 1.9rem; filter: drop-shadow(0 3px 6px rgba(0,0,0,.75)); }
+.parked-marker .parked-car img { width: 46px; height: 46px; object-fit: contain; }
+.parked-marker .parked-badge {
+  position: absolute; top: -3px; right: -2px; z-index: 2; font-size: .72rem; line-height: 1;
+  width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+  background: #0b0b12; border: 1px solid rgba(255,255,255,.18); border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0,0,0,.6);
+}
+@keyframes park-pulse { 0%,100% { transform: translateX(-50%) scale(1); opacity: .6; } 50% { transform: translateX(-50%) scale(1.35); opacity: .28; } }
+
+#findcar-chip {
+  position: absolute; top: calc(64px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  z-index: 900; display: flex; align-items: center; gap: 6px;
+  background: rgba(3,7,17,.92); border: 1px solid rgba(255,45,85,.38); border-radius: 999px;
+  color: #fff; font-size: .8rem; font-weight: 700; padding: 7px 15px; cursor: pointer;
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 4px 20px rgba(0,0,0,.5); white-space: nowrap;
+  -webkit-tap-highlight-color: transparent; animation: slideDown .25s ease;
+}
+#findcar-chip .findcar-dist { color: #ff8fa3; font-weight: 800; }
+#findcar-chip:active { transform: translateX(-50%) scale(.95); }
+@keyframes slideDown { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translateX(-50%); } }
+
+#park-toast {
+  position: absolute; bottom: calc(90px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+  z-index: 2001; display: flex; align-items: center; gap: 12px;
+  background: rgba(20,20,28,.97); border: 1px solid rgba(255,255,255,.12); border-radius: 22px;
+  padding: 9px 11px 9px 18px; font-size: .85rem; font-weight: 600; white-space: nowrap;
+  box-shadow: 0 4px 24px rgba(0,0,0,.6); animation: slideUp .2s ease;
+}
+#park-toast #park-undo {
+  background: var(--accent); color: #fff; border: none; border-radius: 14px;
+  padding: 6px 15px; font-weight: 800; font-size: .8rem; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+body.navigating #park-toast { top: calc(178px + env(safe-area-inset-top)); bottom: auto; }
+.popup-actions button:not(.secondary) { color: var(--accent) !important; font-weight: 800; border-color: rgba(255,45,85,.4); }
+.popup-actions .secondary { color: #9aa3ad; }
+
 /* ── Near-me chips ───────────────────────────────── */
 /* ── Request a car ── */
 #request-car-btn {

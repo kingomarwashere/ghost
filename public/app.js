@@ -68,6 +68,22 @@ const setShortcut = (slot, p) => {
 };
 let _settingShortcut = null; // 'home' | 'work' while the user is picking a place to pin
 
+// Find My Car — remember where you parked (per-device). Auto-saved on arrival,
+// overwritten on each new arrival, forgotten after 7 days so it can't go stale.
+const PARKED_KEY = 'radar_parked', PARKED_TTL = 7 * 24 * 60 * 60 * 1000;
+function getParked() {
+  try {
+    const p = JSON.parse(localStorage.getItem(PARKED_KEY) || 'null');
+    return GhostCore.parkFresh(p, PARKED_TTL) ? p : null;
+  } catch { return null; }
+}
+function setParked(p) {
+  localStorage.setItem(PARKED_KEY, JSON.stringify({
+    lat: p.lat, lng: p.lng, ts: p.ts || Date.now(), carId: p.carId || '', name: p.name || 'Parked',
+  }));
+}
+function clearParkedStore() { localStorage.removeItem(PARKED_KEY); }
+
 // Active-trip persistence — survive an accidental reload / crash mid-navigation.
 const TRIP_KEY = 'radar_active_trip';
 function saveActiveTrip(){
@@ -396,7 +412,9 @@ map.on('style.load', () => {
       autoNightCheck();
       localStorage.setItem('radar_lastpos', JSON.stringify({lat:pos.coords.latitude,lng:pos.coords.longitude}));
       if(navState==='idle') map.flyTo({center:[pos.coords.longitude,pos.coords.latitude],zoom:14,duration:1500});
+      updateFindCarChip(); // refresh distance-to-car now we have a fix
     }, null, {enableHighAccuracy:false,timeout:8000,maximumAge:60000});
+    renderParkedCar(); // show the parked car (if any) waiting on the idle map
     scheduleFetch();
     setInterval(autoNightCheck, 10*60*1000);
   }
@@ -1585,6 +1603,86 @@ function syncAircraftTimer(){
   else if(!on && _aircraftTimer){ clearInterval(_aircraftTimer); _aircraftTimer=null; }
 }
 
+/* ── Find My Car — parked-car marker + "Find My Car" chip ─────────────────────
+   Your chosen car (its rendered thumbnail) sits on the map where you last parked,
+   waiting on the idle screen. Hidden while navigating (you're in the car). */
+let parkedMarker=null, _parkToastTimer=null;
+function currentLoc(){
+  const g=userMarker?userMarker.getLngLat():null;
+  if(g) return {lat:g.lat,lng:g.lng};
+  try{ return JSON.parse(localStorage.getItem('radar_lastpos')||'null'); }catch{ return null; }
+}
+const parkedAgo=(ts)=>GhostCore.parkedAgo(ts); // (fmtDist already exists globally — reused for the chip)
+function parkedCarName(park){ return CARS.find(c=>c.id===park.carId)?.name || 'car'; }
+function parkedCarEl(park){
+  const emoji=CARS.find(c=>c.id===park.carId)?.emoji || '🚗';
+  const el=document.createElement('div');
+  el.className='parked-marker';
+  el.innerHTML=`<div class="parked-pulse"></div><div class="parked-badge">🅿️</div>`+
+    `<div class="parked-car"><img src="/carthumbs/${park.carId}.png" alt="" `+
+    `onerror="this.remove();this.parentNode.textContent='${emoji}'"></div>`;
+  return el;
+}
+function parkedPopupHtml(park){
+  const near=park.name&&park.name!=='Parked'?` · near ${escHtml(park.name)}`:'';
+  return `<strong>🅿️ Your ${escHtml(parkedCarName(park))}</strong>`+
+    `<p style="color:#9aa3ad;font-size:.72rem;margin:.25rem 0 .5rem">Parked ${parkedAgo(park.ts)}${near}</p>`+
+    `<div class="popup-actions"><button onclick="navigateToCar()">Navigate</button>`+
+    `<button class="secondary" onclick="clearParked()">Clear</button></div>`;
+}
+function removeParkedMarker(){ if(parkedMarker){ parkedMarker.remove(); parkedMarker=null; } }
+function updateFindCarChip(){
+  const chip=$$('findcar-chip'); if(!chip) return;
+  const p=getParked();
+  if(!p || navState==='navigating'){ chip.classList.add('hidden'); return; }
+  const me=currentLoc();
+  const d=me?fmtDist(haversine(me.lat,me.lng,p.lat,p.lng)):'';
+  const dEl=chip.querySelector('.findcar-dist'); if(dEl) dEl.textContent=d?`· ${d}`:'';
+  chip.classList.remove('hidden');
+}
+// Show/refresh the parked marker. Safe to call anytime; it self-heals to state.
+function renderParkedCar(){
+  const p=getParked();
+  if(!p || navState==='navigating'){ removeParkedMarker(); updateFindCarChip(); return; }
+  if(parkedMarker){
+    parkedMarker.setLngLat([p.lng,p.lat]);
+    parkedMarker.getPopup()?.setHTML(parkedPopupHtml(p));
+  }else{
+    const popup=new maplibregl.Popup({offset:22,maxWidth:'230px'}).setHTML(parkedPopupHtml(p));
+    parkedMarker=new maplibregl.Marker({element:parkedCarEl(p),anchor:'center'})
+      .setLngLat([p.lng,p.lat]).setPopup(popup).addTo(map);
+  }
+  updateFindCarChip();
+}
+// Save the current (or given) spot as parking + surface the Undo toast.
+function saveParkingAt(lat,lng,name){
+  setParked({lat,lng,ts:Date.now(),carId:selectedCar,name});
+  renderParkedCar();
+  const el=$$('park-toast');
+  if(el){ el.classList.remove('hidden'); clearTimeout(_parkToastTimer);
+    _parkToastTimer=setTimeout(()=>el.classList.add('hidden'),6000); }
+}
+window.navigateToCar=()=>{
+  const p=getParked(); if(!p) return;
+  parkedMarker?.getPopup()?.remove();
+  toPlace={lat:p.lat,lng:p.lng,name:'My car 🅿️'};
+  if(toInput){ toInput.value='My car 🅿️'; toClear?.classList.remove('hidden'); }
+  tryRoute();
+};
+window.clearParked=()=>{
+  clearParkedStore(); removeParkedMarker(); updateFindCarChip();
+  $$('park-toast')?.classList.add('hidden'); showToast('🅿️ Parking cleared');
+};
+$$('findcar-chip')?.addEventListener('click',()=>{
+  const p=getParked(); if(!p) return;
+  map.flyTo({center:[p.lng,p.lat],zoom:Math.max(map.getZoom(),16),duration:800});
+  if(parkedMarker && !parkedMarker.getPopup()?.isOpen()) parkedMarker.togglePopup();
+});
+$$('park-undo')?.addEventListener('click',()=>{
+  clearParkedStore(); removeParkedMarker(); updateFindCarChip();
+  $$('park-toast')?.classList.add('hidden'); showToast('🅿️ Parking not saved');
+});
+
 let _lastFetchAt=0;
 function scheduleFetch(){
   const doFetch=()=>{
@@ -1607,6 +1705,7 @@ function scheduleFetch(){
   else fetchTmr=setTimeout(doFetch, 300);
 }
 map.on('moveend',scheduleFetch);map.on('zoomend',scheduleFetch);
+map.on('moveend',()=>{ if(navState!=='navigating') updateFindCarChip(); });
 setInterval(loadReports,90_000);
 
 document.querySelectorAll('.filter-btn').forEach(btn=>{
@@ -2175,20 +2274,22 @@ async function _openTapPopup(lngLat){
   }catch{}
 
   _tapPopup=new maplibregl.Popup({offset:44,closeButton:true,maxWidth:'200px'})
-    .setHTML(`<strong style="display:block;font-size:.9rem;margin-bottom:8px">${escHtml(name)}</strong><button id="tap-drive-btn" style="width:100%;padding:11px;background:#00cfff;border:none;border-radius:10px;color:#000;font-weight:900;font-size:.9rem;cursor:pointer">Drive here</button>`)
+    .setHTML(`<strong style="display:block;font-size:.9rem;margin-bottom:8px">${escHtml(name)}</strong><button id="tap-drive-btn" style="width:100%;padding:11px;background:#00cfff;border:none;border-radius:10px;color:#000;font-weight:900;font-size:.9rem;cursor:pointer">Drive here</button><button id="tap-park-btn" style="width:100%;margin-top:6px;padding:9px;background:#15151f;border:1px solid #34343f;border-radius:10px;color:#ffd23f;font-weight:800;font-size:.82rem;cursor:pointer">🅿️ Park here</button>`)
     .setLngLat(lngLat)
     .addTo(map);
 
-  // Wire button after popup is in DOM
+  // Wire buttons after popup is in DOM
   requestAnimationFrame(()=>{
-    const btn=document.getElementById('tap-drive-btn');
-    if(!btn) return;
-    btn.addEventListener('click',()=>{
-      _tapPopup.remove(); _tapPopup=null;
-      if(_tapMarker){ _tapMarker.remove(); _tapMarker=null; }
+    const closeTap=()=>{ _tapPopup?.remove(); _tapPopup=null; if(_tapMarker){ _tapMarker.remove(); _tapMarker=null; } };
+    document.getElementById('tap-drive-btn')?.addEventListener('click',()=>{
+      closeTap();
       toPlace={lat:lngLat.lat,lng:lngLat.lng,name};
       toInput.value=name; toClear.classList.remove('hidden');
       tryRoute();
+    });
+    document.getElementById('tap-park-btn')?.addEventListener('click',()=>{
+      closeTap();
+      saveParkingAt(lngLat.lat,lngLat.lng,name); // mark this spot as where I parked
     });
   });
 }
@@ -3511,6 +3612,7 @@ function startNav(){
   document.body.classList.add('navigating');
   navFooter.classList.remove('hidden');
   navState='navigating';
+  renderParkedCar(); // you're in the car now — hide the parked marker/chip
   currentMidx=0; lastVoice=-1; offCount=0; alertedIds.clear();
   // Fresh GPS state for this trip: drop any stale position (so the first fix isn't
   // diffed against a far-away one) and open a settling window that suppresses the
@@ -3619,6 +3721,7 @@ function endNav(){
   prevPos=null;
   currentSpeedEl.innerHTML='– <small>km/h</small>';
   speedLimitSign.classList.add('hidden');
+  renderParkedCar(); // back on the idle map — show the parked car (if any) again
 }
 
 /* ── GPS-loss handling ──────────────────────────────────────────────────
@@ -5534,6 +5637,10 @@ function triggerArrival(){
   if(watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; }
   if(_mRaf!=null){ cancelAnimationFrame(_mRaf); _mRaf=null; }
   clearActiveTrip(); // arrived — nothing to resume
+  // Find My Car — auto-remember where we stopped (Undo via the toast). Use the last
+  // fix; captured before endNav tears down userMarker.
+  const at=(prevPos&&typeof prevPos.lat==='number')?prevPos:(userMarker?userMarker.getLngLat():null);
+  if(at) saveParkingAt(at.lat,at.lng,toPlace?.name);
 }
 
 /* ═══════════════════════════════════════════════

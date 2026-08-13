@@ -542,6 +542,12 @@
 <!-- ── Re-center button (appears when user pans during nav) ── -->
 <button id="recenter-btn" class="hidden" title="Re-center">⊙</button>
 
+<!-- ── Find My Car chip (idle screen) ──────────── -->
+<button id="findcar-chip" class="hidden"><span class="findcar-ico">🅿️</span><span class="findcar-lbl">Find My Car</span> <span class="findcar-dist"></span></button>
+
+<!-- ── Parking-saved toast (with Undo) ─────────── -->
+<div id="park-toast" class="hidden"><span class="pt-msg">🅿️ Saved where you parked</span><button id="park-undo">Undo</button></div>
+
 <!-- ── Toast ──────────────────────────────────── -->
 <div id="toast" class="hidden"></div>
 
@@ -764,6 +770,7 @@
 <script src="/lib/geo.js"></script>
 <script src="/lib/route-match.js"></script>
 <script src="/lib/address.js"></script>
+<script src="/lib/parking.js"></script>
 <script src="/app.js"></script>
 <script src="/game.js"></script>
 <script src="/race.js"></script>
