@@ -42,15 +42,28 @@ body {
   white-space: nowrap; max-width: calc(100vw - 20px);
   box-shadow: 0 4px 32px rgba(0,0,0,.7), 0 0 0 1px rgba(255,0,153,0.08);
 }
-#logo { line-height: 1; padding-right: 2px; display: flex; align-items: center; gap: 5px; }
+#logo { line-height: 1; padding-right: 2px; display: flex; align-items: center; gap: 5px; flex: 0 0 auto; }
 #logo-text {
   font-family: var(--font);
   font-size: .85rem; font-weight: 900;
   letter-spacing: .18em; color: var(--accent);
   text-transform: uppercase;
 }
-#filters { display: flex; gap: 2px; }
+/* Filters can outnumber the phone's width (9+ toggles) — let the row scroll
+   horizontally inside the pill instead of clipping the last buttons off-screen.
+   Hidden scrollbar + a right-edge fade hint that there's more to swipe to. */
+#filters {
+  display: flex; gap: 2px;
+  flex: 1 1 auto; min-width: 0;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 10px), transparent);
+          mask-image: linear-gradient(90deg, #000 calc(100% - 10px), transparent);
+}
+#filters::-webkit-scrollbar { display: none; }
 .filter-btn {
+  flex: 0 0 auto;
   background: rgba(255,255,255,0.05); border: 1px solid var(--border);
   border-radius: 999px; color: #fff; cursor: pointer;
   font-size: .95rem; padding: 6px 9px; opacity: .38;
