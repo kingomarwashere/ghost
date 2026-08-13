@@ -11,6 +11,11 @@ export interface Env {
   GHOST_UPLOAD_PASS?: string; // shared password for /api/custom-cars uploads (default 'lickmyghost')
   VALHALLA_SECRET?: string;   // X-Ghost-Secret for the self-hosted Valhalla gateway (ghost-valhalla.theradicalparty.com)
   TOMTOM_API_KEY?: string;    // TomTom Traffic Flow tiles — proxied server-side so the key never ships to the browser
+  AIRPLANES_LIVE_KEY?: string; // optional airplanes.live ADS-B API key — best coverage, works from Workers (unlike the free tier which 403s datacentre IPs)
+  OPENSKY_CLIENT_ID?: string;     // optional OpenSky OAuth2 client (raises quota 400→4000 credits/day)
+  OPENSKY_CLIENT_SECRET?: string;
+  AIRCRAFT_RELAY_URL?: string;    // VM ADS-B relay base URL (ghost-adsb.theradicalparty.com) — primary source
+  AIRCRAFT_RELAY_SECRET?: string; // shared secret sent as x-ghost-secret to the relay
 }
 
 export interface User {

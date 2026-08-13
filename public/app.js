@@ -1237,7 +1237,7 @@ function placeSub(r) { return r.sub || r.display_name?.split(',').slice(1,3).joi
 // Enforcement cameras (speed + red-light) are OFF by default on the idle map — they
 // clutter it and only matter en route, where nav force-shows them near the route.
 // Live traffic cams + reports carry the main map. Users can still toggle these on.
-let visibleLayers={police:true,speed:false,red_light:false}, fetchTmr=null;
+let visibleLayers={police:true,speed:false,red_light:false,aircraft:false,polair:false}, fetchTmr=null;
 
 /* ── De-clutter when zoomed out during nav ────────────────────────────────────
    Once the user zooms out past ROUTE_ONLY_ZOOM while navigating, the viewport
@@ -1486,11 +1486,94 @@ async function loadCameras(){
   }catch{}
 }
 
+/* ── Live aircraft / PolAir ───────────────────────────────────────────────────
+   Flightradar-style plane positions from our /api/aircraft proxy (airplanes.live,
+   unfiltered — shows the police helicopters FR24 hides). Two independent toggles:
+   "aircraft" = all traffic in view, "polair" = known police aircraft everywhere.
+   Markers are keyed by ICAO hex and updated in place so they slide + rotate to
+   heading rather than being torn down every ~10s poll. */
+const PLANE_SVG='<svg viewBox="0 0 24 24" width="26" height="26"><path d="M22 12c0 .6-.5 1-1.2 1l-6.3-.2 -2.2 6.4c-.1.4-.5.6-.9.6h-1.1l1.4-6.9L7 12.7l-1 2c-.1.3-.4.4-.7.4H4.7l.8-3.1L4.7 9h.6c.3 0 .6.1.7.4l1 2 4.7-.2L10.3 4.3h1.1c.4 0 .8.2.9.6l2.2 6.4 6.3-.3c.7 0 1.2.4 1.2 1z" fill="#dbe7f5" stroke="#0b0b09" stroke-width=".6"/></svg>';
+const HELI_SVG='<svg viewBox="0 0 24 24" width="30" height="30"><rect x="2" y="4" width="20" height="1.8" rx="0.9" fill="#ff3b3b"/><rect x="11.1" y="5" width="1.8" height="3.6" fill="#e7edf5"/><ellipse cx="12" cy="12.4" rx="5.4" ry="3.6" fill="#ff3b3b" stroke="#0b0b09" stroke-width=".5"/><circle cx="10.2" cy="11.7" r="1.2" fill="#fff"/><path d="M17.2 12.8l4 1.3v1.3l-4-1z" fill="#e7edf5"/><rect x="9.4" y="15.6" width="5.2" height="1.5" rx="0.7" fill="#e7edf5"/></svg>';
+let aircraftMarkers=new Map();  // hex -> { marker, inner, police, p }
+let _aircraftTimer=null;
+
+function planeTag(p){
+  const o=p.operator||'';
+  if(/victoria/i.test(o)) return 'POLAIR VIC';
+  if(/nsw/i.test(o))      return 'POLAIR NSW';
+  return 'POLAIR';
+}
+function aircraftEl(p){
+  const wrap=document.createElement('div');
+  wrap.className='plane-marker'+(p.police?' police':'');
+  const inner=document.createElement('div');
+  inner.className='plane-rot';
+  inner.style.transform=`rotate(${p.track}deg)`;
+  inner.innerHTML=p.police?HELI_SVG:PLANE_SVG;
+  wrap.appendChild(inner);
+  if(p.police){ const t=document.createElement('span'); t.className='plane-tag'; t.textContent=planeTag(p); wrap.appendChild(t); }
+  return {wrap,inner};
+}
+function planePopupHtml(p){
+  const title=p.police?(p.operator||'Police aircraft'):(p.flight||p.reg||'Aircraft');
+  const rows=[];
+  if(p.flight&&p.flight!==title) rows.push(`✈️ ${escHtml(p.flight)}`);
+  if(p.reg)      rows.push(`🔖 ${escHtml(p.reg)}`);
+  if(p.type)     rows.push(`🛩️ ${escHtml(p.type)}`);
+  if(p.alt!=null)rows.push(`⬆️ ${p.alt.toLocaleString()} ft`);
+  if(p.gs!=null) rows.push(`💨 ${p.gs} kt`);
+  rows.push(`🧭 ${Math.round(p.track)}°`);
+  return `<strong>${escHtml(title)}</strong>`+rows.map(r=>`<p>${r}</p>`).join('');
+}
+async function loadAircraft(){
+  if(!visibleLayers.aircraft && !visibleLayers.polair){
+    for(const [,e] of aircraftMarkers) e.marker.remove();
+    aircraftMarkers.clear(); return;
+  }
+  const jobs=[];
+  if(visibleLayers.aircraft){
+    const b=map.getBounds();
+    const q=new URLSearchParams({swlat:b.getSouth(),swlng:b.getWest(),nelat:b.getNorth(),nelng:b.getEast()});
+    jobs.push(fetch(`/api/aircraft?${q}`).then(r=>r.json()).catch(()=>[]));
+  }
+  if(visibleLayers.polair) jobs.push(fetch('/api/aircraft/police').then(r=>r.json()).catch(()=>[]));
+  try{
+    const lists=await Promise.all(jobs);
+    const byHex=new Map();
+    for(const list of lists) for(const p of (Array.isArray(list)?list:[])){
+      if(!p||!p.hex) continue;
+      const ex=byHex.get(p.hex);
+      if(!ex || (p.police && !ex.police)) byHex.set(p.hex,p); // police variant wins the merge
+    }
+    for(const [hex,e] of aircraftMarkers){ if(!byHex.has(hex)){ e.marker.remove(); aircraftMarkers.delete(hex); } }
+    for(const [hex,p] of byHex){
+      const ex=aircraftMarkers.get(hex);
+      if(ex && ex.police===!!p.police){
+        ex.p=p; ex.marker.setLngLat([p.lng,p.lat]);
+        ex.inner.style.transform=`rotate(${p.track}deg)`;
+        ex.marker.getPopup()?.setHTML(planePopupHtml(p));
+        continue;
+      }
+      if(ex){ ex.marker.remove(); aircraftMarkers.delete(hex); } // police state flipped → rebuild icon
+      const {wrap,inner}=aircraftEl(p);
+      const popup=new maplibregl.Popup({offset:16,maxWidth:'240px'}).setHTML(planePopupHtml(p));
+      const marker=new maplibregl.Marker({element:wrap,anchor:'center'}).setLngLat([p.lng,p.lat]).setPopup(popup).addTo(map);
+      aircraftMarkers.set(hex,{marker,inner,police:!!p.police,p});
+    }
+  }catch{}
+}
+function syncAircraftTimer(){
+  const on=visibleLayers.aircraft||visibleLayers.polair;
+  if(on && !_aircraftTimer) _aircraftTimer=setInterval(loadAircraft,10_000);
+  else if(!on && _aircraftTimer){ clearInterval(_aircraftTimer); _aircraftTimer=null; }
+}
+
 let _lastFetchAt=0;
 function scheduleFetch(){
   const doFetch=()=>{
     _lastFetchAt=performance.now(); fetchTmr=null;
     loadReports(); loadCameras(); if(heatmapVisible) loadHeatmap();
+    if(visibleLayers.aircraft||visibleLayers.polair) loadAircraft();  // refetch viewport on pan/zoom
     // Keep proximity-alert data fresh while driving (nav start only loaded it once)
     if(navState==='navigating'){ loadNearCameras(); loadNearReports(); }
   };
@@ -1513,7 +1596,9 @@ document.querySelectorAll('.filter-btn').forEach(btn=>{
   if(btn.id==='heatmap-btn'||btn.id==='traffic-btn') return;  // these have their own handlers
   btn.addEventListener('click',()=>{
     const l=btn.dataset.layer; visibleLayers[l]=!visibleLayers[l];
-    btn.classList.toggle('active',visibleLayers[l]);loadReports();loadCameras();
+    btn.classList.toggle('active',visibleLayers[l]);
+    if(l==='aircraft'||l==='polair'){ loadAircraft(); syncAircraftTimer(); }
+    else { loadReports(); loadCameras(); }
   });
 });
 

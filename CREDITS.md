@@ -99,3 +99,19 @@ these with proper rights/clearance.
 
 Kart base for composed characters: Kenney Car Kit kart (CC0). Luigi/Peach/
 Bowser/Pikachu are the standing character models seated into that kart.
+
+# Live data credits
+
+## Aircraft / PolAir layer
+
+**Live aircraft positions — airplanes.live** (https://airplanes.live), an
+unfiltered community ADS-B network, with **adsb.lol** (https://adsb.lol) as a
+fallback. Proxied server-side and edge-cached (~8–12s) via `/api/aircraft`.
+
+Both are **free for non-commercial use** and require attribution — keep this
+credit and, if Ghost ever monetises, switch to a commercial ADS-B data
+agreement or self-host a feeder for higher limits.
+
+Police-aircraft identification uses a maintained ICAO-hex allow-list in
+`src/data/police-aircraft.ts` (seeded from hexdb.io / CASA / public fleet
+lists) plus VH-PH_/VH-PV_ rego and POLAIR-callsign heuristics.

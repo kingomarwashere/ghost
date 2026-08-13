@@ -345,6 +345,19 @@ mark {
 }
 .gta-cop-inner { display: flex; align-items: center; justify-content: center; }
 
+/* ── Live aircraft markers ────────────────────────── */
+.plane-marker { position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+.plane-marker .plane-rot { transition: transform .9s linear; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); opacity: .82; }
+.plane-marker:hover .plane-rot { opacity: 1; }
+.plane-marker.police .plane-rot { opacity: 1; filter: drop-shadow(0 0 4px rgba(255,59,59,.9)); }
+.plane-marker.police { animation: polair-pulse 1.4s ease-in-out infinite; }
+.plane-marker .plane-tag {
+  margin-top: 1px; font-size: .55rem; font-weight: 800; letter-spacing: .06em;
+  color: #fff; background: #ff3b3b; border-radius: 4px; padding: 1px 4px;
+  line-height: 1.1; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,.5);
+}
+@keyframes polair-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+
 .cam-marker-wrap { position: relative; display: inline-block; }
 @keyframes cam-ripple {
   0%   { transform: scale(1);   opacity: .7; }

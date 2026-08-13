@@ -19,6 +19,7 @@ import places from './routes/places';
 import carRequests from './routes/car-requests';
 import customCars from './routes/custom-cars';
 import userPrefs from './routes/prefs';
+import aircraft from './routes/aircraft';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -50,6 +51,7 @@ app.route('/api/places', places);
 app.route('/api/car-requests', carRequests);
 app.route('/api/custom-cars', customCars);
 app.route('/api/prefs', userPrefs);
+app.route('/api/aircraft', aircraft);
 
 app.get('/api/health', (c) => c.json({ ok: true, ts: Date.now() }));
 
