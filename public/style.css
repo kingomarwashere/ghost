@@ -1139,6 +1139,35 @@ body.navigating #park-toast { top: calc(178px + env(safe-area-inset-top)); botto
 .popup-actions button:not(.secondary) { color: var(--accent) !important; font-weight: 800; border-color: rgba(255,45,85,.4); }
 .popup-actions .secondary { color: #9aa3ad; }
 
+/* Facing cone under the parked car — points the heading you arrived at */
+.parked-marker .parked-cone {
+  position: absolute; left: 50%; top: 50%; width: 38px; height: 30px; z-index: 0;
+  transform: translate(-50%, -100%) rotate(var(--hdg, 0deg)); transform-origin: 50% 100%;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  background: linear-gradient(to top, transparent, rgba(255,45,85,.55));
+  filter: blur(.5px); pointer-events: none;
+}
+.parked-marker .parked-pulse, .parked-marker .parked-cone { z-index: 0; }
+.parked-marker .parked-car { position: relative; z-index: 1; }
+.parked-marker .parked-badge { z-index: 2; }
+
+/* One-tap "Park here" FAB (idle only) — left column, above the copwatch FAB */
+#park-fab {
+  position: fixed; z-index: 1010; left: 16px;
+  bottom: calc(232px + env(safe-area-inset-bottom));
+  width: 50px; height: 50px; border-radius: 14px;
+  background: rgba(13,13,13,.92); border: 1.5px solid rgba(255,255,255,.15);
+  color: #fff; font-size: 1.3rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 2px 12px rgba(0,0,0,.5); transition: transform .12s;
+  -webkit-tap-highlight-color: transparent;
+}
+#park-fab:active { transform: scale(.92); }
+#park-fab:disabled { opacity: .55; }
+body.navigating #park-fab, body.previewing #park-fab,
+body.searching #park-fab, body.cams-open #park-fab { display: none !important; }
+
 /* ── Near-me chips ───────────────────────────────── */
 /* ── Request a car ── */
 #request-car-btn {

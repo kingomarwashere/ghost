@@ -80,6 +80,7 @@ function getParked() {
 function setParked(p) {
   localStorage.setItem(PARKED_KEY, JSON.stringify({
     lat: p.lat, lng: p.lng, ts: p.ts || Date.now(), carId: p.carId || '', name: p.name || 'Parked',
+    heading: (typeof p.heading === 'number' && isFinite(p.heading)) ? p.heading : null,
   }));
 }
 function clearParkedStore() { localStorage.removeItem(PARKED_KEY); }
@@ -1618,7 +1619,9 @@ function parkedCarEl(park){
   const emoji=CARS.find(c=>c.id===park.carId)?.emoji || '🚗';
   const el=document.createElement('div');
   el.className='parked-marker';
-  el.innerHTML=`<div class="parked-pulse"></div><div class="parked-badge">🅿️</div>`+
+  // Facing cone pointing the heading you arrived at (map is north-up when idle).
+  const cone=(typeof park.heading==='number')?`<div class="parked-cone" style="--hdg:${Math.round(park.heading)}deg"></div>`:'';
+  el.innerHTML=cone+`<div class="parked-pulse"></div><div class="parked-badge">🅿️</div>`+
     `<div class="parked-car"><img src="/carthumbs/${park.carId}.png" alt="" `+
     `onerror="this.remove();this.parentNode.textContent='${emoji}'"></div>`;
   return el;
@@ -1655,8 +1658,8 @@ function renderParkedCar(){
   updateFindCarChip();
 }
 // Save the current (or given) spot as parking + surface the Undo toast.
-function saveParkingAt(lat,lng,name){
-  setParked({lat,lng,ts:Date.now(),carId:selectedCar,name});
+function saveParkingAt(lat,lng,name,heading){
+  setParked({lat,lng,ts:Date.now(),carId:selectedCar,name,heading});
   renderParkedCar();
   const el=$$('park-toast');
   if(el){ el.classList.remove('hidden'); clearTimeout(_parkToastTimer);
@@ -1681,6 +1684,19 @@ $$('findcar-chip')?.addEventListener('click',()=>{
 $$('park-undo')?.addEventListener('click',()=>{
   clearParkedStore(); removeParkedMarker(); updateFindCarChip();
   $$('park-toast')?.classList.add('hidden'); showToast('🅿️ Parking not saved');
+});
+// One-tap "I parked here" — saves your current spot (fresh fix, heading if the
+// device reports it), falling back to the last known location.
+$$('park-fab')?.addEventListener('click',()=>{
+  const fab=$$('park-fab'); if(fab) fab.disabled=true;
+  const done=()=>{ if(fab) fab.disabled=false; };
+  const save=(lat,lng,hdg)=>{ saveParkingAt(lat,lng,null,hdg); done(); };
+  navigator.geolocation.getCurrentPosition(
+    pos=>save(pos.coords.latitude,pos.coords.longitude,
+      (typeof pos.coords.heading==='number'&&pos.coords.heading>=0)?pos.coords.heading:null),
+    ()=>{ const me=currentLoc(); if(me) save(me.lat,me.lng,null); else { showToast('📍 Location unavailable'); done(); } },
+    {enableHighAccuracy:true,timeout:6000,maximumAge:10000}
+  );
 });
 
 let _lastFetchAt=0;
@@ -5640,7 +5656,8 @@ function triggerArrival(){
   // Find My Car — auto-remember where we stopped (Undo via the toast). Use the last
   // fix; captured before endNav tears down userMarker.
   const at=(prevPos&&typeof prevPos.lat==='number')?prevPos:(userMarker?userMarker.getLngLat():null);
-  if(at) saveParkingAt(at.lat,at.lng,toPlace?.name);
+  const hdg=(prevPos&&typeof prevPos.hdg==='number')?prevPos.hdg:null; // face the way you arrived
+  if(at) saveParkingAt(at.lat,at.lng,toPlace?.name,hdg);
 }
 
 /* ═══════════════════════════════════════════════
