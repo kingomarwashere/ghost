@@ -340,19 +340,81 @@ const CARTO_STYLES: Record<string, string> = {
   'dark-matter': 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
   'positron':    'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
   'voyager':     'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+  // "Midnight Ops" — our custom premium dark basemap. Built from dark-matter, then
+  // recoloured server-side (see recolourMidnight) to a cohesive near-black palette
+  // so the map + the dark UI chrome read as one product. This is the default style.
+  'midnight':    'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
 };
+
+// Midnight Ops palette — matches the app's CSS design tokens.
+const MID = {
+  bg:       '#060708',   // --bg
+  water:    '#0a1018',
+  land:     '#0a0c0f',
+  green:    '#0c120e',   // parks — barely-there
+  road:     '#20262f',   // arterial
+  roadMinor:'#161b21',
+  roadCase: '#0b0e12',
+  motorway: '#2c333d',
+  motorwayCase: '#3a2130', // faint accent-tinted casing on motorways
+  building: '#12161c',
+  label:    '#8b93a0',
+  labelHi:  '#c7cdd6',
+  halo:     '#04060a',
+  boundary: '#242a33',
+};
+
+/* Recolour a dark-matter-derived MapLibre style into the Midnight Ops palette.
+   Heuristic by layer id/type (dark-matter layer ids are stable & descriptive) so we
+   don't hard-code the full layer list. Mutates paint in place. */
+function recolourMidnight(style: any) {
+  const setP = (l: any, k: string, v: any) => { l.paint = l.paint || {}; l.paint[k] = v; };
+  for (const l of style.layers || []) {
+    const id: string = l.id || '';
+    if (l.type === 'background') { setP(l, 'background-color', MID.bg); continue; }
+    if (l.type === 'fill') {
+      if (id.includes('water'))                                 setP(l, 'fill-color', MID.water);
+      else if (id.includes('building'))                        { setP(l, 'fill-color', MID.building); setP(l, 'fill-opacity', 0.9); }
+      else if (id.includes('park') || id.includes('wood') || id.includes('grass') || id.includes('green') || id.includes('landcover')) setP(l, 'fill-color', MID.green);
+      else                                                      setP(l, 'fill-color', MID.land);
+      continue;
+    }
+    if (l.type === 'fill-extrusion') { setP(l, 'fill-extrusion-color', MID.building); continue; }
+    if (l.type === 'line') {
+      if (id.includes('water') || id.includes('waterway'))      setP(l, 'line-color', MID.water);
+      else if (id.includes('boundary') || id.includes('admin')) setP(l, 'line-color', MID.boundary);
+      else if (id.includes('motorway') && id.includes('case'))  setP(l, 'line-color', MID.motorwayCase);
+      else if (id.includes('motorway') || id.includes('trunk')) setP(l, 'line-color', MID.motorway);
+      else if (id.includes('casing') || id.includes('case') || id.includes('outline')) setP(l, 'line-color', MID.roadCase);
+      else if (id.includes('minor') || id.includes('service') || id.includes('path') || id.includes('pedestrian')) setP(l, 'line-color', MID.roadMinor);
+      else if (id.includes('road') || id.includes('bridge') || id.includes('tunnel') || id.includes('street') || id.includes('rail')) setP(l, 'line-color', MID.road);
+      continue;
+    }
+    if (l.type === 'symbol') {
+      const isMajor = id.includes('country') || id.includes('state') || id.includes('capital') || id.includes('city');
+      setP(l, 'text-color', isMajor ? MID.labelHi : MID.label);
+      setP(l, 'text-halo-color', MID.halo);
+      setP(l, 'text-halo-width', 1.1);
+      if ('icon-opacity' in (l.paint || {})) setP(l, 'icon-opacity', 0.7);
+      continue;
+    }
+  }
+  return style;
+}
+
 app.get('/styles/:name', async (c) => {
   const name = c.req.param('name');
   const url = CARTO_STYLES[name];
   if (!url) return c.json({ error: 'unknown style' }, 404);
   // @ts-ignore
-  const style: any = await fetch(url, { cf: { cacheTtl: 86400, cacheEverything: true } }).then(r => r.json());
+  let style: any = await fetch(url, { cf: { cacheTtl: 86400, cacheEverything: true } }).then(r => r.json());
   const host = new URL(c.req.url).host;
   for (const k of Object.keys(style.sources || {})) {
     if (style.sources[k]?.type === 'vector') {
       style.sources[k] = { type: 'vector', url: `pmtiles://https://${host}/tiles/au.pmtiles?v=1` };
     }
   }
+  if (name === 'midnight') style = recolourMidnight(style);
   return c.json(style, 200, { 'Cache-Control': 'public, max-age=86400', 'Access-Control-Allow-Origin': '*' });
 });
 

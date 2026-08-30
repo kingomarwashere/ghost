@@ -33,7 +33,7 @@ function $$(id){return document.getElementById(id);}
    SETTINGS — persisted to localStorage
 ═══════════════════════════════════════════════ */
 const PREF_KEY = 'radar_prefs';
-const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'voyager', lighting:'auto', styleOverride:false, avoidTolls:true, accelTimer:false, accelRange:'0-100', saver:false, icons:{}, fuelType:'U91' };
+const DEFAULT_PREFS = { voice:true, cameraAlerts:true, policeAlerts:true, haptic:true, unit:'kmh', mapStyle:'midnight', lighting:'auto', styleOverride:false, avoidTolls:true, accelTimer:false, accelRange:'0-100', saver:false, icons:{}, fuelType:'U91' };
 const prefs = { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREF_KEY) ?? '{}') };
 const savePrefs = () => localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
 
@@ -128,7 +128,7 @@ const routeOpts = { avoidTolls: prefs.avoidTolls??true, avoidHighways: false };
 ═══════════════════════════════════════════════ */
 // styleOverride is now persisted via prefs.styleOverride (see DEFAULT_PREFS)
 const LIGHT_STYLES = new Set(['light','voyager','terrain','satellite']);
-const DARK_STYLES  = new Set(['dark','gta']);
+const DARK_STYLES  = new Set(['midnight','dark','gta']);
 
 function isDark(lat, lng) {
   const now   = new Date();
@@ -156,11 +156,13 @@ function autoNightCheck() {
     if(DARK_STYLES.has(prefs.mapStyle)) setTile('voyager', true);
     return;
   }
-  // 'auto' — solar-based
+  // 'auto' — solar-based. NOTE: 'midnight' (our premium dark default) is deliberately
+  // sticky — auto only reverts its OWN night pick ('dark') back to day, so the default
+  // dark basemap is never downgraded to light Voyager in daytime.
   const dark = isDark(c.lat, c.lng);
   if (dark && LIGHT_STYLES.has(prefs.mapStyle)) {
     setTile('dark', true);
-  } else if (!dark && DARK_STYLES.has(prefs.mapStyle)) {
+  } else if (!dark && prefs.mapStyle === 'dark') {
     setTile('voyager', true);
   }
 }
@@ -177,6 +179,7 @@ function autoNightCheck() {
 // self-hosted au.pmtiles (edge-served → fast, no CartoDB tile popcorn in AU). Same
 // CartoDB look; only the tile DATA source changes. See /styles/:name in the Worker.
 const VECTOR_STYLES = {
+  midnight:'/styles/midnight',      // custom premium dark — the default
   dark:    '/styles/dark-matter',
   light:   '/styles/positron',
   voyager: '/styles/voyager',
@@ -495,10 +498,13 @@ function setupMapLayers(){
       map.addLayer({
         id:'3d-buildings',type:'fill-extrusion',source:src,'source-layer':'building',minzoom:15,
         paint:{
-          'fill-extrusion-color':'#1a2744',
+          // Midnight Ops: charcoal extrusions with a subtle height gradient so the
+          // city reads as sculpted volume, not flat blue blocks.
+          'fill-extrusion-color':['interpolate',['linear'],['coalesce',['get','render_height'],['get','height'],4],
+            0,'#12161c', 40,'#1a2028', 140,'#232a34'],
           'fill-extrusion-height':['coalesce',['get','render_height'],['get','height'],4],
           'fill-extrusion-base':['coalesce',['get','render_min_height'],['get','min_height'],0],
-          'fill-extrusion-opacity':0.8,
+          'fill-extrusion-opacity':0.85,
         }
       }, firstSym);
     }
@@ -648,10 +654,23 @@ function _graphemes(s){
   try{ return [...new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(s)].length; }
   catch{ return [...String(s)].length; }
 }
-function makeEmojiIcon(emoji, bg='#1e3a5f', size=42){
+// ── Shared "Midnight Ops" marker chassis ─────────────────────────────────────
+// One premium tile recipe every DOM marker sits in: near-black radial-gradient
+// coin, hairline ring (optionally accent-tinted), soft drop shadow + faint glow,
+// glass top-light. Keeps emoji markers and SVG markers visually identical.
+function markerTile(inner, { ring='rgba(255,255,255,.16)', glow='rgba(0,0,0,0)', size=42, extra='' } = {}){
+  return `<div style="width:${size}px;height:${size}px;border-radius:14px;`+
+    `background:radial-gradient(130% 130% at 30% 16%,#1c212a 0%,#0a0c10 100%);`+
+    `border:1.5px solid ${ring};`+
+    `display:flex;align-items:center;justify-content:center;`+
+    `box-shadow:0 6px 18px rgba(0,0,0,.6),0 0 16px ${glow},inset 0 1px 0 rgba(255,255,255,.12);`+
+    `cursor:pointer;user-select:none;${extra}">${inner}</div>`;
+}
+function makeEmojiIcon(emoji, bg, size=42){
   const n=_graphemes(emoji);
-  const fs = n<=1 ? 24 : n===2 ? 17 : Math.max(11, Math.floor(40/n)); // shrink so they fit on one row
-  const html=`<div style="width:${size}px;height:${size}px;border-radius:13px;background:${bg};display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.18);cursor:pointer;font-size:${fs}px;line-height:1;white-space:nowrap;overflow:hidden;user-select:none">${emoji}</div>`;
+  const fs = n<=1 ? 23 : n===2 ? 17 : Math.max(11, Math.floor(40/n)); // shrink so they fit on one row
+  const inner = `<span style="font-size:${fs}px;line-height:1;white-space:nowrap;overflow:hidden">${emoji}</span>`;
+  const html = markerTile(inner, { size });
   return { el:()=>{ const d=document.createElement('div'); d.innerHTML=html; return d.firstChild; } };
 }
 
@@ -665,13 +684,10 @@ function makePoliceFlashIcon(){
   }};
 }
 
-// Custom SVG marker badge — dark rounded tile, coloured glow ring, white glyph.
+// Custom SVG marker badge — shared chassis, accent-tinted ring + glow, white glyph.
 function makeSvgIcon(glyph, accent, size=42){
-  const html=`<div style="width:${size}px;height:${size}px;border-radius:14px;`+
-    `background:radial-gradient(120% 120% at 30% 20%,#232634 0%,#0d0f16 100%);border:1.6px solid ${accent};`+
-    `display:flex;align-items:center;justify-content:center;`+
-    `box-shadow:0 5px 16px rgba(0,0,0,.55),0 0 14px ${accent}66,inset 0 1px 0 rgba(255,255,255,.14);`+
-    `cursor:pointer;user-select:none"><svg viewBox="0 0 24 24" width="26" height="26" fill="none">${glyph}</svg></div>`;
+  const inner = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none">${glyph}</svg>`;
+  const html = markerTile(inner, { ring: accent, glow: accent+'59', size });
   return { el:()=>{ const d=document.createElement('div'); d.innerHTML=html; return d.firstChild; } };
 }
 const MK_A={speed:'#22d3ee',red_light:'#ef4444',speed_trap:'#f59e0b',accident:'#ef4444',hazard:'#fbbf24',
